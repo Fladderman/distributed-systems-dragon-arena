@@ -1,4 +1,4 @@
-package distributed.systems.das;
+package systems.das;
 
 /**
  * Class containing the global gamestate. This

@@ -1,4 +1,4 @@
-package distributed.systems.das.presentation;
+package systems.das.presentation;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -10,11 +10,11 @@ import java.awt.event.WindowListener;
 
 import javax.swing.JPanel;
 
-import distributed.systems.das.BattleField;
-import distributed.systems.das.GameState;
-import distributed.systems.das.units.Dragon;
-import distributed.systems.das.units.Player;
-import distributed.systems.das.units.Unit;
+import systems.das.BattleField;
+import systems.das.GameState;
+import systems.das.units.Dragon;
+import systems.das.units.Player;
+import systems.das.units.Unit;
 
 /**
  * Create an viewer, which runs in a seperate thread and

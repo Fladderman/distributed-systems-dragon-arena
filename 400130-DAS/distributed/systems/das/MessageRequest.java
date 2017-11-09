@@ -1,4 +1,4 @@
-package distributed.systems.das;
+package systems.das;
 
 /**
  * Different request types for the

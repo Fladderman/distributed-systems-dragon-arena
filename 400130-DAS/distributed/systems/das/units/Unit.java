@@ -1,19 +1,20 @@
-package distributed.systems.das.units;
+package systems.das.units;
+
 
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import distributed.systems.das.BattleField;
-import distributed.systems.das.GameState;
-import distributed.systems.das.MessageRequest;
-import distributed.systems.core.IMessageReceivedHandler;
-import distributed.systems.core.Message;
-import distributed.systems.core.Socket;
-import distributed.systems.core.SynchronizedSocket;
-import distributed.systems.core.exception.AlreadyAssignedIDException;
-import distributed.systems.core.exception.IDNotAssignedException;
-import distributed.systems.example.LocalSocket;
+import systems.das.BattleField;
+import systems.das.GameState;
+import systems.das.MessageRequest;
+import systems.core.IMessageReceivedHandler;
+import systems.core.Message;
+import systems.core.Socket;
+import systems.core.SynchronizedSocket;
+import systems.core.exception.AlreadyAssignedIDException;
+import systems.core.exception.IDNotAssignedException;
+import systems.example.LocalSocket;
 
 /**
  * Base class for all players whom can 

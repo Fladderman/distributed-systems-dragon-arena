@@ -1,8 +1,8 @@
-package distributed.systems.das;
+package systems.das;
 
-import distributed.systems.das.presentation.BattleFieldViewer;
-import distributed.systems.das.units.Dragon;
-import distributed.systems.das.units.Player;
+import systems.das.presentation.BattleFieldViewer;
+import systems.das.units.Dragon;
+import systems.das.units.Player;
 
 /**
  * Controller part of the DAS game. Initializes 

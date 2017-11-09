@@ -1,9 +1,9 @@
-package distributed.systems.das.units;
+package systems.das.units;
 
 import java.io.Serializable;
 
-import distributed.systems.das.BattleField;
-import distributed.systems.das.GameState;
+import systems.das.BattleField;
+import systems.das.GameState;
 
 /**
  * A Player is, as the name implies, a playing 

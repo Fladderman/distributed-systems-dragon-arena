@@ -1,10 +1,10 @@
-package distributed.systems.das.units;
+package systems.das.units;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 
-import distributed.systems.das.BattleField;
-import distributed.systems.das.GameState;
+import systems.das.BattleField;
+import systems.das.GameState;
 
 /**
  * A dragon is a non-playing character, which can't

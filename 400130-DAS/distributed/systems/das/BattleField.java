@@ -1,17 +1,17 @@
-package distributed.systems.das;
+package systems.das;
 
 import java.util.ArrayList;
 
-import distributed.systems.das.units.Dragon;
-import distributed.systems.das.units.Player;
-import distributed.systems.das.units.Unit;
-import distributed.systems.das.units.Unit.UnitType;
-import distributed.systems.core.IMessageReceivedHandler;
-import distributed.systems.core.Message;
-import distributed.systems.core.Socket;
-import distributed.systems.core.SynchronizedSocket;
-import distributed.systems.core.exception.IDNotAssignedException;
-import distributed.systems.example.LocalSocket;
+import systems.das.units.Dragon;
+import systems.das.units.Player;
+import systems.das.units.Unit;
+import systems.das.units.Unit.UnitType;
+import systems.core.IMessageReceivedHandler;
+import systems.core.Message;
+import systems.core.Socket;
+import systems.core.SynchronizedSocket;
+import systems.core.exception.IDNotAssignedException;
+import systems.example.LocalSocket;
 
 /**
  * The actual battlefield where the fighting takes place.

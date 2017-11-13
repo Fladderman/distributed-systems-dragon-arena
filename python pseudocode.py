@@ -1,3 +1,11 @@
+'''
+Here is pseudocode giving a helicopter overview
+of the structure of the two main loops (not done yet).
+
+Entrypoints are client() and server() for client and server respectively.
+'''
+
+
 
 # server_list = [addr0, addr1, ... addr4]
 

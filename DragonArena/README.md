@@ -45,6 +45,7 @@ I've put all dependencies in *requirements.txt* using:
 To make pip install all requirements, use:
 ```
 (venv) $ pip install -r requirements.txt
+```
 
 
 ## Zakarias Painful lesson

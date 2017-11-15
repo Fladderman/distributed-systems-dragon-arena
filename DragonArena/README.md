@@ -35,16 +35,6 @@ to stop using venv, use:
 $ deactivate
 ```
 
-## Zakarias Painful lesson
-Make sure that when in venv, the python and pip commands work and point to the correct versions.
-e.g. you shouldn't need python3 or pip3 in venv.
-*MAKE SURE THE PWD DOESN'T CONTAIN SPACES!*
-e.g.
-```
-/home/zak/distributed\ systems/distrbuted-systems-dragon-arena/...
-``` WILL NOT WORK because of the space between _distributed and systems_
-
-
 now, when using pip whilst venv is activated, you will install packages in your venv!
 My OOP basis uses pygame to draw GUI, but maybe more dependencies will follow.
 I've put all dependencies in *requirements.txt* using:
@@ -55,4 +45,14 @@ I've put all dependencies in *requirements.txt* using:
 To make pip install all requirements, use:
 ```
 (venv) $ pip install -r requirements.txt
+
+
+## Zakarias Painful lesson
+Make sure that when in venv, the python and pip commands work and point to the correct versions.
+e.g. you shouldn't need python3 or pip3 in venv.
+*MAKE SURE THE PWD DOESN'T CONTAIN SPACES!*
+e.g.
 ```
+/home/zak/distributed\ systems/distrbuted-systems-dragon-arena/...
+```
+WILL NOT WORK because of the space between _distributed and systems_

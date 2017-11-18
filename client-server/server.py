@@ -11,7 +11,7 @@ BACKLOG = 5
 MAX_CLIENTS = 100
 PROMPT_SYMBOL = "->"
 
-socket.setdefaulttimeout(2)  # SHOULD BE MORE, set to 5sec to make testing easier
+socket.setdefaulttimeout(180)  # Accept timeout in sec
 
 
 class ServerConnectedThread(threading.Thread):

@@ -1,3 +1,5 @@
+#!/usr/local/bin/python2
+
 # Client
 import socket
 import time

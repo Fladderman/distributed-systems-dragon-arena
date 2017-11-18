@@ -5,13 +5,17 @@ import socket
 import time
 import threading
 import sys
+import json
 
-PORTS = [9999, 9998, 9997, 9996, 9995]
-BACKLOG = 5
-MAX_CLIENTS = 100
+# Import settings from settings file
+settings = json.load(open('settings.json'))
+BACKLOG = settings["server"]["backlog"]
+MAX_CLIENTS = settings["game"]["max_players"]
+PORTS = settings["server"]["ports"]
+
 PROMPT_SYMBOL = "->"
 
-socket.setdefaulttimeout(180)  # Accept timeout in sec
+socket.setdefaulttimeout(20)  # Accept timeout in sec
 
 
 class ServerConnectedThread(threading.Thread):
@@ -27,23 +31,15 @@ class ServerConnectedThread(threading.Thread):
         self.connected_clients = client_set
         self.prompt_symbol = prompt_symbol
 
-    def stop(self):
-        self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
+        # Opens socket for server
+        self.server_socket = socket.socket(
+            socket.AF_INET, socket.SOCK_STREAM)
 
     def run(self):
         """
         Accept clients and add them to the client list
         :return:
         """
-
-        # Opens socket for server
-        serversocket = socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM)
-
-        host = socket.gethostname()
 
         """ ---- Code from Rink to use multiple ports, but is blocking. Commented out for now ----
         for port in PORTS:
@@ -56,15 +52,16 @@ class ServerConnectedThread(threading.Thread):
                 print("Trying next port")
         """
 
-        serversocket.bind((host, PORTS[0]))
+        host = socket.gethostname()
+        self.server_socket.bind((host, PORTS[0]))
 
         # Queue max 5 requests
-        serversocket.listen(BACKLOG)
+        self.server_socket.listen(BACKLOG)
 
-        while not self.stopped():
+        while not self._stopped():
             # Establish a connection
             try:
-                client_socket, addr = serversocket.accept()
+                client_socket, addr = self.server_socket.accept()
             except socket.timeout:
                 self._print("Accept timeout")
                 # Start over
@@ -81,6 +78,20 @@ class ServerConnectedThread(threading.Thread):
                 self._print("Declined a connection from %s" % str(addr))
             client_socket.close()
 
+        self._thread_stopped()
+
+    def stop(self):
+        # For a graceful shutdown, set flag
+        self._stop_event.set()
+
+    def _stopped(self):
+        """
+        Use to check whether a graceful shutdown has been requested
+        :return:
+        """
+        return self._stop_event.is_set()
+
+    def _thread_stopped(self):
         self._print("Stopped thread")
         print "{}: ".format(self.prompt_symbol),
         sys.stdout.flush()
@@ -118,16 +129,39 @@ class Server:
         Handle user input
         :return:
         """
+        prompt = prompt.lower()
         if prompt == "stop":
-            print "Stopping thread..."
-            self.thread.stop()
+            if self.thread.isAlive():
+                print "Stopping thread..."
+                self.thread.stop()
+            else:
+                print "No thread running"
+
+        elif prompt == "force-stop":
+            # Still needs to be implemented!
+            return
+            if self.thread.isAlive():
+                print "Force stopping thread..."
+                #self.thread.stop(force=True)
+            else:
+                print "No thread running"
+
         elif prompt == "start":
-            self._start_server()
+            if self.thread is None:
+                self._start_server()
+            elif self.thread.isAlive():
+                print "Thread already running"
+            else:
+                self._start_server()
+
         elif prompt == "exit":
-            exit(0)
+            if not self.thread.isAlive():
+                exit(0)
+            else:
+                print "Still accepting clients"
 
 
-print "type 'start' to start accepting clients and 'stop' to stop accepting clients"
+print "type 'start' to start accepting clients and 'stop' to stop accepting clients gracefully (waits for timeout)"
 
 server = Server()
 server.start()

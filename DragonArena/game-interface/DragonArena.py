@@ -4,8 +4,8 @@ from random import randint
 
 settings = json.load(open('../settings.json'))
 
-DRAGON = 'X'  # Used to identify a dragon
-PLAYER = '-'  # Used to identify a knight/player
+DRAGON = settings["dragon"]["symbol"]  # Used to identify a dragon
+PLAYER = settings["player"]["symbol"]  # Used to identify a knight/player
 EMPTY = 0  # Used to identify an empty grid piece
 
 

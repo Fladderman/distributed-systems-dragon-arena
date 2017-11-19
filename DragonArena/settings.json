@@ -10,6 +10,7 @@
     "height": 25
   },
   "dragon": {
+    "symbol": "X",
     "ap": {
       "min": 5,
       "max": 20
@@ -20,6 +21,7 @@
     }
   },
   "player": {
+    "symbol": "-",
     "ap": {
       "min": 1,
       "max": 10

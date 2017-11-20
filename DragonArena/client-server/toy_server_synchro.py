@@ -12,16 +12,17 @@ TICK_TIME_MIN = 1.0
 # NAME	   : name of the message
 # [a, b]   : message is sent with 2 comma separated args
 
-{cs}		CLT_JOIN	[]
-{sc}		CLT_WELCOME	[knight_ID, serialized_game_state, tick_ID]
-{ss}		SRV_JOIN	[]
-{ss}		SRV_WELCOME	[serialized_game_state, tick_ID]
+{cs}		CLT_JOIN		[]
+{ss}		SPAWN			[new_knight_ID, random_seed]
+{sc}		CLT_WELCOME		[knight_ID, serialized_game_state, tick_ID]
+{ss}		SRV_JOIN		[]
+{ss}		SRV_WELCOME		[serialized_game_state, tick_ID]
 
-{cs,ss}		R_ATTACK	[attacker_ID, attacked_ID]
-{cs,ss}		R_HEAL		[healer_ID, healed_ID]
-{sc,cs,ss}	RU_MOVE		[id, new_position]
-{ss,cs,sc}	RU_CREATE	[serialized_knight]
-{sc}		U_HEALTH_IS	[id, new_health_value]
+{cs,ss}		R_ATTACK		[attacker_ID, attacked_ID, valid]
+{cs,ss}		R_HEAL			[healer_ID, healed_ID, valid]
+{sc,cs,ss}	RU_MOVE			[id, new_position, valid]
+{ss,sc}		U_CREATE		[serialized_knight]
+{sc}		U_HEALTH_IS		[id, new_health_value]
 '''
 		
 def agglutinate_updates(update_list):

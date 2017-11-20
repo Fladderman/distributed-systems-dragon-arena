@@ -1,8 +1,9 @@
 import time
 import base64
 import threading
-import cPickle as pickle
 
+#pip install msgpack-python
+import msgpack
 DONE = 0
 TICK_TIME_MIN = 1.0
 			
@@ -43,42 +44,21 @@ class Message:
 	'''
 	CALLER IS RESPONSIBLE FOR SOCKET SYNCHRO!!
 	call like this:		msg.write_to(socket)
-	serializes this message and writes it to socket
-	adds escape and end-delim chars
 	'''
 	def write_to(self, socket):
-		raw = pickle.dumps(self, f, pickle.HIGHEST_PROTOCOL)
-		# using '?' as escape character. this allows the reader to not need a look-ahead
-		ready = raw.replace('?', '??').replace('!', '?!')
-		socket.write(ready + '!')
+		naked_msg = (self.name, self.sender, self.args)
+		msgpack.pack(naked_msg, socket)
 	
 	'''
 	CALLER IS RESPONSIBLE FOR SOCKET SYNCHRO!!
 	call like this:		msg = Message.read_from(socket)
 	reads from socket until it reads a complete message, deserializes it.
-	Return type is Message
-	expects to read escape and end-delim chars
 	'''
 	def read_from(socket):
-		s = ''
-		escaped = False
-		while True:
-			c = socket.read(1)
-			if len(s) > 100:
-				#client messages are pretty short. it's misbehaving
-				print('WTF, where is the end? this is a long ass message')
-				# TODO shutdown socket and continue on.
-				exit(1)
-			if escaped or (c != '?' and c != '!'):
-				escaped = False #consume escape
-				s += x
-			elif c == '?':
-				escaped = True
-			else c == '!':
-				# this '!' must be the end delim
-				break;	#stop reading. omit '!', 
-		msg = pickle.loads(s)
-		return msg
+		naked_msg = msgpack.unpack(socket)
+		assert len(naked_msg) == 3
+		assert isinstance(naked_msg, list)
+		return Message(naked_msg[0], naked_msg[1], naked_msg[2])
 	
 	# allows msg1==msg2 call. Returns true if identical message. Maybe unneeded?
 	def __eq__(self, other):

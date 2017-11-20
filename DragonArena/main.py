@@ -147,8 +147,8 @@ class DragonArena:
     	#		sys.stdout.write('%s' % '@')
     	#	elif creature.get_name == "Knight":
     	#		sys.stdout.write('%s' % '#')
-    		
-        
+
+
 class Graphics:
     def show(self):
         # set up the colors
@@ -174,7 +174,7 @@ class Graphics:
         # draw a blue circle onto the surface
         pygame.draw.circle(window_surface, BLUE, (300, 50), 20, 0)
 
-        
+
         # set up the text
         text = basic_font.render('Need to build grid display, but all components are here!', True, WHITE, BLUE)
         # draw the text onto the surface
@@ -182,7 +182,7 @@ class Graphics:
 
         # draw the window onto the screen
         pygame.display.update()
-        
+
         while True:
             for event in pygame.event.get():
                 if event.type == QUIT:
@@ -208,4 +208,3 @@ if __name__ == '__main__':
     #game.start()
     graphics = Graphics()
     graphics.show()
-

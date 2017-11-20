@@ -34,7 +34,7 @@ class ClientHandler(threading.Thread):
     """
     def __init__(self, fd, game, world):
         threading.Thread.__init__(self)
-        self.fd = fd
+        self.fd = fd #?? fd is the socket
         self.ip, self.port = fd.getpeername()
         self.game = game
         self.world = world
@@ -97,10 +97,13 @@ class Server:
             try:
                 self.server_socket.bind((host, port))
             except socket.error:
+                print "oh shit"
                 continue
 
         # Queue max 5 requests
         self.server_socket.listen(BACKLOG)
+
+        # spawn draw thread idgaf
 
         while True:
             # Establish a connection
@@ -114,7 +117,7 @@ class Server:
             client_socket.close()
 
             # Update game on screen
-            self.drawing.draw_game()
+            self.drawing.draw_game() #?? bound to accept()
 
     def _add_client(self, client_socket, addr):
         t = ClientHandler(client_socket, self.game, self.game.worlds[0])

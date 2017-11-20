@@ -122,6 +122,11 @@ class DragonArena:
     """The main game class"""
 
     def __init__(self, dragons, worlds, map_width, map_height):
+        '''# ??
+         why do we need to store these as values? The state needs to storee Knights
+         and Dragons (in lists or something probably). so why do we need to store 'no_of_knights'?
+         we could just use len(knight_list) and avoid inconsistencies
+         '''
         self.no_of_dragons = dragons
         self.no_of_knights = 0  # initially 0 knights
         self.no_of_worlds = worlds

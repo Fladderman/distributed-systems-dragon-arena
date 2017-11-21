@@ -5,6 +5,8 @@ import threading
 #pip install msgpack-python
 import msgpack
 DONE = 0
+
+# set to 0.0 for no sleeping. Servers will wait ONLY for each other
 TICK_TIME_MIN = 1.0
 			
 
@@ -57,20 +59,17 @@ class Message:
 	def read_from(socket):
 		naked_msg = msgpack.unpack(socket)
 		assert len(naked_msg) == 3
-		assert isinstance(naked_msg, list)
+		assert isinstance(naked_msg[2], list)
 		return Message(naked_msg[0], naked_msg[1], naked_msg[2])
 	
 	# allows msg1==msg2 call. Returns true if identical message. Maybe unneeded?
 	def __eq__(self, other):
-		return self.name == other.name \
-		and self.sender == other.sender \
-		and self.args == other.args
+		return self.name == other.name  and self.sender == other.sender  and self.args == other.args
 	
 	# 'is less than' function, relied upon for sort()
 	# this function defines on the order requests get applied to the game state
 	def __lt__(self, other):
-		# TODO give RU_CREATE the highest priority to give spawning in the best chance of success
-		if a.name < b.name:                 return True
+		elif a.name < b.name:                 return True
 		elif a.name > b.name:               return False
 		else:
 			if len(a.args) < len(b.args):   return True
@@ -83,102 +82,123 @@ class Message:
 
 server_lookup = { # hashmap from (ip,port) --> server_ID
 	("127.0.0.1", 8000) : 0,
-	("127.0.0.1", 8001) : 0,
-	("127.0.0.1", 8002) : 0,
-	("127.0.0.1", 8003) : 0,
-	("127.0.0.1", 8004) : 0,
+	("127.0.0.1", 8001) : 1,
+	("127.0.0.1", 8002) : 2,
+	("127.0.0.1", 8003) : 3,
+	("127.0.0.1", 8004) : 4,
 }
 		
 class Server:
 	def __init__(self, server_id):
+		self.server_id = server_id
+		self.next_avail_client_ID = 100
+		# this would assign 
+	
+		#locks
 		self.req_buffer_lock = threading.Lock()
 		self.state_lock = threading.Lock()
+		
+		# socket has .getpeername() which returns ip,port
 		self.server_sockets = [];
-		self.client_sockets = [];
-		self.clients_waiting_for_spawn = [];
+		self.client_sockets = dict();  #client_ID --> socket
+		self.waiting_client_sockets = [];
+		
+		'''
+		conceptually this is a multi-set
+		implementation options:
+			set : 		fast {element check}
+			multiset :	fast-ish {element check}, duplicates
+			list : 		fast {iteration, append}
+		>> LIST best suits our needs
+		'''
+		self.req_buffer = []
+		
+		# maps (ip,port) --> client_ID
 		self.client_lookup = dict()
 		
-		# TODO try connect to others. do the whole connecting jazz
+		''' TODO here. try connect to others. do the whole connecting jazz'''
 		
-	def atomic_req_buffer_add(self, msg):
-		self.req_buffer_lock.acquire()
-		self.req_buffer.append(msg)
-		self.req_buffer_lock.release()
-		
-	def atomic_drain_req_buffer(self):
-		with req_buffer_lock:
-			x = self.req_buffer
-			self.req_buffer = []
-		return x
-		
-	def apply_req_return_success(game_state, req):
+	def _apply_request(game_state, req):
 		'''
-		TODO game code goes here. 
-		IF successful, return True
-		OTHERWISE return False
+		TODO
+		either:
+			make NO change to game_state. return None
+			change game_state. Return appropriate UPDATE to reflect the change
 		'''
 		pass
 		
-	def got_serv_join(self, socket):
+	def _handle_serv_join(self, socket):
 		with self.state_lock:
-			msg = Message('SRV_WELCOME', '')
-		
+			#TODO
+			msg = Message('''TODO''')
+			msg.write_to(socket)
+	
+	# collects incoming messages. doesn't return until DONE signal
+	def _accept_messages_until_done(socket, current_tick_id):
+		s = []
+		while True:
+			msg = Message.read_from(socket)
+			if msg.name == 'DONE': return s
+			else: s.append(msg)
 
 	def server_tick_loop(self, start_tick_id):
 		# first server has start_tick_id == 0. others >= 0 
 		tick_id = start_tick_id
-		while True:
-			#define a local helper function
-			def accept_messages_until_done(socket):
-				s = []
-				while True:
-					msg = Message.deserialize(socket.recv_msg())
-					if msg.name == DONE:
-						return s
-					s.append(msg)
-					
+		while True:					
 			tick_start = time.time() # get START TIME
 			
-			'''
-			this is the SET of total updates.
-			Implmented as a LIST because sets will remove duplicate requests
-				(which we need to retain for logging)
-			need synchro. 1 thread listening per client
-			'''
+			#swap out req_buffer (lock because messages are still cominig in)
 			with req_buffer_lock:
-				my_reqs = self.req_buffer
+				tick_req_multiset = self.req_buffer
 				self.req_buffer = []
+				
+			#tick_req_multiset currently is only my local reqs. flood to others
 			
-			total_reqs = my_reqs[:]
-			for req in my_reqs:
-				for socket in self.server_sockets:
-					socket.send_msg(req)
+			done_msg = Message("DONE", self.server_ID, [tick_ID])
+			for socket in self.server_sockets:
+				for req in my_reqs:
+					req.write_to(socket)
+				done_msg.write_to(socket)
+			del my_reqs
 					
 			# This loop acts as the barrier
 			for socket in self.server_sockets:
 				# collect reqs. returns when receives DONE
-				total_reqs.extend(accept_messages_until_ack(socket))
+				tick_req_multiset.extend(_accept_messages_until_done(socket))
 				
 			outgoing_updates = []
-			total_reqs.sort() # in-place list sort, relying on Message.__lt__() for ordering
+			tick_req_multiset.sort() # in-place list sort, relying on Message.__lt__() for ordering
 			player_has_acted = {}
 			with open(LOG_PATH, "a") as log_file: # "a" for append mode
 				with self.state_lock: #assures cant ever read a state while its being modified
-					for req in total_reqs:
+					for req in tick_req_multiset:
+						log_file.write(str(tick_id) + "\t" + str(req))
+						# _apply_req_return_success() either:
+							
+						if req.name == "SPAWN":
+							update = self._apply_request(req)
+							if update != None:
+								if req.sender == self.server_ID:
+									cid = self.next_avail_client_ID;
+									sock = waiting_client_sockets.pop(0) #TODO panics if client has left
+									assert cid not in self.client_sockets	# should never be a problem
+									self.client_sockets.insert(cid, sock)
+								self.next_avail_client_ID += 1;
+								
 						if req.sender not in player_has_acted:
 							player_has_acted.add(req.sender)
-							log_file.write(str(tick_id) + "\t" str(req))
-							
-							# apply_req_return_success() changes game state. 
-							if self.apply_req_return_success(req):
+							update = self._apply_request(req)
+							if update != None:
 								outgoing_updates.append(req)
-			
+				log_file.flush()
 			outgoing_updates = agglutinate_updates(outgoing_updates)
 					
 			# flood. no synchro needed. only this thread writes out.
-			for socket in self.server_sockets:
+			done_msg = Message("DONE", self.server_ID, [tick_ID])
+			for socket in self.client_sockets.values():
 				for u in outgoing_updates:
-					socket.write(u)
+					u.write_to(socket)
+				socket.write_to(socket)
 					
 			sleep(max(0.0, time.time() - tick_start + TICK_TIME_MIN))
 			# at least ~TICK_TIME_MIN has passed since 'tick_start' was defined

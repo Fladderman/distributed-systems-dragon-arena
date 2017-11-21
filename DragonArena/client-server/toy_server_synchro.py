@@ -20,6 +20,7 @@ TICK_TIME_MIN = 1.0
 {sc}		CLT_WELCOME		[knight_ID, serialized_game_state, tick_ID]
 {ss}		SRV_JOIN		[]
 {ss}		SRV_WELCOME		[serialized_game_state, tick_ID]
+{ss,cs}		DONE			[tick_ID]
 
 {cs,ss}		R_ATTACK		[attacker_ID, attacked_ID, valid]
 {cs,ss}		R_HEAL			[healer_ID, healed_ID, valid]

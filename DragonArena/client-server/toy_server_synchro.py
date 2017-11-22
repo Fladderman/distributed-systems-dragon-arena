@@ -11,7 +11,7 @@ TICK_TIME_MIN = 1.0
 			
 
 '''
-# {sc, ss} : "this message is sent from server to client, AND from server to server" 	
+# {sc, ss} : "this message is sent from server to client, AND from server to server"
 # NAME	   : name of the message
 # [a, b]   : message is sent with 2 comma separated args
 
@@ -51,6 +51,11 @@ class Message:
 	def write_to(self, socket):
 		naked_msg = (self.name, self.sender, self.args)
 		msgpack.pack(naked_msg, socket)
+
+	# Roy: why pack/unpack intead of packb/unpackb? Not a suggestive question,
+	# it really is not clear to me from the docs which one you should use where.
+	# (If we do use packb/unpackb, we would have to define naked_msg as a list.)
+
 	
 	'''
 	CALLER IS RESPONSIBLE FOR SOCKET SYNCHRO!!
@@ -66,19 +71,23 @@ class Message:
 	# allows msg1==msg2 call. Returns true if identical message. Maybe unneeded?
 	def __eq__(self, other):
 		return self.name == other.name  and self.sender == other.sender  and self.args == other.args
+
+	# Roy: eq is required
+	#   https://docs.python.org/2/library/functools.html#functools.total_ordering
+	# For performance we could also implement the other relations later.
 	
 	# 'is less than' function, relied upon for sort()
 	# this function defines on the order requests get applied to the game state
 	def __lt__(self, other):
-		elif a.name < b.name:                 return True
+		if a.name < b.name:                 return True  # Roy: changed elif to if
 		elif a.name > b.name:               return False
-		else:
+		else: # a.name == b.name
 			if len(a.args) < len(b.args):   return True
 			elif len(a.args) > len(b.args): return False
-			else:
+			else: # len(a.args) == len(b.args)
 				for (i,j) in a.args.zip(b.args):
-					if str(i) < str(j):     return True
-					elif str(i) < str(j):   return False
+					if str(i) < str(j):     return True 
+					elif str(i) > str(j):   return False  # Roy: corrected < to >
 		return False # equivalent!
 
 server_lookup = { # hashmap from (ip,port) --> server_ID
@@ -94,7 +103,8 @@ class Server:
 		self.server_id = server_id
 		self.next_avail_client_ID = 100
 		# this would assign 
-	
+		# Roy: your comment is incomplete here. "[..] ids to clients"?
+
 		#locks
 		self.req_buffer_lock = threading.Lock()
 		self.state_lock = threading.Lock()
@@ -103,6 +113,8 @@ class Server:
 		self.server_sockets = [];
 		self.client_sockets = dict();  #client_ID --> socket
 		self.waiting_client_sockets = [];
+
+		# Roy: what is waiting_client_sockets for?
 		
 		'''
 		conceptually this is a multi-set
@@ -112,7 +124,24 @@ class Server:
 			list : 		fast {iteration, append}
 		>> LIST best suits our needs
 		'''
+		# Roy: where do these figures come from? Should checking membership
+		# for a multiset not be just as fast as for a set?
+		# Either way, we will indeed not check for membership (I think) and
+		# insertion can be O(1) rather than O(log n). So list seems
+		# best to me as well.
+
 		self.req_buffer = []
+
+		# Roy: we have all kinds of maps. E.g. from (ip,port) to id,
+		# id to socket, for both clients and servers. How about some naming
+		# conventions? client_addr2id, client_addr2socket, server_id2addr, etc.
+		#  So: <type>_<from>2<to>
+		# with type in {client, server}, and from,to in {addr,socket,id}.
+		# That covers at least all 12 existing cases, maybe more properties
+		# arrive later?
+		#   Also, I was wondering: can we not hardcore which port a client will
+		# listen to? Then the association between clients and ports is not 
+		# necessary.
 		
 		# maps (ip,port) --> client_ID
 		self.client_lookup = dict()

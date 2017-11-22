@@ -2,6 +2,21 @@ import time
 import base64
 import threading
 
+# Roy: a global note. We need to consider the fact that dragons perform
+# actions as well, and that these actions need to be logged. My suggestion:
+# we keep the total order on players events (Christopher already has one).
+# After all player events are processed, dragon events are processed. Each
+# server already has the same list of dragons. This order must be preserved
+# throughout. From head to tail we then check: whether a dragon is alive, and
+# if so, what its targets are. From these targets, the target is selected which
+# has: (a) minimal health, and (b) a smallest (x,y) coordinate in the
+# lexicographical ordering on coordinates. Note that (a) could be dropped if
+# we want to keep things simple. However, we anyway need (b) to keep the target
+# selection deterministic.
+#
+# Each dragon event is applied to the state and logged.
+
+
 #pip install msgpack-python
 import msgpack
 DONE = 0

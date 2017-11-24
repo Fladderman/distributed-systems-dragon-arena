@@ -117,6 +117,7 @@ class Server:
     def __init__(self, server_id):
         self.server_id = server_id
         self.next_avail_client_ID = 100
+		self.game_state = _get_game_state() #TODO
         # this would assign
         # Roy: your comment is incomplete here. "[..] ids to clients"?
 
@@ -194,72 +195,143 @@ class Server:
             if msg.name == 'DONE': return s
             else: s.append(msg)
 
+
+	def _apply_request_sequence(self, req_sequence, tick_id):
+		outgoing_updates = []
+		player_has_acted = {}
+		with open(LOG_PATH, "a") as log_file: # "a" for append mode
+			with self.state_lock: #assures cant ever read a state while its being modified
+				for req in req_sequence:
+					log_file.write(str(tick_id) + "\t" + str(req))  # log every request
+					#TODO check this part for correctness
+					if req.name == "SPAWN":
+						update = self._apply_request(req)
+						if update != None:
+							if req.sender == self.server_ID:
+								cid = self.next_avail_client_ID;
+								sock = waiting_client_sockets.pop(0) #TODO panics if client has left
+								assert cid not in self.client_sockets    # should never be a problem
+								self.client_sockets.insert(cid, sock)
+							# all servers incriment next_avail_ID
+							self.next_avail_client_ID += 1;
+
+					if req.sender not in player_has_acted:  # one request per client per tick
+						player_has_acted.add(req.sender)
+						update = self._apply_request(req)
+						if update != None:  # only produce (and store) updates for requests that mutate state
+							outgoing_updates.append(req)
+			log_file.flush()
+
+		# optimization. attempt to represent the same update sequence more succinctly
+		outgoing_updates = agglutinate_updates(outgoing_updates)
+		return outgoing_updates
+
+	'''warning ! deadlock condition if two servers call this in the same tick!!!'''
+	def _servers_join_server_tick(self, my_request_multiset, tick_id):
+
+		'''STEP `send_batch`: send out buffered requests. DO NOT send out DONEs'''
+		for socket in self.server_sockets:
+			for req in my_request_multiset:
+				req.write_to(socket)
+
+		'''STEP `recv&wait`: receive requests. wait for DONEs (acts as barrier!)'''
+		all_requests = my_request_multiset
+		for socket in self.server_sockets:
+			# collect reqs. returns when receives DONE
+			all_requests.extend(_accept_messages_until_done(socket))
+
+		#################################### ONLY THIS SERVER LEAVES BARRIER, others wait #################################
+
+		'''STEP `sort_reqs`: order the requests. every server now has the same list'''
+		tick_req_sequence = all_requests.sorted() # in-place list sort, relying on Message.__lt__() for ordering
+
+		'''STEP `apply_reqs`: iterate over ordered requests. log each one. attempt to mutate game state. produce update when successful'''
+		outgoing_updates = self._apply_request_sequence(tick_req_sequence, tick_id)
+
+		'''SPECIAL STEP `sync_newcomer`: send the new server the newest game state'''
+		while True:
+			try:
+				new_serv_socket = self.waiting_server_sockets.pop()
+				state_update_message = Message("SRV_WELCOME", self.server_ID, [self.game_state, tick_ID])
+				state_update_message.write_to(new_serv_socket)
+				self._accept_messages_until_done(new_serv_socket) '''wait for that server to ack with DONE'''
+				# new_serv_socket is ALREADY in server_sockets list
+			except:
+				break # no more waiting in the list
+
+		'''STEP `send_done`: send out DONEs, releasing the barrier'''
+		done_msg = Message("DONE", self.server_ID, [tick_ID])
+		for socket in self.server_sockets:
+			for req in my_request_multiset:
+				req.write_to(socket)
+			done_msg.write_to(socket
+
+		#################################### ALL `OTHER` SERVERS LEAVE BARRIER #################################
+
+		'''STEP `send_updates`: flood update sequence to each client'''
+		# no synchro needed. only this thread writes out.
+		done_msg = Message("DONE", self.server_ID, [tick_ID])
+		for socket in self.client_sockets.values():
+			for u in outgoing_updates:
+				u.write_to(socket)
+			socket.write_to(socket)
+
+	def _normal_server_tick(self, my_request_multiset, tick_id):
+
+		'''STEP `send_batch`: send out buffered requests. send out DONEs'''
+		'''STEP `send_done`: send out buffered requests. send out DONEs'''
+		done_msg = Message("DONE", self.server_ID, [tick_ID])
+		for socket in self.server_sockets:
+			for req in my_request_multiset:
+				req.write_to(socket)
+			done_msg.write_to(socket)
+
+		'''STEP `recv&wait`: receive requests. wait for DONEs (acts as barrier!)'''
+		all_requests = my_request_multiset
+		for socket in self.server_sockets:
+			# collect reqs. returns when receives DONE
+			all_requests.extend(_accept_messages_until_done(socket))
+
+		#################################### ALL SERVERS LEAVE BARRIER #################################
+
+
+		'''STEP `sort_reqs`: order the requests. every server now has the same list'''
+		tick_req_sequence = all_requests.sorted() # in-place list sort, relying on Message.__lt__() for ordering
+
+		'''STEP `apply_reqs`: iterate over ordered requests. log each one. attempt to mutate game state. produce update when successful'''
+		outgoing_updates = self._apply_request_sequence(tick_req_sequence, tick_id)
+
+		'''STEP `send_updates`: flood update sequence to each client'''
+		# no synchro needed. only this thread writes out.
+		done_msg = Message("DONE", self.server_ID, [tick_ID])
+		for socket in self.client_sockets.values():
+			for u in outgoing_updates:
+				u.write_to(socket)
+			socket.write_to(socket)
+
     def server_tick_loop(self, start_tick_id):
         # first server has start_tick_id == 0. others >= 0
         tick_id = start_tick_id
         while True:
             tick_start = time.time() # get START TIME. required to enforce lower bound on tick time
 
-            '''STEP 1: swap buffers'''
-            with req_buffer_lock:
-                tick_req_multiset = self.req_buffer
-                self.req_buffer = []
+			'''STEP `swap_batch`: swap buffers'''
+			with req_buffer_lock:
+				my_request_multiset = self.req_buffer
+				self.req_buffer = []
 
-            #tick_req_multiset currently is only my local reqs. flood to others
+			if len(self.waiting_server_sockets) == 0:
+				'''!!! NORMAL SERVER TICK, step order:
+				[send_batch, send_done, recv&wait, sort_reqs, apply_reqs, ______, _______, send_updates]
+				'''
+	            self._normal_server_tick(my_request_multiset, tick_id)
+			else:
+				'''!!! SERVER(S)-JOINING SERVER TICK, step order
+				[send_batch, ______, recv&wait, sort_reqs, apply_reqs, sync_newcomer(s), send_done, send_updates]
+				'''
+	            self._normal_server_tick(my_request_multiset, tick_id)
 
-            '''STEP 2: send out buffered requests. send out DONEs'''
-            done_msg = Message("DONE", self.server_ID, [tick_ID])
-            for socket in self.server_sockets:
-                for req in my_reqs:
-                    req.write_to(socket)
-                done_msg.write_to(socket)
-            del my_reqs
-
-            '''STEP 3: receive requests. wait for DONEs (acts as barrier!)'''
-            for socket in self.server_sockets:
-                # collect reqs. returns when receives DONE
-                tick_req_multiset.extend(_accept_messages_until_done(socket))
-
-
-            '''STEP 4: order the requests. every server now has the same list'''
-            tick_req_multiset.sort() # in-place list sort, relying on Message.__lt__() for ordering
-
-            '''STEP 5: iterate over ordered requests. log each one. attempt to mutate game state. produce update when successful'''
-            outgoing_updates = []
-            player_has_acted = {}
-            with open(LOG_PATH, "a") as log_file: # "a" for append mode
-                with self.state_lock: #assures cant ever read a state while its being modified
-                    for req in tick_req_multiset:
-                        log_file.write(str(tick_id) + "\t" + str(req))  # log every request
-                        if req.name == "SPAWN":
-                            update = self._apply_request(req)
-                            if update != None:
-                                if req.sender == self.server_ID:
-                                    cid = self.next_avail_client_ID;
-                                    sock = waiting_client_sockets.pop(0) #TODO panics if client has left
-                                    assert cid not in self.client_sockets    # should never be a problem
-                                    self.client_sockets.insert(cid, sock)
-                                self.next_avail_client_ID += 1;
-
-                        if req.sender not in player_has_acted:  # one request per client per tick
-                            player_has_acted.add(req.sender)
-                            update = self._apply_request(req)
-                            if update != None:  # only produce (and store) updates for requests that mutate state
-                                outgoing_updates.append(req)
-                log_file.flush()
-
-            # optimization. attempt to represent the same update sequence more succinctly
-            outgoing_updates = agglutinate_updates(outgoing_updates)
-
-            '''STEP 6: flood update sequence to each client'''
-            # no synchro needed. only this thread writes out.
-            done_msg = Message("DONE", self.server_ID, [tick_ID])
-            for socket in self.client_sockets.values():
-                for u in outgoing_updates:
-                    u.write_to(socket)
-                socket.write_to(socket)
-
-            '''STEP 7: sleep until tick time over'''
+            '''STEP `sleep`: sleep until tick time over'''
             sleep(max(0.0, time.time() - tick_start + TICK_TIME_MIN))
             # at least ~TICK_TIME_MIN has passed since 'tick_start' was defined
 

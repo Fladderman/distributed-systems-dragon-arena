@@ -58,7 +58,7 @@ class Knight(Creature):
         Creature.__init__(self, "Knight", max_hp, ap)
 
 class Dragon(Creature):
-    def __init__(self)
+    def __init__(self):
         dragon_settings = settings["dragon"]
         max_hp = randint(dragon_settings["ap"]["min"], dragon_settings["ap"]["max"])
         ap = randint(dragon_settings["hp"]["min"], dragon_settings["hp"]["max"])
@@ -109,20 +109,20 @@ class DragonArena:
 
         if not self._is_valid(to):
             return "[DAS] Knight hit boundary."
-        else if self._is_occupied(to)
+        elif self._is_occupied(to):
             return "[DAS] Knight was blocked by another player."
-        else
+        else:
             knight2loc[knight] = to
             return "[DAS] Knight moved from " + str(at) + " to " + str(to) + "."
 
     # add ids later
-    def spawn_knight(self) =
+    def spawn_knight(self):
         knight = Knight()
         spawn_at = self._get_random_available_location()
 
         self.knight2loc[knight] = spawn_at
 
-        return (knight, "[DAS] Spawned a knight at location " str(spawn_at)".")
+        return (knight, "[DAS] Spawned a knight at location " + str(spawn_at) + ".")
 
     def moveUp(self, knight):
         self._move(lambda x,y : (x+1, y), "up", knight)

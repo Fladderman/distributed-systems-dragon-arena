@@ -72,6 +72,12 @@ class DragonArena:
         # initialize all dragon objects
         dragons = [Dragon() for _ in range(no_of_dragons)]
 
+        # with (int) IDs, use e.g.:
+        # dragons = [Dragon(-i) for i in range(no_of_dragons)]
+        #
+        # if servers then never propose negative IDs, we guarantee that
+        # player and dragon IDs remain disjoint at all times.
+
         # set up dicts. note that objects only exist as keys in this dict when
         # alive: maintaining a separate list means more redundancy.
         # also effectively assigns a random cell to each dragon

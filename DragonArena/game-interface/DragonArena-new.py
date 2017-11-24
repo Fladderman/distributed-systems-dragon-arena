@@ -73,7 +73,7 @@ class DragonArena:
         dragons = [Dragon() for _ in range(no_of_dragons)]
 
         # with (int) IDs, use e.g.:
-        # dragons = [Dragon(-i) for i in range(no_of_dragons)]
+        # dragons = [Dragon(-(i+1)) for i in range(no_of_dragons)]
         #
         # if servers then never propose negative IDs, we guarantee that
         # player and dragon IDs remain disjoint at all times.

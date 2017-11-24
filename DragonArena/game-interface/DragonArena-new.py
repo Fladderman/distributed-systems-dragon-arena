@@ -5,9 +5,11 @@ from random import randint, shuffle, sample
 
 settings = json.load(open('../settings.json'))
 
+'''
 DRAGON = settings["dragon"]["symbol"]  # Used to identify a dragon
 PLAYER = settings["player"]["symbol"]  # Used to identify a knight/player
 EMPTY = 0  # Used to identify an empty grid piece
+'''
 
 # IDs will be added later, and code modified throughout
 

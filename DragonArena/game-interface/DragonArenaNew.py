@@ -1,17 +1,11 @@
 import itertools # for product
 import json
-import sys
 from random import randint, shuffle, sample
 
 settings = json.load(open('../settings.json'))
 
-'''
-DRAGON = settings["dragon"]["symbol"]  # Used to identify a dragon
-PLAYER = settings["player"]["symbol"]  # Used to identify a knight/player
-EMPTY = 0  # Used to identify an empty grid piece
-'''
-
 # IDs will be added later, and code modified throughout
+
 
 class Creature:
     def __init__(self, name, max_hp, ap):
@@ -57,6 +51,7 @@ class Knight(Creature):
         ap = randint(player_settings["ap"]["min"], player_settings["ap"]["max"])
         Creature.__init__(self, "Knight", max_hp, ap)
 
+
 class Dragon(Creature):
     def __init__(self):
         dragon_settings = settings["dragon"]
@@ -64,8 +59,12 @@ class Dragon(Creature):
         ap = randint(dragon_settings["hp"]["min"], dragon_settings["hp"]["max"])
         Creature.__init__(self, "Dragon", max_hp, ap)
 
+
 class DragonArena:
     def __init__(self, no_of_dragons, map_width, map_height):
+        self.width = map_width
+        self.height = map_height
+
         # generate all valid locations. used in some private methods
         self.locations = set(itertools.product(range(map_height), range(map_width)))
 
@@ -82,8 +81,7 @@ class DragonArena:
         # alive: maintaining a separate list means more redundancy.
         # also effectively assigns a random cell to each dragon
 
-        shuffled_locations = shuffle(list(self.locations))
-        self.dragon2loc = dict(zip(dragon, shuffled_locations))
+        self.dragon2loc = dict(zip(dragons, sample(self.locations, 1)))
         self.knight2loc = dict()
 
         # entities will be cleared from dictionary when they die.
@@ -91,6 +89,17 @@ class DragonArena:
         # distinguish between requests for dead entities (ok, can happen
         # in same tick) and entities that do not exist (some error)
         self.graveyard = set()
+
+    def get_sorted_grid_including_creatures(self):
+        result = sorted(list(self.locations))
+
+        for x in range(0, len(result)):
+            if result[x] in self.knight2loc.values():
+                result[x] = [key for key, value in self.knight2loc.iteritems() if value == result[x]][0]
+            if result[x] in self.dragon2loc.values():
+                result[x] = [key for key, value in self.dragon2loc.iteritems() if value == result[x]][0]
+
+        return result
 
     def _get_occupied_locations(self):
         return set(self.dragon2loc.values() + self.knight2loc.values())
@@ -102,7 +111,7 @@ class DragonArena:
         return sample(self._get_available_locations(), 1)[0]
 
     def _is_valid(self, location):
-        return location in locations
+        return location in self.locations
 
     def _is_occupied(self, location):
         return location in self._get_occupied_locations()
@@ -129,22 +138,22 @@ class DragonArena:
     # DragonArena object, and then they will merge their states.
     # This can cause id collisions if a e.g. an object-local counter is used.is
     # Suggestion: each server proposes ids with a server-unique prefix.
-    def spawn_knight(self): # parameter once ids are added: proposed_id
+    def spawn_knight(self):  # parameter once ids are added: proposed_id
         knight = Knight()
         spawn_at = self._get_random_available_location()
 
         self.knight2loc[knight] = spawn_at
 
-        return (knight, "[DAS] Spawned a knight at location " + str(spawn_at) + ".")
+        return knight, "[DAS] Spawned a knight at location " + str(spawn_at) + "."
 
-    def moveUp(self, knight):
+    def move_up(self, knight):
         self._move(lambda x,y : (x+1, y), "up", knight)
 
-    def moveDown(self, knight):
+    def move_down(self, knight):
         self._move(lambda x,y : (x-1, y), "down", knight)
 
-    def moveLeft(self, knight):
+    def move_left(self, knight):
         self._move(lambda x,y : (x, y-1), "left", knight)
 
-    def moveRight(self, knight):
+    def move_right(self, knight):
         self._move(lambda x,y : (x, y+1), "right", knight)

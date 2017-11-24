@@ -10,7 +10,7 @@ import threading
 # Add parent directory to the syspath
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 sys.path.insert(1, os.path.join(sys.path[0], '../drawing'))
-from DragonArena import DragonArena
+from DragonArenaNew import DragonArena
 from drawing import BoardVisualization
 
 # Import settings from settings file
@@ -78,13 +78,13 @@ class Server:
         else:
             # TODO Create bord
             self.game = self._create_bord()
-            self.game.start()
 
             # Spawn randomly many knights here if there are no clients actually connecting
             # self.game.spawn_random_knights(no_of_knights)
 
         self.drawing = BoardVisualization(self.game)
         self.drawing.draw_game()
+        self.start()
 
     def start(self):
         """
@@ -97,7 +97,7 @@ class Server:
             try:
                 self.server_socket.bind((host, port))
             except socket.error:
-                print "oh shit"
+                # print "oh shit"
                 continue
 
         # Queue max 5 requests
@@ -115,9 +115,6 @@ class Server:
                 client_socket.send("NACK")
                 self._print("Declined a connection from %s" % str(addr))
             client_socket.close()
-
-            # Update game on screen
-            self.drawing.draw_game() #?? bound to accept()
 
     def _add_client(self, client_socket, addr):
         t = ClientHandler(client_socket, self.game, self.game.worlds[0])
@@ -137,8 +134,7 @@ class Server:
         """
         # TODO synchronize so that only one server does this at a time!!
 
-        return DragonArena(no_of_dragons, no_of_worlds,
-                           settings["game"]["width"], settings["game"]["height"])
+        return DragonArena(no_of_dragons, settings["game"]["width"], settings["game"]["height"])
 
     @staticmethod
     def _print(value):

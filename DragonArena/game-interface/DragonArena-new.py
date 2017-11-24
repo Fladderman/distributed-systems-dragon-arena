@@ -73,7 +73,7 @@ class DragonArena:
         dragons = [Dragon() for _ in range(no_of_dragons)]
 
         # set up dicts. note that objects only exist as keys in this dict when
-        # alive: maintaining a separate list means more redundancy
+        # alive: maintaining a separate list means more redundancy.
         # also effectively assigns a random cell to each dragon
 
         shuffled_locations = shuffle(list(self.locations))
@@ -110,13 +110,20 @@ class DragonArena:
         if not self._is_valid(to):
             return "[DAS] Knight hit boundary."
         elif self._is_occupied(to):
-            return "[DAS] Knight was blocked by another player."
+            return "[DAS] Knight was blocked by another player or dragon."
         else:
             knight2loc[knight] = to
             return "[DAS] Knight moved from " + str(at) + " to " + str(to) + "."
 
-    # add ids later
-    def spawn_knight(self):
+    # BELOW ALL INTERFACING METHODS!
+    # integrate ids later
+
+    # Very important: server will have to propose an id here.
+    # The reason is that servers will concurrently modify their local
+    # DragonArena object, and then they will merge their states.
+    # This can cause id collisions if a e.g. an object-local counter is used.is
+    # Suggestion: each server proposes ids with a server-unique prefix.
+    def spawn_knight(self): # parameter once ids are added: proposed_id
         knight = Knight()
         spawn_at = self._get_random_available_location()
 

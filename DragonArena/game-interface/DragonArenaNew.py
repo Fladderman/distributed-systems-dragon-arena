@@ -68,10 +68,6 @@ class Dragon(Creature):
 
 class DragonArena:
     def __init__(self, no_of_dragons, map_width, map_height):
-        # might not need to store these
-        # self.width = map_width
-        # self.height = map_height
-
         # generate all valid locations. used in some private methods
         self.locations = set(itertools.product(range(map_height), range(map_width)))
 

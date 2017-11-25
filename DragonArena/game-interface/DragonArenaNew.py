@@ -86,7 +86,7 @@ class DragonArena:
         # added for uniformity in naming:
         self.creature2id = lambda c : c.get_identifier()
         # compositions:
-        self.loc2id = lambda l : self.creature2id[self.loc2creature[l]]
+        self.loc2id = lambda l : self.creature2id(self.loc2creature[l])
         self.id2loc = lambda i : self.creature2loc[self.id2creature[i]]
 
     # BELOW ALL PRIVATE METHODS
@@ -294,7 +294,7 @@ class DragonArena:
         # target selection algorithm. atm just picks the first (at least deterministic)
         select_target = lambda targets : targets[0]
         # list of tuples (<dragonid>, <knightid>) where dragon will attack knight
-        attacks = map(lambda tup : (self.creature2id[tup[0]], self.creature2id[select_target(tup[1])], dragons_with_targets)
+        attacks = map(lambda tup : (self.creature2id(tup[0]), self.creature2id(select_target(tup[1])), dragons_with_targets)
         # collect all the result strings from attack
         results = map(lambda tup : attack(tup[0], tup[1]), attacks)
         # and return them separated by newline char

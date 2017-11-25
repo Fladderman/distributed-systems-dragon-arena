@@ -244,8 +244,8 @@ class DragonArena:
         if creature2.is_dead():
             loc2 = creature2loc[creature2]
             self.creature2loc.pop(creature2)
-            self.loc2creature.pop(loc)
-            death_notification = " {name2} {id2} dies.".format(name2=name2)
+            self.loc2creature.pop(loc2)
+            death_notification = " {name2} {id2} dies.".format(name2=name2, id2=id)
 
         return "{name1} {id1} attacks {name2} {id2}, reducing its hp from {old_hp} to {new_hp}.{death_notification}".format(name1=name1,id1=id1,name2=name2,id2=id2,old_hp=old_hp,new_hp=new_hp,death_notification=death_notification)
 

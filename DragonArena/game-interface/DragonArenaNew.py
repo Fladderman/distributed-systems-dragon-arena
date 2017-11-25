@@ -75,10 +75,6 @@ class DragonArena:
         # use negative ints for dragons, >= 0 for players
         dragons = [Dragon(-(i+1)) for i in range(no_of_dragons)]
 
-        # note that objects only exist as keys in this dict when
-        # alive: maintaining a separate list means more redundancy.
-        # also effectively assigns a random cell to each dragon
-
         self.creature2loc = dict(zip(dragons, sample(self.locations, len(dragons))))
         self.loc2creature = dict(zip(self.creature2loc.values(), self.creature2loc.keys()))
         self.id2creature  = dict(map(lambda d : (d.get_identifier(), d), dragons))

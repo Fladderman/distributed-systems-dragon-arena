@@ -127,8 +127,8 @@ class DragonArena:
 
     # horizontal or vertical (our notion of distance), maxsize otherwise
     def _distance(self, id1, id2):
-        loc1 = self.id2loc[id1]
-        loc2 = self.id2loc[id2]
+        loc1 = self.id2loc(id1)
+        loc2 = self.id2loc(id2)
 
         x_diff = abs(loc1[0] - loc2[0])
         y_diff = abs(loc1[1] - loc2[1])
@@ -152,7 +152,7 @@ class DragonArena:
         if self._is_dead(knight_id):
             return "Knight {id} wants to move {dir}, but it is dead."
 
-        at = self.id2loc[knight_id]
+        at = self.id2loc(knight_id)
         to = next_location(at)
 
         if not self._is_valid_location(to):

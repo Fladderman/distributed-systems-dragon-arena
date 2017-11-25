@@ -4,8 +4,8 @@ import socket
 import time
 import json
 import sys
-import os
 
+from socket_communications import ClientSocket
 
 # Import settings from settings file
 settings = json.load(open('../settings.json'))
@@ -19,13 +19,13 @@ class Client():
     def __init__(self):
         self.ip = None
         self.port = None
+        self.client_socket = ClientSocket()
 
     def start(self):
         self.ip, self.port = self._get_server()
 
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            client_socket.connect((self.ip, self.port))
+            self.client_socket.connect(self.ip, self.port)
         except socket.error:
             # Connection failed, could be because server is down,
             # SHould not happen since we just pinged server
@@ -34,7 +34,7 @@ class Client():
             exit(1)
 
         # Receive no more than 1024 bytes
-        msg = client_socket.recv(1024)
+        msg = self.client_socket.receive_data()
 
         if msg == "ACK":
             # Server accepted us!
@@ -46,7 +46,7 @@ class Client():
             print "Server NACK received"
             exit(1)
 
-        client_socket.close()
+        self.client_socket.close()
 
     def _get_server(self):
         """

@@ -36,9 +36,11 @@ class BoardVisualization:
                 print EMPTY,
 
             width += 1
-            if width == self.width+1:
+            if width == self.width:
                 print "\n",
                 width = 0
+
+        sys.stdout.flush()
 
     def draw_game_for_world(self, index):
         self.clear_screen()

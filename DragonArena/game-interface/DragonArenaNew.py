@@ -39,8 +39,6 @@ class Creature:
     # states to other servers. I suggest we keep things simple and also just
     # send entire game states to clients.
 
-    # Axel: Okay so dragons should also be able to heal others then i guess?
-
     def get_ap(self):
         return self.ap
 
@@ -73,6 +71,9 @@ class Dragon(Creature):
 
 class DragonArena:
     def __init__(self, no_of_dragons, map_width, map_height):
+        self.map_width = map_width
+        self.map_height = map_height
+
         # generate all valid locations. used in some private methods
         self.locations = set(itertools.product(range(map_height),
                                                range(map_width)))
@@ -87,7 +88,7 @@ class DragonArena:
         # create the inverse {location: dragon}
         self.loc2creature = dict(zip(self.creature2loc.values(),
                                      self.creature2loc.keys()))
-        # create {id: dragon}
+        # create dictionary containing {id: dragon}
         self.id2creature = dict(map(lambda x: (x.get_identifier(), x),
                                     dragons))
 
@@ -103,13 +104,17 @@ class DragonArena:
 
     # BELOW ALL PRIVATE METHODS
 
-    def _get_living_dragons(self):
-        return filter(lambda x: isinstance(x, Dragon),
-                      self.creature2loc.keys())
+    def _get_living_dragon_ids(self):
+        return map(self.creature2id,
+                   filter(lambda x: isinstance(x, Dragon),
+                          self.creature2loc.keys())
+                   )
 
-    def _get_living_knights(self):
-        return filter(lambda x: isinstance(x, Knight),
-                      self.creature2loc.keys())
+    def _get_living_knight_ids(self):
+        return map(self.creature2id,
+                   filter(lambda x: isinstance(x, Knight),
+                          self.creature2loc.keys())
+                   )
 
     def _get_occupied_locations(self):
         return self.loc2creature.keys()
@@ -121,10 +126,15 @@ class DragonArena:
         return random.sample(self._get_available_locations(), 1)[0]
 
     def _is_valid_location(self, location):
-        return location in self.locations
+        return 0 <= location[0] < self.map_height and \
+               0 <= location[1] < self.map_width
 
     def _is_occupied_location(self, location):
         return location in self._get_occupied_locations()
+
+    def _is_occupied_by_knight(self, location):
+        return self._is_occupied_location(location) and \
+               isinstance(self.loc2creature[location], Knight)
 
     def _id_exists(self, identifier):
         return identifier in self.id2creature.keys()
@@ -133,7 +143,6 @@ class DragonArena:
         return not self._id_exists(identifier)
 
     def _is_dead(self, identifier):
-        # note: composition will crash here, because it is itself not a dict
         return not self.id2creature[identifier].is_alive()
 
     def _is_alive(self, identifier):
@@ -152,11 +161,21 @@ class DragonArena:
 
         return max(x_diff, y_diff)
 
-    def _in_healing_range(self, id1, id2):
+    def _is_in_healing_range(self, id1, id2):
         return self._distance(id1, id2) <= 5
 
-    def _in_attack_range(self, id1, id2):
+    def _is_in_attack_range(self, id1, id2):
         return self._distance(id1, id2) <= 2
+
+    def _get_knight_ids_in_attack_range(self, dragon_id):
+        dragon_loc = self.id2loc(dragon_id)
+        x = dragon_loc[0]
+        y = dragon_loc[1]
+        knight_loc = filter(self._is_occupied_by_knight,
+                            [(x - 2, y), (x - 1, y), (x + 1, y), (x + 2, y),
+                             (x, y - 2), (x, y - 1), (x, y + 1), (x, y + 2)]
+                            )
+        return map(lambda loc: self.loc2id(loc), knight_loc)
 
     def _move_help(self, next_location, direction, knight_id):
         # in case of bad request, throw an error
@@ -258,7 +277,7 @@ class DragonArena:
 
         # check for range
 
-        if not self._in_attack_range(id1, id2):
+        if not self._is_in_attack_range(id1, id2):
             return ("{name1} {id1} wants to attack {name2} {id2}, but {name2} "
                     "{id2} is out of range."
                     ).format(name1=name1, id1=id1, name2=name2, id2=name2)
@@ -308,7 +327,7 @@ class DragonArena:
 
         # check for range
 
-        if not self._in_healing_range(id1, id2):
+        if not self._is_in_healing_range(id1, id2):
             return ("Knight {id1} wants to heal Knight {id2}, but Knight "
                     "{id2} is out of range."
                     ).format(id1=id1, id2=id2)
@@ -327,27 +346,18 @@ class DragonArena:
     # parallel as it is done now. Rather, it should be interleaved with attacks
     # so that dragon actions never lag behind on state.
     def let_dragons_attack(self):
-        dragons = self._get_living_dragons()
-        knights = self._get_living_knights()
-
-        # list of tuples: (<dragon>, <list of possible targets>)
-        dragons_and_targets = map(lambda d: filter(lambda k:
-                                                   self._in_attack_range(d, k),
-                                                   knights),
-                                  dragons)
-
-        # keep only tuples which have dragons with targets
-        dragons_with_targets = filter(lambda tup: len(tup[1]) > 0,
-                                      dragons_and_targets)
+        dragon_ids = self._get_living_dragon_ids()
 
         # target selection algorithm.
         # atm just picks the first (at least deterministic)
-        def select_target(targets): return targets[0]
-        # list of tuples: (<dragon_id>, <knight_id>)
-        attacks = map(lambda tup: (self.creature2id(tup[0]),
-                                   self.creature2id(select_target(tup[1]))),
-                      dragons_with_targets)
-        # collect all the result strings from attack
-        results = map(lambda tup: self.attack(tup[0], tup[1]), attacks)
-        # and return them separated by newline char
-        return "\n".join(results)
+        def select_target(candidates): return candidates[0]
+
+        log_messages = []
+
+        for dragon_id in dragon_ids:
+            target_ids = self._get_knight_ids_in_attack_range(dragon_id)
+            if target_ids:
+                target_id = select_target(target_ids)
+                log_messages.append(self.attack(dragon_id, target_id))
+
+        return "\n".join(log_messages)

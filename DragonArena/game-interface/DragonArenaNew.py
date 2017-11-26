@@ -22,10 +22,6 @@ class Creature:
     def attacks(self, other):
         other.curr_hp = max(other.curr_hp - self.ap, 0)
 
-    # Knight only method?
-    def heals(self, other):
-        other.curr_hp = min(other.curr_hp + self.ap, other.max_hp)
-
     def is_alive(self):
         return self.curr_hp > 0
 
@@ -51,39 +47,46 @@ class Creature:
     def get_identifier(self):
         return self.identifier
 
-# Now that movement is handled in the World class, the only difference between
-# a Knight and Dragon object are the properties with which they are initialized.
-
 
 class Knight(Creature):
     def __init__(self, identifier):
         player_settings = settings["player"]
-        max_hp = random.randint(player_settings["hp"]["min"], player_settings["hp"]["max"])
-        ap = random.randint(player_settings["ap"]["min"], player_settings["ap"]["max"])
+        max_hp = random.randint(player_settings["hp"]["min"],
+                                player_settings["hp"]["max"])
+        ap = random.randint(player_settings["ap"]["min"],
+                            player_settings["ap"]["max"])
         Creature.__init__(self, "Knight", max_hp, ap, identifier)
+
+    def heals(self, other):
+        other.curr_hp = min(other.curr_hp + self.ap, other.max_hp)
 
 
 class Dragon(Creature):
     def __init__(self, identifier):
         dragon_settings = settings["dragon"]
-        max_hp = random.randint(dragon_settings["ap"]["min"], dragon_settings["ap"]["max"])
-        ap = random.randint(dragon_settings["hp"]["min"], dragon_settings["hp"]["max"])
+        max_hp = random.randint(dragon_settings["ap"]["min"],
+                                dragon_settings["ap"]["max"])
+        ap = random.randint(dragon_settings["hp"]["min"],
+                            dragon_settings["hp"]["max"])
         Creature.__init__(self, "Dragon", max_hp, ap, identifier)
 
 
 class DragonArena:
     def __init__(self, no_of_dragons, map_width, map_height):
         # generate all valid locations. used in some private methods
-        self.locations = set(itertools.product(range(map_height), range(map_width)))
+        self.locations = set(itertools.product(range(map_height),
+                                               range(map_width)))
 
         # initialize all dragon objects
         # use negative ints for dragons, >= 0 for players
         dragons = [Dragon(-(i+1)) for i in range(no_of_dragons)]
 
         # create dictionary containing {dragon: location}
-        self.creature2loc = dict(zip(dragons, random.sample(self.locations, len(dragons))))
-        # create the reverse {location: dragon}
-        self.loc2creature = dict(zip(self.creature2loc.values(), self.creature2loc.keys()))
+        self.creature2loc = dict(zip(dragons, random.sample(self.locations,
+                                                            len(dragons))))
+        # create the inverse {location: dragon}
+        self.loc2creature = dict(zip(self.creature2loc.values(),
+                                     self.creature2loc.keys()))
         # create {id, dragon}
         self.id2creature = dict(map(lambda x: (x.get_identifier(), x), dragons))
 

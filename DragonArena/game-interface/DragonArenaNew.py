@@ -295,7 +295,7 @@ class DragonArena:
 
         return ("Knight {id} at {loc} committed suicide."
                 "{end_game_msg}"
-                ).format(id=knight_id, loc=loc)
+                ).format(id=knight_id, loc=loc, end_game_msg=end_game_msg)
 
     def move_up(self, knight_id):
         return self._move_help(lambda l: (l[0] - 1, l[1]), "up", knight_id)

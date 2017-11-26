@@ -16,9 +16,6 @@ class Creature:
         self.ap = ap
         self.identifier = identifier
 
-    def take_hit(self, dmg):
-        self.curr_hp = max(self.curr_hp - dmg, 0)
-
     def attacks(self, other):
         other.curr_hp = max(other.curr_hp - self.ap, 0)
 
@@ -81,7 +78,6 @@ class DragonArena:
         self.locations = set(itertools.product(range(map_height),
                                                range(map_width)))
         # set up dicts
-
         self.creature2loc = dict()
         self.loc2creature = dict()
         self.id2creature = dict()
@@ -182,7 +178,8 @@ class DragonArena:
 
         # knight might have died previously, ok
         if self._is_dead(knight_id):
-            return "Knight {id} wants to move {dir}, but it is dead."
+            return ("Knight {id} wants to move {dir}, but it is dead."
+                    ).format(id=knight_id, dir=direction)
 
         at = self.id2loc(knight_id)
         to = next_location(at)
@@ -205,8 +202,8 @@ class DragonArena:
         self.creature2loc[knight] = to  # knight -> at becomes knight -> to
         self.loc2creature.pop(at)  # remove at -> knight
         self.loc2creature[to] = knight  # add to -> knight
-        return "Knight {id} moves {dir} from {at} to {to}.".format(
-            id=knight_id, dir=direction, at=at, to=to)
+        return ("Knight {id} moves {dir} from {at} to {to}."
+                ).format(id=knight_id, dir=direction, at=at, to=to)
 
     # BELOW ALL INTERFACING METHODS
 

@@ -356,7 +356,7 @@ class DragonArena:
             self.creature2loc.pop(creature2)
             self.loc2creature.pop(loc2)
             death_notification = "\n{name2} {id2} dies.".format(name2=name2,
-                                                               id2=id2)
+                                                                id2=id2)
 
         end_game_msg = ""
 

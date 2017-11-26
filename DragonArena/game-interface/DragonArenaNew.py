@@ -87,8 +87,9 @@ class DragonArena:
         # create the inverse {location: dragon}
         self.loc2creature = dict(zip(self.creature2loc.values(),
                                      self.creature2loc.keys()))
-        # create {id, dragon}
-        self.id2creature = dict(map(lambda x: (x.get_identifier(), x), dragons))
+        # create {id: dragon}
+        self.id2creature = dict(map(lambda x: (x.get_identifier(), x),
+                                    dragons))
 
         # ^ only these three dicts need to be managed at all times
         # the ones below are derived.

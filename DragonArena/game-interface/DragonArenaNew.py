@@ -35,7 +35,7 @@ class Creature:
         return self.name
 
     # Roy: Before, ap of dragons could not be requested. But in principle
-    # everything must be inspectable, since servers must send complete game
+    # everything must be retrievable, since servers must send complete game
     # states to other servers. I suggest we keep things simple and also just
     # send entire game states to clients.
 
@@ -104,10 +104,12 @@ class DragonArena:
     # BELOW ALL PRIVATE METHODS
 
     def _get_living_dragons(self):
-        return filter(lambda x: isinstance(x, Dragon), self.creature2loc.keys())
+        return filter(lambda x: isinstance(x, Dragon),
+                      self.creature2loc.keys())
 
     def _get_living_knights(self):
-        return filter(lambda x: isinstance(x, Knight), self.creature2loc.keys())
+        return filter(lambda x: isinstance(x, Knight),
+                      self.creature2loc.keys())
 
     def _get_occupied_locations(self):
         return self.loc2creature.keys()
@@ -131,7 +133,7 @@ class DragonArena:
         return not self._id_exists(identifier)
 
     def _is_dead(self, identifier):
-        # note: the composition will crash here, because it is itself not a dict
+        # note: composition will crash here, because it is itself not a dict
         return not self.id2creature[identifier].is_alive()
 
     def _is_alive(self, identifier):
@@ -168,34 +170,39 @@ class DragonArena:
         to = next_location(at)
 
         if not self._is_valid_location(to):
-            return "Knight {id} wants to move {dir} from {at}, but it is blocked by the arena boundary.".format(
-                id=knight_id, dir=direction, at=at)
+            return ("Knight {id} wants to move {dir} from {at}, but it is "
+                    "blocked by the arena boundary."
+                    ).format(id=knight_id, dir=direction, at=at)
 
         if self._is_occupied_location(to):
             blocker = self.loc2creature[to]
-            ret_str = "Knight {id} wants to move {dir} from {at}, but it is blocked by {blocker_name} {blocker_id}."
-            return ret_str.format(id=knight_id, dir=direction, at=at, blocker_name=blocker.get_name(),
-                                  blocker_id=blocker.get_identifier())
+            return ("Knight {id} wants to move {dir} from {at}, but it is "
+                    "blocked by {blocker_name} {blocker_id}."
+                    ).format(id=knight_id, dir=direction, at=at,
+                             blocker_name=blocker.get_name(),
+                             blocker_id=blocker.get_identifier())
 
         # ok to move
         knight = self.id2creature[knight_id]
-        self.creature2loc[knight] = to  # overwrite knight -> at with knight -> to
+        self.creature2loc[knight] = to  # knight -> at becomes knight -> to
         self.loc2creature.pop(at)  # remove at -> knight
         self.loc2creature[to] = knight  # add to -> knight
-        return "Knight {id} moves {dir} from {at} to {to}.".format(id=knight_id, dir=direction, at=at, to=to)
+        return "Knight {id} moves {dir} from {at} to {to}.".format(
+            id=knight_id, dir=direction, at=at, to=to)
 
     # BELOW ALL INTERFACING METHODS
 
     def get_sorted_grid_including_creatures(self):
         sorted_locations = sorted(list(self.locations))
 
-        def get_creature(x): return self.loc2creature[x] if x in self.loc2creature.keys() else x
+        def get_creature(x): return self.loc2creature[x] \
+            if x in self.loc2creature.keys() else x
         return map(get_creature, sorted_locations)
 
     # Very important: server will have to propose an id here.
     # The reason is that servers will concurrently modify their local
     # DragonArena object, and then they will merge their states.
-    # This can cause id collisions if a e.g. an object-local counter is used.is
+    # This can cause id collisions if a e.g. an object-local counter is used.
     # Suggestion: each server proposes ids with a server-unique prefix.
     def spawn_knight(self, proposed_id):
         assert (self._id_is_fresh(proposed_id))
@@ -207,7 +214,8 @@ class DragonArena:
         self.loc2creature[spawn_at] = knight
         self.id2creature[proposed_id] = knight
 
-        return "Knight {id} spawns at location {loc}".format(id=proposed_id, loc=spawn_at)
+        return "Knight {id} spawns at location {loc}".format(
+            id=proposed_id, loc=spawn_at)
 
     def move_up(self, knight_id):
         self._move_help(lambda x, y: (x+1, y), "up", knight_id)
@@ -221,7 +229,7 @@ class DragonArena:
     def move_right(self, knight_id):
         self._move_help(lambda x, y: (x, y+1), "right", knight_id)
 
-    # servers call this using knightid for id1 and dragonid for id2
+    # servers call this using knight_id for id1 and dragon_id for id2
     # this object calls this the other way around for dragon attacks
     def attack(self, id1, id2):
         assert(self._id_exists(id1))
@@ -239,18 +247,21 @@ class DragonArena:
         # check for death
 
         if self._is_dead(id1):
-            return "{name1} {id1} wants to attack {name2} {id2}, but {name1} {id1} is dead.".format(
-                name1=name1, id1=id1, name2=name2, id2=name2)
+            return ("{name1} {id1} wants to attack {name2} {id2}, but {name1} "
+                    "{id1} is dead."
+                    ).format(name1=name1, id1=id1, name2=name2, id2=name2)
 
         if self._is_dead(id2):
-            return "{name1} {id1} wants to attack {name2} {id2}, but {name2} {id2} is already dead.".format(
-                name1=name1, id1=id1, name2=name2, id2=name2)
+            return ("{name1} {id1} wants to attack {name2} {id2}, but {name2} "
+                    "{id2} is already dead."
+                    ).format(name1=name1, id1=id1, name2=name2, id2=name2)
 
         # check for range
 
         if not self._in_attack_range(id1, id2):
-            return "{name1} {id1} wants to attack {name2} {id2}, but {name2} {id2} is out of range.".format(
-                name1=name1, id1=id1, name2=name2, id2=name2)
+            return ("{name1} {id1} wants to attack {name2} {id2}, but {name2} "
+                    "{id2} is out of range."
+                    ).format(name1=name1, id1=id1, name2=name2, id2=name2)
 
         # ok to attack
 
@@ -264,11 +275,14 @@ class DragonArena:
             loc2 = self.creature2loc[creature2]
             self.creature2loc.pop(creature2)
             self.loc2creature.pop(loc2)
-            death_notification = " {name2} {id2} dies.".format(name2=name2, id2=id)
+            death_notification = " {name2} {id2} dies.".format(name2=name2,
+                                                               id2=id)
 
-        ret_str = "{name1} {id1} attacks {name2} {id2}, reducing its hp from {old_hp} to {new_hp}.{death_notification}"
-        return ret_str.format(name1=name1, id1=id1, name2=name2, id2=id2,
-                              old_hp=old_hp, new_hp=new_hp, death_notification=death_notification)
+        return ("{name1} {id1} attacks {name2} {id2}, reducing its hp from "
+                "{old_hp} to {new_hp}.{death_notification}"
+                ).format(name1=name1, id1=id1, name2=name2, id2=id2,
+                         old_hp=old_hp, new_hp=new_hp,
+                         death_notification=death_notification)
 
     def heal(self, id1, id2):
         assert(self._id_exists(id1))
@@ -283,16 +297,21 @@ class DragonArena:
         # check for death
 
         if self._is_dead(id1):
-            return "Knight {id1} wants to heal Knight {id2}, but Knight {id1} is dead.".format(id1=id1, id2=id2)
+            return ("Knight {id1} wants to heal Knight {id2}, but Knight "
+                    "{id1} is dead."
+                    ).format(id1=id1, id2=id2)
 
         if self._is_dead(id2):
-            return "Knight {id1} wants to heal Knight {id2}, but Knight {id2} is dead.".format(id1=id1, id2=id2)
+            return ("Knight {id1} wants to heal Knight {id2}, but Knight "
+                    "{id2} is dead."
+                    ).format(id1=id1, id2=id2)
 
         # check for range
 
         if not self._in_healing_range(id1, id2):
-            return "Knight {id1} wants to heal Knight {id2}, but Knight {id2} is out of range.".format(
-                id1=id1, id2=id2)
+            return ("Knight {id1} wants to heal Knight {id2}, but Knight "
+                    "{id2} is out of range."
+                    ).format(id1=id1, id2=id2)
 
         # ok to heal
 
@@ -300,27 +319,34 @@ class DragonArena:
         creature1.heals(creature2)
         new_hp = creature2.get_hp()
 
-        return "Knight {id1} heals Knight {id2}, restoring its hp from {old_hp} to {new_hp}.".format(
-            id1=id1, id2=id2, old_hp=old_hp, new_hp=new_hp)
+        return ("Knight {id1} heals Knight {id2}, restoring its hp from "
+                "{old_hp} to {new_hp}."
+                ).format(id1=id1, id2=id2, old_hp=old_hp, new_hp=new_hp)
 
     # Will improve this later. Target selection should actually not be done in
     # parallel as it is done now. Rather, it should be interleaved with attacks
     # so that dragon actions never lag behind on state.
     def let_dragons_attack(self):
-        dragons = self._get_living_dragons
-        knights = self._get_living_knights
+        dragons = self._get_living_dragons()
+        knights = self._get_living_knights()
 
-        # gives a list of tuples containing tuples: (<dragon>, <list of possible targets>)
-        dragons_and_targets = map(lambda d: filter(lambda k: self._in_attack_range(d, k), knights()), dragons())
+        # list of tuples: (<dragon>, <list of possible targets>)
+        dragons_and_targets = map(lambda d: filter(lambda k:
+                                                   self._in_attack_range(d, k),
+                                                   knights),
+                                  dragons)
 
         # keep only tuples which have dragons with targets
-        dragons_with_targets = filter(lambda tup: len(tup[1]) > 0, dragons_and_targets)
+        dragons_with_targets = filter(lambda tup: len(tup[1]) > 0,
+                                      dragons_and_targets)
 
-        # target selection algorithm. atm just picks the first (at least deterministic)
+        # target selection algorithm.
+        # atm just picks the first (at least deterministic)
         def select_target(targets): return targets[0]
-        # list of tuples (<dragon_id>, <knight_id>) where dragon will attack knight
+        # list of tuples: (<dragon_id>, <knight_id>)
         attacks = map(lambda tup: (self.creature2id(tup[0]),
-                                   self.creature2id(select_target(tup[1]))), dragons_with_targets)
+                                   self.creature2id(select_target(tup[1]))),
+                      dragons_with_targets)
         # collect all the result strings from attack
         results = map(lambda tup: self.attack(tup[0], tup[1]), attacks)
         # and return them separated by newline char

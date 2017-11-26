@@ -62,39 +62,32 @@ class Knight(Creature):
 class Dragon(Creature):
     def __init__(self, identifier):
         dragon_settings = settings["dragon"]
-        max_hp = random.randint(dragon_settings["ap"]["min"],
-                                dragon_settings["ap"]["max"])
-        ap = random.randint(dragon_settings["hp"]["min"],
-                            dragon_settings["hp"]["max"])
+        max_hp = random.randint(dragon_settings["hp"]["min"],
+                                dragon_settings["hp"]["max"])
+        ap = random.randint(dragon_settings["ap"]["min"],
+                            dragon_settings["ap"]["max"])
         Creature.__init__(self, "Dragon", max_hp, ap, identifier)
 
 
 class DragonArena:
     def __init__(self, no_of_dragons, map_width, map_height):
+        self.no_of_dragons = no_of_dragons
         self.map_width = map_width
         self.map_height = map_height
+
+        self._game_in_progress = False
 
         # generate all valid locations. used in some private methods
         self.locations = set(itertools.product(range(map_height),
                                                range(map_width)))
+        # set up dicts
 
-        # initialize all dragon objects
-        # use negative ints for dragons, >= 0 for players
-        dragons = [Dragon(-(i+1)) for i in range(no_of_dragons)]
-
-        # create dictionary containing {dragon: location}
-        self.creature2loc = dict(zip(dragons, random.sample(self.locations,
-                                                            len(dragons))))
-        # create the inverse {location: dragon}
-        self.loc2creature = dict(zip(self.creature2loc.values(),
-                                     self.creature2loc.keys()))
-        # create dictionary containing {id: dragon}
-        self.id2creature = dict(map(lambda x: (x.get_identifier(), x),
-                                    dragons))
+        self.creature2loc = dict()
+        self.loc2creature = dict()
+        self.id2creature = dict()
 
         # ^ only these three dicts need to be managed at all times
         # the ones below are derived.
-        # (also note that a loc l is free iff not l in loc2creature)
 
         # added for uniformity in naming:
         self.creature2id = lambda x: x.get_identifier()
@@ -115,6 +108,12 @@ class DragonArena:
                    filter(lambda x: isinstance(x, Knight),
                           self.creature2loc.keys())
                    )
+
+    def _all_knights_are_dead(self):
+        return not self._get_living_knight_ids()
+
+    def _all_dragons_are_dead(self):
+        return not self._get_living_dragon_ids()
 
     def _get_occupied_locations(self):
         return self.loc2creature.keys()
@@ -218,6 +217,45 @@ class DragonArena:
             if x in self.loc2creature.keys() else x
         return map(get_creature, sorted_locations)
 
+    def new_game(self):
+        # initialize all dragon objects
+        # use negative ints for dragons, >= 0 for players
+        dragons = [Dragon(-(i+1)) for i in range(self.no_of_dragons)]
+
+        # create dictionary containing {dragon: location}
+        self.creature2loc = dict(zip(dragons, random.sample(self.locations,
+                                                            len(dragons))))
+        # create the inverse {location: dragon}
+        self.loc2creature = dict(zip(self.creature2loc.values(),
+                                     self.creature2loc.keys()))
+        # create dictionary containing {id: dragon}
+        self.id2creature = dict(map(lambda x: (x.get_identifier(), x),
+                                    dragons))
+
+        self._game_in_progress = True
+
+        opening_message = ["=== A NEW GAME STARTS.",
+                           "The battlefield has size {h}x{w}.".format(
+                               h=self.map_height, w=self.map_width),
+                           "{n} dragons have been spawned.".format(
+                               n=self.no_of_dragons),
+                           ]
+
+        for dragon, location in self.creature2loc.iteritems():
+            spawn_msg = ("Dragon {id} has been spawned at location "
+                         "{location}, with {hp} hp and {ap} ap."
+                         ).format(id=dragon.get_identifier(),
+                                  location=location,
+                                  hp=dragon.get_hp(),
+                                  ap=dragon.get_ap()
+                                  )
+            opening_message.append(spawn_msg)
+
+        return "\n".join(opening_message)
+
+    def game_over(self):
+        return not self._game_in_progress
+
     # Very important: server will have to propose an id here.
     # The reason is that servers will concurrently modify their local
     # DragonArena object, and then they will merge their states.
@@ -233,20 +271,43 @@ class DragonArena:
         self.loc2creature[spawn_at] = knight
         self.id2creature[proposed_id] = knight
 
-        return "Knight {id} spawns at location {loc}".format(
-            id=proposed_id, loc=spawn_at)
+        return ("Knight {id} spawns at location {loc} with {hp} hp and "
+                "{ap} ap."
+                ).format(id=proposed_id, loc=spawn_at, hp=knight.get_hp(),
+                         ap=knight.get_ap())
+
+    # for disconnected clients
+    def kill_knight(self, knight_id):
+        assert (self._id_exists(knight_id))
+
+        knight = self.id2creature[knight_id]
+        loc = self.creature2loc[knight]
+
+        self.creature2loc.pop(knight)
+        self.loc2creature.pop(loc)
+
+        end_game_msg = ""
+
+        if self._all_knights_are_dead():
+            end_game_msg = ("\n=== GAME OVER\n"
+                            "All knights are dead. The dragons win!")
+            self._game_in_progress = False
+
+        return ("Knight {id} at {loc} committed suicide."
+                "{end_game_msg}"
+                ).format(id=knight_id, loc=loc)
 
     def move_up(self, knight_id):
-        self._move_help(lambda x, y: (x+1, y), "up", knight_id)
+        return self._move_help(lambda l: (l[0] - 1, l[1]), "up", knight_id)
 
     def move_down(self, knight_id):
-        self._move_help(lambda x, y: (x-1, y), "down", knight_id)
+        return self._move_help(lambda l: (l[0] + 1, l[1]), "down", knight_id)
 
     def move_left(self, knight_id):
-        self._move_help(lambda x, y: (x, y-1), "left", knight_id)
+        return self._move_help(lambda l: (l[0], l[1] - 1), "left", knight_id)
 
     def move_right(self, knight_id):
-        self._move_help(lambda x, y: (x, y+1), "right", knight_id)
+        return self._move_help(lambda l: (l[0], l[1] + 1), "right", knight_id)
 
     # servers call this using knight_id for id1 and dragon_id for id2
     # this object calls this the other way around for dragon attacks
@@ -268,19 +329,19 @@ class DragonArena:
         if self._is_dead(id1):
             return ("{name1} {id1} wants to attack {name2} {id2}, but {name1} "
                     "{id1} is dead."
-                    ).format(name1=name1, id1=id1, name2=name2, id2=name2)
+                    ).format(name1=name1, id1=id1, name2=name2, id2=id2)
 
         if self._is_dead(id2):
             return ("{name1} {id1} wants to attack {name2} {id2}, but {name2} "
                     "{id2} is already dead."
-                    ).format(name1=name1, id1=id1, name2=name2, id2=name2)
+                    ).format(name1=name1, id1=id1, name2=name2, id2=id2)
 
         # check for range
 
         if not self._is_in_attack_range(id1, id2):
             return ("{name1} {id1} wants to attack {name2} {id2}, but {name2} "
                     "{id2} is out of range."
-                    ).format(name1=name1, id1=id1, name2=name2, id2=name2)
+                    ).format(name1=name1, id1=id1, name2=name2, id2=id2)
 
         # ok to attack
 
@@ -290,18 +351,31 @@ class DragonArena:
 
         death_notification = ""
 
-        if creature2.is_dead():
+        if self._is_dead(id2):
             loc2 = self.creature2loc[creature2]
             self.creature2loc.pop(creature2)
             self.loc2creature.pop(loc2)
-            death_notification = " {name2} {id2} dies.".format(name2=name2,
-                                                               id2=id)
+            death_notification = "\n{name2} {id2} dies.".format(name2=name2,
+                                                               id2=id2)
 
-        return ("{name1} {id1} attacks {name2} {id2}, reducing its hp from "
-                "{old_hp} to {new_hp}.{death_notification}"
+        end_game_msg = ""
+
+        if isinstance(creature2, Knight) and self._all_knights_are_dead():
+            end_game_msg = ("\n=== GAME OVER\n"
+                            "All knights are dead. The dragons win!")
+            self._game_in_progress = False
+        elif isinstance(creature2, Dragon) and self._all_dragons_are_dead():
+            end_game_msg = ("\n=== GAME OVER\n"
+                            "All dragons are dead. The knights win!")
+            self._game_in_progress = False
+
+        return ("{name1} {id1} attacks {name2} {id2} for {dmg} damage, "
+                "reducing its hp from "
+                "{old_hp} to {new_hp}.{death_notification}{end_game_msg}"
                 ).format(name1=name1, id1=id1, name2=name2, id2=id2,
-                         old_hp=old_hp, new_hp=new_hp,
-                         death_notification=death_notification)
+                         dmg=creature1.get_ap(), old_hp=old_hp, new_hp=new_hp,
+                         death_notification=death_notification,
+                         end_game_msg=end_game_msg)
 
     def heal(self, id1, id2):
         assert(self._id_exists(id1))
@@ -338,13 +412,12 @@ class DragonArena:
         creature1.heals(creature2)
         new_hp = creature2.get_hp()
 
-        return ("Knight {id1} heals Knight {id2}, restoring its hp from "
+        return ("Knight {id1} heals Knight {id2} for {points} points, "
+                "restoring its hp from "
                 "{old_hp} to {new_hp}."
-                ).format(id1=id1, id2=id2, old_hp=old_hp, new_hp=new_hp)
+                ).format(id1=id1, id2=id2, points=creature1.get_ap(),
+                         old_hp=old_hp, new_hp=new_hp)
 
-    # Will improve this later. Target selection should actually not be done in
-    # parallel as it is done now. Rather, it should be interleaved with attacks
-    # so that dragon actions never lag behind on state.
     def let_dragons_attack(self):
         dragon_ids = self._get_living_dragon_ids()
 

@@ -33,8 +33,24 @@ class Message:
             + str(self.sender) + ' with args:' + str(self.args)
         )
 
+def read_msg_from(socket, timeout=False):
+    unpacker = msgpack.Unpacker()
+    while True:
+        try:
+            x = socket.recv(1)
+            if x == '':
+                print('socket dead!')
+                return None
+                #connection closed!
+            unpacker.feed(x)
+            for package in unpacker:
+                msg = Message.deserialize(package)
+                return msg
+        except:
+            if timeout:
+                return None
 
-def read_all_from(socket):
+def read_many_msgs_from(socket):
     '''
     Generator object. will read from socket
     blocks until it yields a Message or None
@@ -45,7 +61,6 @@ def read_all_from(socket):
     while True:
         try:
             x = socket.recv(256)
-            print('x', x)
             if x == '':
                 print('socket dead!')
                 return
@@ -58,7 +73,7 @@ def read_all_from(socket):
             yield None
 
 
-def write_to(socket, msg):
+def write_msg_to(socket, msg):
     assert isinstance(msg, Message)
     '''
     send the given msg into the socket
@@ -91,6 +106,9 @@ class ServerAcceptor:
 
 class Server:
     def __init__(self, server_id, port):
+        assert isinstance(server_id, int)
+        assert isinstance(port, int)
+
         self._server_id = server_id
         self._accepting_new_clients = True;
         self._accepting_clients = True
@@ -105,11 +123,17 @@ class Server:
         self._req_lock = threading.Lock()
 
     def handle_client_incoming(self, client_sock, client_addr):
-        for msg in read_all_from(client_sock):
-            print('msg yielded', msg)
+        for msg in read_many_msgs_from(client_sock):
+            print('loop')
             if msg != None:
+                print('msg yielded', msg)
+                msg.sender = client_addr #todo make this some kind of client id
                 with self._req_lock:
                     self._requests.append(msg)
+            else:
+                if client_addr not in self._clients:
+                    print('sock dead. killing incoming reader daemon')
+                    return
 
     def handle_incoming_clients(self, port):
         server_acceptor = ServerAcceptor(port)
@@ -141,6 +165,14 @@ class Server:
                 self._requests = []
             if my_req_pool:
                 print('tick drained', my_req_pool)
+                for msg in my_req_pool:
+                    c_sock = self._clients[msg.sender]
+                    response = Message(1,self._server_id, ['welcome', 'get', 'rekt'])
+                    write_msg_to(c_sock, response)
+                    print('popping')
+                    self._clients.pop(msg.sender)
+
+
 
             '''SLEEP STEP'''
             sleep_time = TICK_MIN_TIME - (time.time() - tick_start)
@@ -148,21 +180,26 @@ class Server:
                 time.sleep(sleep_time)
 
 class Client:
-    def __init__(self):
-        
+    def __init__(self, ip, port):
+        serv_socket = Client.sock_client(ip, port)
+        msg = Message(0,0,[])
+        write_msg_to(serv_socket, msg)
+        msg = read_msg_from(serv_socket)
+        print(str(msg))
+        time.sleep(5.0)
 
     '''
     attempts to connect
     '''
     @staticmethod
-    def sock_client(ip, port, timeout=2):
+    def sock_client(ip, port, timeout=2.0):
         assert isinstance(ip, str)
         assert isinstance(port, int)
-        assert isinstance(timeout, int)
+        assert isinstance(timeout, int) or isinstance(timeout, float)
         try:
             socket.setdefaulttimeout(timeout)
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((ip, port))
-            return
+            return s
         except:
             return None

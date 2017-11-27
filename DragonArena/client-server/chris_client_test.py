@@ -1,10 +1,3 @@
 import chris_shit, time
 
-client_sock = chris_shit.sock_client("127.0.0.1", 2002)
-msg = chris_shit.Message(2,3,[3,4])
-chris_shit.write_to(client_sock, msg)
-chris_shit.write_to(client_sock, msg)
-chris_shit.write_to(client_sock, msg)
-chris_shit.write_to(client_sock, msg)
-chris_shit.write_to(client_sock, msg)
-# time.sleep(4.0)
+client = chris_shit.Client('127.0.0.1', 2002)

@@ -3,14 +3,21 @@ import socket
 from StringIO import StringIO
 socket.setdefaulttimeout(1.0) #todo mess around
 
+
 '''
-Each Message class represents an instance of any network message
+messages are stored and sent using integers in the header field
+this is for compactness. For readibility, the following two
+structures allow mapping back and forth:
+    int2header[<int>] ==> <str>
+    header2int[<str>] ==> <int>
+
 '''
+int2header = ['PING', 'CLIENT_HELLO', 'SERV_WELCOME', 'SERV_HELLO', 'SERV_SYNC_REQ', 'SERV_SYNC_REPLY']
+header2int = {v: k for k,v in enumerate(int2header)}
 
-
-int2header_list = ['PING', 'CLIENT_HELLO', 'SERV_WELCOME']
-header2int = {v: k for k,v in enumerate(int2header_list)}
-
+'''
+Each Message instance represents an instance of any network message
+'''
 class Message:
     def __init__(self, msg_header, sender, args):
         assert isinstance(msg_header, int)
@@ -47,14 +54,21 @@ class Message:
         return Message(msg_header, sender, args)
 
     def __repr__(self):
-        str_header = '??header??' if self.msg_header not in int2header_list else int2header_list[self.msg_header]
+        str_header = '??header??' if self.msg_header not in int2header else int2header[self.msg_header]
         return (
             'Message::' + str_header + ' from '
             + str(self.sender) + ' with args:' + str(self.args)
         )
 
-PING_MESSAGE = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
-CLIENT_HELLO = Message(header2int['CLIENT_HELLO'],-1,[])
+M_PING = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
+M_CLIENT_HELLO = Message(header2int['CLIENT_HELLO'],-1,[])
+def M_SERV_WELCOME(s_id):
+    Message(header2int['SERV_WELCOME'], s_id, ['server_secret_key_u433hfu4g'])
+M_SERV_HELLO = Message(header2int['SERV_HELLO'],-1,[])
+def M_SERV_SYNC_REQ(s_id):
+    Message(header2int['SERV_SYNC_REQ'], s_id, [])
+def M_SERV_SYNC_REPLY(s_id, serialized_state):
+    Message(header2int['SERV_SYNC_REPLY'], s_id, [serialized_state])
 
 
 def read_msg_from(socket, timeout=False):

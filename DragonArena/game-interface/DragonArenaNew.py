@@ -492,26 +492,3 @@ class DragonArena:
 
     # TODO: rewrite the class so that it can accept also accept O as an arg.
     # Will depend on how O is constructed.
-
-    # Roy: this needs to be changed (fields are not correct.)
-    # also not sure if it is needed.
-
-    # Converts a game state dictionary to an array
-    def encode_state(self, game_state_dict):
-        return [game_state_dict["no_of_dragons"],
-                game_state_dict["map_width"],
-                game_state_dict["map_height"],
-                game_state_dict["creature2id"],
-                game_state_dict["creature2loc"],
-                game_state_dict["loc2id"]
-                ]
-
-    # Converts a array to a game state dictionary
-    def decode_state(self, game_state_array):
-        return {"no_of_dragons": game_state_array[0],
-                "map_width": game_state_array[1],
-                "map_height": game_state_array[2],
-                "creature2id": game_state_array[3],
-                "creature2loc": game_state_array[4],
-                "id2loc": game_state_array[5]
-                }

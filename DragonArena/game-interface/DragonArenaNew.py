@@ -5,42 +5,35 @@ from sys import maxsize
 
 settings = json.load(open('../settings.json'))
 
-# I make one simplifying assumption: servers never submit dragon ids
-
 
 class Creature:
     def __init__(self, name, max_hp, ap, identifier):
-        self.name = name
-        self.max_hp = max_hp
-        self.curr_hp = max_hp
-        self.ap = ap
-        self.identifier = identifier
+        self._name = name
+        self._max_hp = max_hp
+        self._curr_hp = max_hp  # the only field that will mutate
+        self._ap = ap
+        self._identifier = identifier
 
-    def attacks(self, other):
-        other.curr_hp = max(other.curr_hp - self.ap, 0)
+    def is_attacked_by(self, other):
+        self._curr_hp = max(self._curr_hp - other.get_ap(), 0)
 
     def is_alive(self):
-        return self.curr_hp > 0
+        return self._curr_hp > 0
 
     def get_max_hp(self):
-        return self.max_hp
+        return self._max_hp
 
     def get_hp(self):
-        return self.curr_hp
+        return self._curr_hp
 
     def get_name(self):
-        return self.name
-
-    # Roy: Before, ap of dragons could not be requested. But in principle
-    # everything must be retrievable, since servers must send complete game
-    # states to other servers. I suggest we keep things simple and also just
-    # send entire game states to clients.
+        return self._name
 
     def get_ap(self):
-        return self.ap
+        return self._ap
 
     def get_identifier(self):
-        return self.identifier
+        return self._identifier
 
 
 class Knight(Creature):
@@ -52,8 +45,8 @@ class Knight(Creature):
                             player_settings["ap"]["max"])
         Creature.__init__(self, "Knight", max_hp, ap, identifier)
 
-    def heals(self, other):
-        other.curr_hp = min(other.curr_hp + self.ap, other.max_hp)
+    def is_healed_by(self, other):
+        self._curr_hp = min(self._curr_hp + other.get_ap(), self._max_hp)
 
 
 class Dragon(Creature):
@@ -68,85 +61,102 @@ class Dragon(Creature):
 
 class DragonArena:
     def __init__(self, no_of_dragons, map_width, map_height):
-        self.no_of_dragons = no_of_dragons
-        self.map_width = map_width
-        self.map_height = map_height
+        # allow at least one knight to be spawned
+        assert no_of_dragons < map_width * map_height
 
+        self._no_of_dragons = no_of_dragons
+        self._map_width = map_width
+        self._map_height = map_height
         self._game_in_progress = False
 
-        # generate all valid locations. used in some private methods
-        self.locations = set(itertools.product(range(map_height),
-                                               range(map_width)))
-        # set up dicts
-        self.creature2loc = dict()
-        self.loc2creature = dict()
-        self.id2creature = dict()
+        # Generate all valid locations. Used in some private methods.
+        self._locations = set(itertools.product(range(map_height),
+                                                range(map_width)))
 
-        # ^ only these three dicts need to be managed at all times
-        # the ones below are derived.
+        # Set up dictionaries.
+        self._creature2loc = dict()
+        self._loc2creature = dict()
+        self._id2creature = dict()
 
-        # added for uniformity in naming:
-        self.creature2id = lambda x: x.get_identifier()
-        # compositions:
-        self.loc2id = lambda x: self.creature2id(self.loc2creature[x])
-        self.id2loc = lambda x: self.creature2loc[self.id2creature[x]]
+        # ^ Only these three dictionaries need to be managed at all times.
+        # The mappings below are derived.
+
+        # Added for uniformity in naming:
+        self._creature2id = lambda x: x.get_identifier()
+        # Compositions:
+        self._loc2id = lambda x: self._creature2id(self._loc2creature[x])
+        self._id2loc = lambda x: self._creature2loc[self._id2creature[x]]
+
+        # Small annoyance: e.g. self._creature2loc is a dictionary, while
+        # self._creature2id is a function. So given a Knight knight1,
+        # one must write (note parentheses):
+        #   self._creature2loc[knight1]
+        #   self._creature2id(knight1)
+        # Also for example:
+        #   self._creature2loc.get_keys() is defined
+        #   self._creature2id.get_keys() is not defined
+        # This requires some mindfulness in the implementation, but it is okay
+        # if one programs using an IDE.
+
+        # Included purely for efficiency reasons. Termination checks are
+        # frequent, and without these fields, every time the creature2loc
+        # dictionary keys need to be filtered.
+        self._no_of_living_dragons = 0
+        self._no_of_living_knights = 0
+
+        # !!!
+        # Note that function new_game() has to be called!
 
     # BELOW ALL PRIVATE METHODS
 
     def _get_living_dragon_ids(self):
-        return map(self.creature2id,
+        return map(self._creature2id,
                    filter(lambda x: isinstance(x, Dragon),
-                          self.creature2loc.keys())
-                   )
-
-    def _get_living_knight_ids(self):
-        return map(self.creature2id,
-                   filter(lambda x: isinstance(x, Knight),
-                          self.creature2loc.keys())
+                          self._creature2loc.keys())
                    )
 
     def _all_knights_are_dead(self):
-        return not self._get_living_knight_ids()
+        return self._no_of_living_knights == 0
 
     def _all_dragons_are_dead(self):
-        return not self._get_living_dragon_ids()
+        return self._no_of_living_dragons == 0
 
     def _get_occupied_locations(self):
-        return self.loc2creature.keys()
+        return self._loc2creature.keys()
 
     def _get_available_locations(self):
-        return self.locations - set(self._get_occupied_locations())
+        return self._locations - set(self._get_occupied_locations())
 
     def _get_random_available_location(self):
         return random.sample(self._get_available_locations(), 1)[0]
 
     def _is_valid_location(self, location):
-        return 0 <= location[0] < self.map_height and \
-               0 <= location[1] < self.map_width
+        return 0 <= location[0] < self._map_height and \
+               0 <= location[1] < self._map_width
 
     def _is_occupied_location(self, location):
         return location in self._get_occupied_locations()
 
     def _is_occupied_by_knight(self, location):
         return self._is_occupied_location(location) and \
-               isinstance(self.loc2creature[location], Knight)
+               isinstance(self._loc2creature[location], Knight)
 
     def _id_exists(self, identifier):
-        return identifier in self.id2creature.keys()
+        return identifier in self._id2creature.keys()
 
     def _id_is_fresh(self, identifier):
         return not self._id_exists(identifier)
 
     def _is_dead(self, identifier):
-        return not self.id2creature[identifier].is_alive()
+        return not self._id2creature[identifier].is_alive()
 
     def _is_alive(self, identifier):
-        return self.id2creature[identifier].is_alive()
+        return self._id2creature[identifier].is_alive()
 
     # horizontal or vertical (our notion of distance), maxsize otherwise
     def _distance(self, id1, id2):
-        loc1 = self.id2loc(id1)
-        loc2 = self.id2loc(id2)
+        loc1 = self._id2loc(id1)
+        loc2 = self._id2loc(id2)
 
         x_diff = abs(loc1[0] - loc2[0])
         y_diff = abs(loc1[1] - loc2[1])
@@ -163,15 +173,16 @@ class DragonArena:
         return self._distance(id1, id2) <= 2
 
     def _get_knight_ids_in_attack_range(self, dragon_id):
-        dragon_loc = self.id2loc(dragon_id)
+        dragon_loc = self._id2loc(dragon_id)
         x = dragon_loc[0]
         y = dragon_loc[1]
         knight_loc = filter(self._is_occupied_by_knight,
                             [(x - 2, y), (x - 1, y), (x + 1, y), (x + 2, y),
                              (x, y - 2), (x, y - 1), (x, y + 1), (x, y + 2)]
                             )
-        return map(lambda loc: self.loc2id(loc), knight_loc)
+        return map(lambda loc: self._loc2id(loc), knight_loc)
 
+    # helper method for the actual move methods
     def _move_help(self, next_location, direction, knight_id):
         # in case of bad request, throw an error
         assert(self._id_exists(knight_id))
@@ -181,7 +192,7 @@ class DragonArena:
             return ("Knight {id} wants to move {dir}, but it is dead."
                     ).format(id=knight_id, dir=direction)
 
-        at = self.id2loc(knight_id)
+        at = self._id2loc(knight_id)
         to = next_location(at)
 
         if not self._is_valid_location(to):
@@ -190,7 +201,7 @@ class DragonArena:
                     ).format(id=knight_id, dir=direction, at=at)
 
         if self._is_occupied_location(to):
-            blocker = self.loc2creature[to]
+            blocker = self._loc2creature[to]
             return ("Knight {id} wants to move {dir} from {at}, but it is "
                     "blocked by {blocker_name} {blocker_id}."
                     ).format(id=knight_id, dir=direction, at=at,
@@ -198,47 +209,53 @@ class DragonArena:
                              blocker_id=blocker.get_identifier())
 
         # ok to move
-        knight = self.id2creature[knight_id]
-        self.creature2loc[knight] = to  # knight -> at becomes knight -> to
-        self.loc2creature.pop(at)  # remove at -> knight
-        self.loc2creature[to] = knight  # add to -> knight
+        knight = self._id2creature[knight_id]
+        self._creature2loc[knight] = to  # knight -> at becomes knight -> to
+        self._loc2creature.pop(at)  # remove at -> knight
+        self._loc2creature[to] = knight  # add to -> knight
         return ("Knight {id} moves {dir} from {at} to {to}."
                 ).format(id=knight_id, dir=direction, at=at, to=to)
 
-    # BELOW ALL INTERFACING METHODS
+    # BELOW ALL PUBLIC/INTERFACING METHODS
 
+    # This one is used by Zak for his drawing engine, NOT the calling server.
     def get_sorted_grid_including_creatures(self):
-        sorted_locations = sorted(list(self.locations))
+        sorted_locations = sorted(list(self._locations))
 
-        def get_creature(x): return self.loc2creature[x] \
-            if x in self.loc2creature.keys() else x
+        def get_creature(x): return self._loc2creature[x] \
+            if x in self._loc2creature.keys() else x
         return map(get_creature, sorted_locations)
 
+    # The calling server can at any time (re)start the game. The ID space is
+    # cleaned, all knights are removed, and no_of_dragons are randomly put on
+    # the map again.
     def new_game(self):
-        # initialize all dragon objects
-        # use negative ints for dragons, >= 0 for players
-        dragons = [Dragon(-(i+1)) for i in range(self.no_of_dragons)]
+        # Initialize all dragon objects.
+        # Use negative int IDs for dragons, and assume IDs >= 0 for knights.
+        dragons = [Dragon(-(i+1)) for i in range(self._no_of_dragons)]
 
-        # create dictionary containing {dragon: location}
-        self.creature2loc = dict(zip(dragons, random.sample(self.locations,
-                                                            len(dragons))))
-        # create the inverse {location: dragon}
-        self.loc2creature = dict(zip(self.creature2loc.values(),
-                                     self.creature2loc.keys()))
-        # create dictionary containing {id: dragon}
-        self.id2creature = dict(map(lambda x: (x.get_identifier(), x),
-                                    dragons))
+        # Create dictionary containing <dragon> : <location>
+        self._creature2loc = dict(zip(dragons, random.sample(self._locations,
+                                                             len(dragons))))
+        # Create the inverse (<location> : <dragon>}
+        self._loc2creature = dict(zip(self._creature2loc.values(),
+                                      self._creature2loc.keys()))
+        # create dictionary containing <id> : <dragon>
+        self._id2creature = dict(map(lambda x: (x.get_identifier(), x),
+                                     dragons))
 
+        self._no_of_living_dragons = self._no_of_dragons
+        self._no_of_living_knights = 0
         self._game_in_progress = True
 
         opening_message = ["=== A NEW GAME STARTS.",
                            "The battlefield has size {h}x{w}.".format(
-                               h=self.map_height, w=self.map_width),
+                               h=self._map_height, w=self._map_width),
                            "{n} dragons have been spawned.".format(
-                               n=self.no_of_dragons),
+                               n=self._no_of_dragons),
                            ]
 
-        for dragon, location in self.creature2loc.iteritems():
+        for dragon, location in self._creature2loc.iteritems():
             spawn_msg = ("Dragon {id} has been spawned at location "
                          "{location}, with {hp} hp and {ap} ap."
                          ).format(id=dragon.get_identifier(),
@@ -250,38 +267,51 @@ class DragonArena:
 
         return "\n".join(opening_message)
 
+    # Self-explanatory.
     def game_over(self):
         return not self._game_in_progress
 
-    # Very important: server will have to propose an id here.
+    def game_is_full(self):
+        return self._no_of_living_dragons + self._no_of_living_knights == \
+               self._map_height * self._map_width
+
+    # The calling server can spawn a knight.
+    #   Very important: server will have to propose an ID here.
     # The reason is that servers will concurrently modify their local
     # DragonArena object, and then they will merge their states.
-    # This can cause id collisions if a e.g. an object-local counter is used.
-    # Suggestion: each server proposes ids with a server-unique prefix.
+    # This can cause ID collisions if a e.g. an object-local counter is used.
+    # Suggestion: each server proposes IDs with a server-unique prefix, and
+    # have their local ID counters initialized at 0. Then no clashes can
+    # ever occur anywhere.
     def spawn_knight(self, proposed_id):
-        assert (self._id_is_fresh(proposed_id))
+        assert self._id_is_fresh(proposed_id)
+        assert not self.game_is_full()
 
         knight = Knight(proposed_id)
         spawn_at = self._get_random_available_location()
 
-        self.creature2loc[knight] = spawn_at
-        self.loc2creature[spawn_at] = knight
-        self.id2creature[proposed_id] = knight
+        self._creature2loc[knight] = spawn_at
+        self._loc2creature[spawn_at] = knight
+        self._id2creature[proposed_id] = knight
+
+        self._no_of_living_knights += 1
 
         return ("Knight {id} spawns at location {loc} with {hp} hp and "
                 "{ap} ap."
                 ).format(id=proposed_id, loc=spawn_at, hp=knight.get_hp(),
                          ap=knight.get_ap())
 
-    # for disconnected clients
+    # If a client disconnects, the server can manually kill off a knight.
     def kill_knight(self, knight_id):
-        assert (self._id_exists(knight_id))
+        assert self._id_exists(knight_id)
 
-        knight = self.id2creature[knight_id]
-        loc = self.creature2loc[knight]
+        knight = self._id2creature[knight_id]
+        loc = self._creature2loc[knight]
 
-        self.creature2loc.pop(knight)
-        self.loc2creature.pop(loc)
+        self._creature2loc.pop(knight)
+        self._loc2creature.pop(loc)
+
+        self._no_of_living_knights -= 1
 
         end_game_msg = ""
 
@@ -294,6 +324,7 @@ class DragonArena:
                 "{end_game_msg}"
                 ).format(id=knight_id, loc=loc, end_game_msg=end_game_msg)
 
+    # Move methods. Whether the ID is valid is checked in the helper method.
     def move_up(self, knight_id):
         return self._move_help(lambda l: (l[0] - 1, l[1]), "up", knight_id)
 
@@ -306,14 +337,15 @@ class DragonArena:
     def move_right(self, knight_id):
         return self._move_help(lambda l: (l[0], l[1] + 1), "right", knight_id)
 
-    # servers call this using knight_id for id1 and dragon_id for id2
-    # this object calls this the other way around for dragon attacks
+    # Assumption: servers call this using knight_id for id1 and dragon_id
+    # for id2. This object calls this the other way around to process a round
+    # of dragon: see self.let_dragons_attack() below.
     def attack(self, id1, id2):
-        assert(self._id_exists(id1))
-        assert(self._id_exists(id2))
+        assert self._id_exists(id1)
+        assert self._id_exists(id2)
 
-        creature1 = self.id2creature[id1]
-        creature2 = self.id2creature[id2]
+        creature1 = self._id2creature[id1]
+        creature2 = self._id2creature[id2]
 
         # ensure attack is valid
         assert creature1 != creature2
@@ -343,28 +375,35 @@ class DragonArena:
         # ok to attack
 
         old_hp = creature2.get_hp()
-        creature1.attacks(creature2)
+        creature2.is_attacked_by(creature1)
         new_hp = creature2.get_hp()
 
         death_notification = ""
 
+        end_game_msg = ""
+
         if self._is_dead(id2):
-            loc2 = self.creature2loc[creature2]
-            self.creature2loc.pop(creature2)
-            self.loc2creature.pop(loc2)
+            loc2 = self._creature2loc[creature2]
+            self._creature2loc.pop(creature2)
+            self._loc2creature.pop(loc2)
+
             death_notification = "\n{name2} {id2} dies.".format(name2=name2,
                                                                 id2=id2)
 
-        end_game_msg = ""
+            if isinstance(creature2, Knight):
+                self._no_of_living_knights -= 1
 
-        if isinstance(creature2, Knight) and self._all_knights_are_dead():
-            end_game_msg = ("\n=== GAME OVER\n"
-                            "All knights are dead. The dragons win!")
-            self._game_in_progress = False
-        elif isinstance(creature2, Dragon) and self._all_dragons_are_dead():
-            end_game_msg = ("\n=== GAME OVER\n"
-                            "All dragons are dead. The knights win!")
-            self._game_in_progress = False
+                if self._all_knights_are_dead():
+                    end_game_msg = ("\n=== GAME OVER\n"
+                                    "All knights are dead. The dragons win!")
+                    self._game_in_progress = False
+            else:
+                self._no_of_living_dragons -= 1
+
+                if self._all_dragons_are_dead():
+                    end_game_msg = ("\n=== GAME OVER\n"
+                                    "All dragons are dead. The knights win!")
+                    self._game_in_progress = False
 
         return ("{name1} {id1} attacks {name2} {id2} for {dmg} damage, "
                 "reducing its hp from "
@@ -374,15 +413,16 @@ class DragonArena:
                          death_notification=death_notification,
                          end_game_msg=end_game_msg)
 
+    # Allows the calling server to process a heal.
     def heal(self, id1, id2):
-        assert(self._id_exists(id1))
-        assert(self._id_exists(id2))
+        assert self._id_exists(id1)
+        assert self._id_exists(id2)
 
-        creature1 = self.id2creature[id1]
-        creature2 = self.id2creature[id2]
+        creature1 = self._id2creature[id1]
+        creature2 = self._id2creature[id2]
 
         # ensure heal is valid
-        assert(isinstance(creature1, Knight) and isinstance(creature2, Knight))
+        assert isinstance(creature1, Knight) and isinstance(creature2, Knight)
 
         # check for death
 
@@ -406,7 +446,7 @@ class DragonArena:
         # ok to heal
 
         old_hp = creature2.get_hp()
-        creature1.heals(creature2)
+        creature2.is_healed_by(creature1)
         new_hp = creature2.get_hp()
 
         return ("Knight {id1} heals Knight {id2} for {points} points, "
@@ -415,6 +455,7 @@ class DragonArena:
                 ).format(id1=id1, id2=id2, points=creature1.get_ap(),
                          old_hp=old_hp, new_hp=new_hp)
 
+    # Allows the calling server to process a round of dragon attacks.
     def let_dragons_attack(self):
         dragon_ids = self._get_living_dragon_ids()
 
@@ -431,3 +472,44 @@ class DragonArena:
                 log_messages.append(self.attack(dragon_id, target_id))
 
         return "\n".join(log_messages)
+
+    # TODO:
+    # This function should return an object O s.t.:
+    # - The entire game state can be reconstructed from O.
+    # - O is suited for network traffic.
+    def get_state_for_servers(self):
+        game_state = {}
+        game_state["no_of_dragons"] = self._no_of_dragons
+        game_state["map_width"] = self._map_width
+        game_state["map_height"] = self._map_height
+        game_state["creature2id"] = self._creature2id
+        game_state["creature2loc"] = self._creature2loc
+        game_state["id2loc"] = self._id2loc
+        return game_state
+
+    # TODO:
+    # Like the above, except that possibly some information could be hidden
+    # from clients. If not, the implementation is just the same, as I assume
+    # now.
+    def get_state_for_clients(self):
+        return self.get_state_for_servers()
+
+    # TODO: rewrite the class so that it can accept also accept O as an arg.
+    # Will depend on how O is constructed.
+
+    # Converts a game state dictionary to an array
+    def encode_state(game_state_dict):
+        return [game_state["no_of_dragons"], game_state["map_width"],
+        game_state["map_height"], game_state["creature2id"],
+        game_state["creature2loc"], game_state["loc2id"]]
+
+    # Converts a array to a game state dictionary
+    def decode_state(game_state_array):
+        game_state = {}
+        game_state["no_of_dragons"] = game_state_array[0]
+        game_state["map_width"] = game_state_array[1]
+        game_state["map_height"] = game_state_array[2]
+        game_state["creature2id"] = game_state_array[3]
+        game_state["creature2loc"] = game_state_array[4]
+        game_state["id2loc"] = game_state_array[5]
+        return game_state

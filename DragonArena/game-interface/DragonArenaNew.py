@@ -232,7 +232,7 @@ class DragonArena:
     def new_game(self):
         # Initialize all dragon objects.
         # Use negative int IDs for dragons, and assume IDs >= 0 for knights.
-        dragons = [Dragon(-(i+1)) for i in range(self._no_of_dragons)]
+        dragons = [Dragon((-1, i)) for i in range(self._no_of_dragons)]
 
         # Create dictionary containing <dragon> : <location>
         self._creature2loc = dict(zip(dragons, random.sample(self._locations,
@@ -473,7 +473,6 @@ class DragonArena:
 
         return "\n".join(log_messages)
 
-    # TODO:
     # This function should return an object O s.t.:
     # - The entire game state can be reconstructed from O.
     # - O is suited for network traffic.
@@ -487,17 +486,15 @@ class DragonArena:
                 "id2creature": self._id2creature
                 }
 
-    # TODO:
-    # Like the above, except that possibly some information could be hidden
-    # from clients. If not, the implementation is just the same, as I assume
-    # now.
+    # could have a different implementation
     def get_state_for_clients(self):
         return self.get_state_for_servers()
 
     # TODO: rewrite the class so that it can accept also accept O as an arg.
     # Will depend on how O is constructed.
 
-    # Roy: this needs to be changed. Will do later
+    # Roy: this needs to be changed (fields are not correct.)
+    # also not sure if it is needed.
 
     # Converts a game state dictionary to an array
     def encode_state(self, game_state_dict):

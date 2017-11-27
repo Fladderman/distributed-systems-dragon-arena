@@ -478,7 +478,7 @@ class DragonArena:
     # This function should return an object O s.t.:
     # - The entire game state can be reconstructed from O.
     # - O is suited for network traffic.
-    def get_state(self):
+    def create_snapshot(self):
         return {"no_of_dragons": self._no_of_dragons,
                 "map_width": self._map_width,
                 "map_height": self._map_height,
@@ -488,22 +488,22 @@ class DragonArena:
                 "id2creature": self._id2creature
                 }
 
-    # THIS DOES NOT WORK YET!
-    # For reason old ids are retained, for example.
-    def use_state(self, state):
+    # does not work yet!!!
+    # probably deep copies have to be made in the creation of snapshots
+    # will read up on it later
+    def recover_snapshot(self, snapshot):
         # how many dragons there were initially is needed in case new_game()
         # is called
-        self._no_of_dragons = state["no_of_dragons"]
-        self._map_width = state["map_width"]
-        self._map_height = state["map_height"]
-        self._game_in_progress = state["game_in_progress"]
+        self._no_of_dragons = snapshot["no_of_dragons"]
+        self._map_width = snapshot["map_width"]
+        self._map_height = snapshot["map_height"]
+        self._game_in_progress = snapshot["game_in_progress"]
+        self._creature2loc = snapshot["creature2loc"]
+        self._loc2creature = snapshot["loc2creature"]
+        self._id2creature = snapshot["id2creature"]
 
         self._locations = set(itertools.product(range(self._map_height),
                                                 range(self._map_width)))
-
-        self._creature2loc = state["creature2loc"]
-        self._loc2creature = state["loc2creature"]
-        self._id2creature = state["id2creature"]
 
         # the other mappings are derived, and use these dicts at each call
 

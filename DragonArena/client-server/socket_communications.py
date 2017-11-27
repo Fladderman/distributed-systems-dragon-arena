@@ -12,6 +12,7 @@ PORTS = settings["server"]["ports"]
 """
 Copied from python2 tutorial, needs improvement!
 """
+socket.setdefaulttimeout(2)
 
 
 class SocketHandling:
@@ -20,8 +21,11 @@ class SocketHandling:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self.sock = sock
-
     def send_data(self, msg, msg_len=MSGLEN, sock_fd=None):
+        """
+        sock_fd is the socket of the dest
+        really only used for the server
+        """
         sock_fd.send(msg)
         return
         # TODO for some reason the code below here is not working ?!
@@ -50,6 +54,7 @@ class SocketHandling:
 class ServerSocket(SocketHandling):
     def __init__(self, sock=None):
         SocketHandling.__init__(self, sock=sock)
+        print self.sock
 
         self.connected_clients = []
 
@@ -57,12 +62,13 @@ class ServerSocket(SocketHandling):
         for port in PORTS:
             try:
                 self.sock.bind((host, port))
+                print "bound to port" + str(port)
+                # Queue max BACKLOG requests
+                self.sock.listen(BACKLOG)
+                return
             except socket.error:
-                # print "oh shit"
+                print "oh shit"
                 continue
-
-        # Queue max BACKLOG requests
-        self.sock.listen(BACKLOG)
 
     def accept(self):
         """
@@ -72,11 +78,11 @@ class ServerSocket(SocketHandling):
         """
         while True:
             # Establish a connection
+            print "accept loop step"
             client_socket, addr = self.sock.accept()
 
             if len(self.connected_clients) < MAX_CLIENTS:
                 self.connected_clients.append((client_socket, addr))
-
                 return client_socket
             else:
                 client_socket.send("NACK")

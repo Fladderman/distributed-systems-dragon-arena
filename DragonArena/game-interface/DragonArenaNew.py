@@ -64,6 +64,8 @@ class DragonArena:
         # allow at least one knight to be spawned
         assert no_of_dragons < map_width * map_height
 
+        self._DRAGON = -1
+
         self._no_of_dragons = no_of_dragons
         self._map_width = map_width
         self._map_height = map_height
@@ -231,8 +233,8 @@ class DragonArena:
     # the map again.
     def new_game(self):
         # Initialize all dragon objects.
-        # Use negative int IDs for dragons, and assume IDs >= 0 for knights.
-        dragons = [Dragon(-(i+1)) for i in range(self._no_of_dragons)]
+        dragons = [Dragon((self._DRAGON, i))
+                   for i in range(self._no_of_dragons)]
 
         # Create dictionary containing <dragon> : <location>
         self._creature2loc = dict(zip(dragons, random.sample(self._locations,
@@ -473,43 +475,47 @@ class DragonArena:
 
         return "\n".join(log_messages)
 
-    # TODO:
     # This function should return an object O s.t.:
     # - The entire game state can be reconstructed from O.
     # - O is suited for network traffic.
-    def get_state_for_servers(self):
-        game_state = {}
-        game_state["no_of_dragons"] = self._no_of_dragons
-        game_state["map_width"] = self._map_width
-        game_state["map_height"] = self._map_height
-        game_state["creature2id"] = self._creature2id
-        game_state["creature2loc"] = self._creature2loc
-        game_state["id2loc"] = self._id2loc
-        return game_state
+    def create_snapshot(self):
+        return {"no_of_dragons": self._no_of_dragons,
+                "map_width": self._map_width,
+                "map_height": self._map_height,
+                "game_in_progress": self._game_in_progress,
+                "creature2loc": self._creature2loc,
+                "loc2creature": self._loc2creature,
+                "id2creature": self._id2creature
+                }
 
-    # TODO:
-    # Like the above, except that possibly some information could be hidden
-    # from clients. If not, the implementation is just the same, as I assume
-    # now.
-    def get_state_for_clients(self):
-        return self.get_state_for_servers()
+    # does not work yet!!!
+    # probably deep copies have to be made in the creation of snapshots
+    # will read up on it later
+    def recover_snapshot(self, snapshot):
+        # how many dragons there were initially is needed in case new_game()
+        # is called
+        self._no_of_dragons = snapshot["no_of_dragons"]
+        self._map_width = snapshot["map_width"]
+        self._map_height = snapshot["map_height"]
+        self._game_in_progress = snapshot["game_in_progress"]
+        self._creature2loc = snapshot["creature2loc"]
+        self._loc2creature = snapshot["loc2creature"]
+        self._id2creature = snapshot["id2creature"]
 
-    # TODO: rewrite the class so that it can accept also accept O as an arg.
-    # Will depend on how O is constructed.
+        self._locations = set(itertools.product(range(self._map_height),
+                                                range(self._map_width)))
 
-    # Converts a game state dictionary to an array
-    def encode_state(game_state_dict):
-        return [game_state["no_of_dragons"], game_state["map_width"],
-        game_state["map_height"], game_state["creature2id"],
-        game_state["creature2loc"], game_state["loc2id"]]
+        # the other mappings are derived, and use these dicts at each call
 
-    # Converts a array to a game state dictionary
-    def decode_state(game_state_array):
-        game_state = {}
-        game_state["no_of_dragons"] = game_state_array[0]
-        game_state["map_width"] = game_state_array[1]
-        game_state["map_height"] = game_state_array[2]
-        game_state["creature2id"] = game_state_array[3]
-        game_state["creature2loc"] = game_state_array[4]
-        game_state["id2loc"] = game_state_array[5]
-        return game_state
+        self._no_of_living_dragons = 0
+        self._no_of_living_knights = 0
+
+        for creature in self._creature2loc.keys():
+            if isinstance(creature, Dragon):
+                self._no_of_living_dragons += 1
+            else:
+                self._no_of_living_knights += 1
+
+        # not sure if we want to return anything here
+
+    # TODO: add functionality for client interaction

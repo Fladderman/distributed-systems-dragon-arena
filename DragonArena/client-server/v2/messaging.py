@@ -8,16 +8,10 @@ Each Message class represents an instance of any network message
 '''
 
 
-header2int_vec = ['PING', 'CLIENT_HELLO', 'SERV_WELCOME']
-int2header = dict(v:k for k,v in enumerate(header2int_vec))
-
-
-PING_MESSAGE = Message(99,2,[]) # just nonsense for now. works as long as they are unique
-CLIENT_HELLO = Message(32,45,[])
-
+int2header_list = ['PING', 'CLIENT_HELLO', 'SERV_WELCOME']
+header2int = {v: k for k,v in enumerate(int2header_list)}
 
 class Message:
-
     def __init__(self, msg_header, sender, args):
         assert isinstance(msg_header, int)
         assert isinstance(sender, int)
@@ -33,9 +27,9 @@ class Message:
 
     def __eq__(self, other):
         if isinstance(other, Message):
-            return self.msg_header == other.msg_header and
-                self.sender == other.sender and
-                self.args == other.args
+            return self.msg_header == other.msg_header\
+                and self.sender == other.sender\
+                and self.args == other.args
         else: return False
 
 
@@ -53,11 +47,15 @@ class Message:
         return Message(msg_header, sender, args)
 
     def __repr__(self):
-        str_header = '??header??' if self.msg_header not in int2header else int2header[self.msg_header]
+        str_header = '??header??' if self.msg_header not in int2header_list else int2header_list[self.msg_header]
         return (
             'Message::' + str_header + ' from '
             + str(self.sender) + ' with args:' + str(self.args)
         )
+
+PING_MESSAGE = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
+CLIENT_HELLO = Message(header2int['CLIENT_HELLO'],-1,[])
+
 
 def read_msg_from(socket, timeout=False):
     assert isinstance(timeout, bool)

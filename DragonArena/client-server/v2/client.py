@@ -1,14 +1,17 @@
 import threading, time, json, socket
-import messaging, das_game_settings
+import messaging, das_game_settings, client_player
 from random import shuffle
 
 class Client:
-    def __init__(self):
+    def __init__(self, player):
+        assert isinstance(player, client_player.Player)
+        self._player = player;
         self.sorted_server_ids = self._ordered_server_list() #in order of descending 'quality
         self._server_socket = self._connect_to_a_server()
         messaging.write_msg_to(self._server_socket, messaging.CLIENT_HELLO)
         reply_msg = messaging.read_msg_from(serv_socket, timeout=False)
         print('client got', str(msg), ':)')
+        self._player_requests = []
 
 
     def _ordered_server_list(self):
@@ -47,5 +50,13 @@ class Client:
             return None
 
     def main_loop(self):
+        # start off the player objects
+        self._player_thread = threading.Thread(
+            target=client_player.Player.main_loop
+            args=(self._player, self._player_requests),
+        )
+        self._player_thread.daemon = True
+        self._player_thread.start()
+
         while True:
             pass

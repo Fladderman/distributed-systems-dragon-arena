@@ -64,12 +64,8 @@ class Server:
         for msg in messaging.read_many_msgs_from(client_sock):
             print('loop')
             if msg != None:
-                if msg == messaging.PING_MESSAGE:
-                    print('got a ping! replying in kind')
-                    messaging.write_msg_to(client_sock, messaging.PING_MESSAGE)
-                    # respond with ping immediately
+                # todo handle ping messages?
                 self._requests.append(msg)
-
                 print('msg yielded', msg)
                 msg.sender = client_addr #todo make this some kind of client id
                 with self._req_lock:

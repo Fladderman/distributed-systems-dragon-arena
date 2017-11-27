@@ -7,10 +7,16 @@ socket.setdefaulttimeout(1.0) #todo mess around
 Each Message class represents an instance of any network message
 '''
 
-PING_MESSAGE = Message(99,2,[])
+
+header2int_vec = ['PING', 'CLIENT_HELLO', 'SERV_WELCOME']
+int2header = dict(v:k for k,v in enumerate(header2int_vec))
+
+
+PING_MESSAGE = Message(99,2,[]) # just nonsense for now. works as long as they are unique
+CLIENT_HELLO = Message(32,45,[])
+
 
 class Message:
-
 
     def __init__(self, msg_header, sender, args):
         assert isinstance(msg_header, int)
@@ -19,6 +25,19 @@ class Message:
         self.msg_header = msg_header
         self.sender = sender
         self.args = args
+
+    def same_header_as(self, other):
+        if isinstance(other, Message):
+            self.msg_header == other.msg_header
+        else: return False
+
+    def __eq__(self, other):
+        if isinstance(other, Message):
+            return self.msg_header == other.msg_header and
+                self.sender == other.sender and
+                self.args == other.args
+        else: return False
+
 
     def serialize(self):
         return (self.msg_header, self.sender, self.args)
@@ -34,8 +53,9 @@ class Message:
         return Message(msg_header, sender, args)
 
     def __repr__(self):
+        str_header = '??header??' if self.msg_header not in int2header else int2header[self.msg_header]
         return (
-            'Message::' + str(self.msg_header) + ' from '
+            'Message::' + str_header + ' from '
             + str(self.sender) + ' with args:' + str(self.args)
         )
 

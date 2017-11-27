@@ -478,14 +478,14 @@ class DragonArena:
     # - The entire game state can be reconstructed from O.
     # - O is suited for network traffic.
     def get_state_for_servers(self):
-        game_state = {}
-        game_state["no_of_dragons"] = self._no_of_dragons
-        game_state["map_width"] = self._map_width
-        game_state["map_height"] = self._map_height
-        game_state["creature2id"] = self._creature2id
-        game_state["creature2loc"] = self._creature2loc
-        game_state["id2loc"] = self._id2loc
-        return game_state
+        return {"no_of_dragons": self._no_of_dragons,
+                "map_width": self._map_width,
+                "map_height": self._map_height,
+                "game_in_progress": self._game_in_progress,
+                "creature2loc": self._creature2loc,
+                "loc2creature": self._loc2creature,
+                "id2creature": self._id2creature
+                }
 
     # TODO:
     # Like the above, except that possibly some information could be hidden
@@ -497,19 +497,24 @@ class DragonArena:
     # TODO: rewrite the class so that it can accept also accept O as an arg.
     # Will depend on how O is constructed.
 
+    # Roy: this needs to be changed. Will do later
+
     # Converts a game state dictionary to an array
-    def encode_state(game_state_dict):
-        return [game_state["no_of_dragons"], game_state["map_width"],
-        game_state["map_height"], game_state["creature2id"],
-        game_state["creature2loc"], game_state["loc2id"]]
+    def encode_state(self, game_state_dict):
+        return [game_state_dict["no_of_dragons"],
+                game_state_dict["map_width"],
+                game_state_dict["map_height"],
+                game_state_dict["creature2id"],
+                game_state_dict["creature2loc"],
+                game_state_dict["loc2id"]
+                ]
 
     # Converts a array to a game state dictionary
-    def decode_state(game_state_array):
-        game_state = {}
-        game_state["no_of_dragons"] = game_state_array[0]
-        game_state["map_width"] = game_state_array[1]
-        game_state["map_height"] = game_state_array[2]
-        game_state["creature2id"] = game_state_array[3]
-        game_state["creature2loc"] = game_state_array[4]
-        game_state["id2loc"] = game_state_array[5]
-        return game_state
+    def decode_state(self, game_state_array):
+        return {"no_of_dragons": game_state_array[0],
+                "map_width": game_state_array[1],
+                "map_height": game_state_array[2],
+                "creature2id": game_state_array[3],
+                "creature2loc": game_state_array[4],
+                "id2loc": game_state_array[5]
+                }

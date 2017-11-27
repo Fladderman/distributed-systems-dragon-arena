@@ -499,7 +499,9 @@ class DragonArena:
 
     # Converts a game state dictionary to an array
     def encode_state(game_state_dict):
-        return [game_state["no_of_dragons"], game_state["map_width"], game_state["map_height"], game_state["creature2id"], game_state["creature2loc"], game_state["loc2id"]]
+        return [game_state["no_of_dragons"], game_state["map_width"],
+        game_state["map_height"], game_state["creature2id"],
+        game_state["creature2loc"], game_state["loc2id"]]
 
     # Converts a array to a game state dictionary
     def decode_state(game_state_array):

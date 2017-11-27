@@ -5,8 +5,6 @@ from sys import maxsize
 
 settings = json.load(open('../settings.json'))
 
-# I make one simplifying assumption: servers never submit dragon ids
-
 
 class Creature:
     def __init__(self, name, max_hp, ap, identifier):

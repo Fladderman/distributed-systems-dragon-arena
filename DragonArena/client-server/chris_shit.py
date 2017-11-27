@@ -1,10 +1,9 @@
-import threading
-import socket
-import msgpack
-import time
+import threading, socket, msgpack, time
 socket.setdefaulttimeout(2) #DEBUG
 from StringIO import StringIO
-from pprint import pprint
+#from pprint import pprint
+
+TICK_MIN_TIME = 1.0
 
 class Message:
     def __init__(self, msg_header, sender, args):
@@ -29,26 +28,46 @@ class Message:
         return Message(msg_header, sender, args)
 
     def __repr__(self):
-        return str('Message::' + str(self.msg_header) +
-        " from " + str(self.sender) + ' with args:', self.args)
+        return (
+            'Message::' + str(self.msg_header) + ' from '
+            + str(self.sender) + ' with args:' + str(self.args)
+        )
 
 
-'''returns a connected client-side socket'''
-def sock_client(ip, port):
-    assert type(ip) is str and type(port) is int
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((ip, port))
-    return s
+def read_all_from(socket):
+    '''
+    Generator object. will read from socket
+    blocks until it yields a Message or None
+        yields *something* regularly to allow early termination ;)
+    returns when socket is dead.
+    '''
+    unpacker = msgpack.Unpacker()
+    while True:
+        try:
+            x = socket.recv(256)
+            print('x', x)
+            if x == '':
+                print('socket dead!')
+                return
+                #connection closed!
+            unpacker.feed(x)
+            for package in unpacker:
+                msg = Message.deserialize(package)
+                yield msg
+        except:
+            yield None
 
 
 def write_to(socket, msg):
     assert isinstance(msg, Message)
+    '''
+    send the given msg into the socket
+    '''
     myfile = StringIO()
-    serialized_msg = msg.serialize()
     packer = msgpack.Packer()
-    myfile.write(packer.pack(serialized_msg))
+    myfile.write(packer.pack(msg.serialize()))
     myfile = StringIO(myfile.getvalue())
-    pprint(vars(myfile))
+    #pprint(vars(myfile))
     tot_bytes = len(myfile.buf)
     sent_now = 1
     while sent_now != 0:
@@ -71,7 +90,8 @@ class ServerAcceptor:
             return None, None
 
 class Server:
-    def __init__(self, port):
+    def __init__(self, server_id, port):
+        self._server_id = server_id
         self._accepting_new_clients = True;
         self._accepting_clients = True
         self._clients = dict() # maps addr to sock
@@ -85,14 +105,11 @@ class Server:
         self._req_lock = threading.Lock()
 
     def handle_client_incoming(self, client_sock, client_addr):
-        print('yeee:::', self, client_sock, client_addr)
-        unpacker = msgpack.Unpacker()
-        while client_addr in self._clients:
-            unpacker.feed(client_sock.recv(1))
-            for package in unpacker:
-                print('package: ', package)
-                msg = Message.deserialize(package)
-                print('good message', str(msg))
+        for msg in read_all_from(client_sock):
+            print('msg yielded', msg)
+            if msg != None:
+                with self._req_lock:
+                    self._requests.append(msg)
 
     def handle_incoming_clients(self, port):
         server_acceptor = ServerAcceptor(port)
@@ -114,9 +131,38 @@ class Server:
                 time.sleep(1)
         return 5
 
-
     def main_loop(self):
         while True:
-            # with self._req_lock:
-            #     print("server tick!. have ", self._clients, "clients")
-            time.sleep(1)
+            tick_start = time.time()
+
+            '''SWAP BUFFERS'''
+            with self._req_lock:
+                my_req_pool = self._requests
+                self._requests = []
+            if my_req_pool:
+                print('tick drained', my_req_pool)
+
+            '''SLEEP STEP'''
+            sleep_time = TICK_MIN_TIME - (time.time() - tick_start)
+            if sleep_time > 0.0:
+                time.sleep(sleep_time)
+
+class Client:
+    def __init__(self):
+        
+
+    '''
+    attempts to connect
+    '''
+    @staticmethod
+    def sock_client(ip, port, timeout=2):
+        assert isinstance(ip, str)
+        assert isinstance(port, int)
+        assert isinstance(timeout, int)
+        try:
+            socket.setdefaulttimeout(timeout)
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((ip, port))
+            return
+        except:
+            return None

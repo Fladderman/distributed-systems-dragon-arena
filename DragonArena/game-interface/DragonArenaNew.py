@@ -64,6 +64,8 @@ class DragonArena:
         # allow at least one knight to be spawned
         assert no_of_dragons < map_width * map_height
 
+        self._DRAGON = -1
+
         self._no_of_dragons = no_of_dragons
         self._map_width = map_width
         self._map_height = map_height
@@ -231,8 +233,8 @@ class DragonArena:
     # the map again.
     def new_game(self):
         # Initialize all dragon objects.
-        # Use negative int IDs for dragons, and assume IDs >= 0 for knights.
-        dragons = [Dragon((-1, i)) for i in range(self._no_of_dragons)]
+        dragons = [Dragon((self._DRAGON, i))
+                   for i in range(self._no_of_dragons)]
 
         # Create dictionary containing <dragon> : <location>
         self._creature2loc = dict(zip(dragons, random.sample(self._locations,
@@ -476,7 +478,7 @@ class DragonArena:
     # This function should return an object O s.t.:
     # - The entire game state can be reconstructed from O.
     # - O is suited for network traffic.
-    def get_state_for_servers(self):
+    def get_state(self):
         return {"no_of_dragons": self._no_of_dragons,
                 "map_width": self._map_width,
                 "map_height": self._map_height,
@@ -486,9 +488,34 @@ class DragonArena:
                 "id2creature": self._id2creature
                 }
 
-    # could have a different implementation
-    def get_state_for_clients(self):
-        return self.get_state_for_servers()
+    # THIS DOES NOT WORK YET!
+    # For reason old ids are retained, for example.
+    def use_state(self, state):
+        # how many dragons there were initially is needed in case new_game()
+        # is called
+        self._no_of_dragons = state["no_of_dragons"]
+        self._map_width = state["map_width"]
+        self._map_height = state["map_height"]
+        self._game_in_progress = state["game_in_progress"]
 
-    # TODO: rewrite the class so that it can accept also accept O as an arg.
-    # Will depend on how O is constructed.
+        self._locations = set(itertools.product(range(self._map_height),
+                                                range(self._map_width)))
+
+        self._creature2loc = state["creature2loc"]
+        self._loc2creature = state["loc2creature"]
+        self._id2creature = state["id2creature"]
+
+        # the other mappings are derived, and use these dicts at each call
+
+        self._no_of_living_dragons = 0
+        self._no_of_living_knights = 0
+
+        for creature in self._creature2loc.keys():
+            if isinstance(creature, Dragon):
+                self._no_of_living_dragons += 1
+            else:
+                self._no_of_living_knights += 1
+
+        # not sure if we want to return anything here
+
+    # TODO: add functionality for client interaction

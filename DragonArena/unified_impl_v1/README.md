@@ -31,8 +31,8 @@ To try out the system:
         1. protected request queue (player produces, client consumes)
         2. protected game state (player views, client modifies)
         client splits and enters 2 loops:
-        1. read updates from server, apply to game state
-        2.
+        1. get updates from server, apply to game state
+        2. drain player update requests and forward them to the server
 
 
 # whats in

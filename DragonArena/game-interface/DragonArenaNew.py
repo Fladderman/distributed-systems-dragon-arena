@@ -134,12 +134,6 @@ class DragonArena:
     def format_id(identifier):
         return "{{{type}|{id}}}".format(type=identifier[0], id=identifier[1])
 
-    def _get_living_dragon_ids(self):
-        return map(self._creature2id,
-                   filter(lambda x: isinstance(x, Dragon),
-                          self._creature2loc.keys())
-                   )
-
     def _all_knights_are_dead(self):
         return self._no_of_living_knights == 0
 
@@ -166,6 +160,10 @@ class DragonArena:
         return self._is_occupied_location(location) and \
                isinstance(self._loc2creature[location], Knight)
 
+    def _is_occupied_by_dragon(self, location):
+        return self._is_occupied_location(location) and \
+               isinstance(self._loc2creature[location], Dragon)
+
     def _id_exists(self, identifier):
         return identifier in self._id2creature.keys()
 
@@ -176,7 +174,7 @@ class DragonArena:
         return self._id2creature[identifier] is None
 
     def _is_alive(self, identifier):
-        return self._id2creature[identifier].is_alive()
+        return not self._is_dead(identifier)
 
     # horizontal or vertical (our notion of distance), maxsize otherwise
     def _distance(self, id1, id2):
@@ -196,16 +194,6 @@ class DragonArena:
 
     def _is_in_attack_range(self, id1, id2):
         return self._distance(id1, id2) <= 2
-
-    def _get_knight_ids_in_attack_range(self, dragon_id):
-        dragon_loc = self._id2loc(dragon_id)
-        x = dragon_loc[0]
-        y = dragon_loc[1]
-        knight_loc = filter(self._is_occupied_by_knight,
-                            [(x - 2, y), (x - 1, y), (x + 1, y), (x + 2, y),
-                             (x, y - 2), (x, y - 1), (x, y + 1), (x, y + 2)]
-                            )
-        return map(lambda loc: self._loc2id(loc), knight_loc)
 
     # helper method for the actual move methods
     def _move_help(self, next_location, direction, knight_id):
@@ -489,9 +477,33 @@ class DragonArena:
                          points=creature1.get_ap(),
                          old_hp=old_hp, new_hp=new_hp)
 
+    def attack_candidates(self, identifier):
+        attacker_loc = self._id2loc(identifier)
+        x = attacker_loc[0]
+        y = attacker_loc[1]
+        predicate = self._is_occupied_by_knight if \
+            identifier[0] == self._DRAGON else self._is_occupied_by_dragon
+        target_loc = filter(predicate,
+                            [(x - 2, y), (x - 1, y), (x + 1, y), (x + 2, y),
+                             (x, y - 2), (x, y - 1), (x, y + 1), (x, y + 2)]
+                            )
+        return target_loc
+
+    def heal_candidates(self, knight_id):
+        healer_loc = self._id2loc(knight_id)
+        x = healer_loc[0]
+        y = healer_loc[1]
+        coordinates = [(x + i, y) for i in xrange(5, -6)] + \
+                      [(x, y + i) for i in xrange(5, -6)]
+        return filter(self._is_occupied_by_knight, coordinates)
+
+    def get_dragons(self):
+        return filter(lambda x: isinstance(x, Dragon),
+                      self._creature2loc.keys())
+
     # Allows the calling server to process a round of dragon attacks.
     def let_dragons_attack(self):
-        dragon_ids = self._get_living_dragon_ids()
+        dragon_ids = map(self._creature2id, self.get_dragons())
 
         # target selection algorithm.
         # atm just picks the first (at least deterministic)
@@ -500,10 +512,11 @@ class DragonArena:
         log_messages = []
 
         for dragon_id in dragon_ids:
-            target_ids = self._get_knight_ids_in_attack_range(dragon_id)
-            if target_ids:
-                target_id = select_target(target_ids)
-                log_messages.append(self.attack(dragon_id, target_id))
+            knight_ids = map(lambda loc: self._loc2id(loc),
+                             self.attack_candidates(dragon_id))
+            if knight_ids:
+                knight_id = select_target(knight_ids)
+                log_messages.append(self.attack(dragon_id, knight_id))
 
         return "\n".join(log_messages)
 
@@ -566,5 +579,3 @@ class DragonArena:
                 self._no_of_living_dragons += 1
             else:
                 self._no_of_living_knights += 1
-
-    # TODO: add functionality for client interaction

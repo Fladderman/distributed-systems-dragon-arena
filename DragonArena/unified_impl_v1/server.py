@@ -52,8 +52,9 @@ class Server:
             self._server_sockets = [None for _ in xrange(0, das_game_settings.num_server_addresses)]
         else:
             # I'm not first :[
-            logging.info(("I am NOT the first server!. Will sync with auth_index").format())
-            messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_REQ(self._server_id))
+            sync_req = messaging.M_S2S_SYNC_REQ(self._server_id)
+            logging.info(("I am NOT the first server!. Will sync with auth_index. sending msg {sync_req}").format(sync_req=sync_req))
+            messaging.write_msg_to(auth_sock, sync_req)
             sync_reply = messaging.read_msg_from(auth_sock)
             logging.info(("Got sync reply: {reply}").format(reply=str(sync_reply)))
             assert sync_reply.msg_header == messaging.header2int['S2S_SYNC_REPLY']
@@ -158,17 +159,19 @@ class Server:
                 self._syncing_server_ids.enqueue(msg.sender)
                 while self._syncing_server_ids.contains(msg.sender):
                     # waiting for main_loop thread to sync this server. main loop will respond
-                    time.wait(0.3)
+                    time.sleep(0.3)
                 #sync successful I guess!
                 self._handle_server_incoming(socket, addr)
 
 
     def _handle_client_incoming(self, socket, addr):
-        for msg in messaging.generate_messages_from(client_sock):
+        for msg in messaging.generate_messages_from(socket, timeout=False):
+            logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
             pass
 
     def _handle_server_incoming(self, socket, addr):
-        for msg in messaging.generate_messages_from(client_sock):
+        for msg in messaging.generate_messages_from(socket, timeout=False):
+            logging.info(("Got server incoming {msg}!").format(msg=str(msg)))
             pass
 
     @staticmethod
@@ -198,11 +201,15 @@ class Server:
             logging.info(("drained ({num_reqs}) requests in tick {tick_id}").format(num_reqs=len(my_req_pool), tick_id=self._tick_id))
 
             servers_waiting = self._syncing_server_ids.drain_if_probably_something()
+            if servers_waiting:
+                logging.info(("Server has found ({num}) other servers waiting for sync! going to try become the LEADER").format(num=len(servers_waiting)))
+
 
             '''FLOOD REQS'''
             for serv_id, sock in enumerate(self._server_sockets):
                 if sock == None:
-                    logging.info(("Skipping req flood to server_id {serv_id} (No socket)").format(serv_id=serv_id))
+                    #TODO put back in
+                    #logging.info(("Skipping req flood to server_id {serv_id} (No socket)").format(serv_id=serv_id))
                     continue
                 try:
                     messaging.write_many_msgs_to(sock, my_req_pool)
@@ -220,7 +227,9 @@ class Server:
             '''READ REQS AND WAIT'''
             for serv_id, sock in enumerate(self._server_sockets):
                 if sock==None:
-                    logging.info(("Not waiting for DONE from {serv_id} (No socket)").format(serv_id=serv_id))
+                    #TODO put back in
+                    #logging.info(("Not waiting for DONE from {serv_id} (No socket)").format(serv_id=serv_id))
+                    pass
                 else:
                     msgs = list(Server._generate_msgs_until_done_or_crash(sock))
                     my_req_pool.extend(msgs)
@@ -247,7 +256,7 @@ class Server:
             '''SLEEP STEP'''
             sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
             if sleep_time > 0.0:
-                logging.info(("Sleeping for ({sleep_time}) seconds for {tick_id}").format(sleep_time=sleep_time, tick_id=self._tick_id))
+                logging.info(("Sleeping for ({sleep_time}) seconds for ick_id {tick_id}").format(sleep_time=sleep_time, tick_id=self._tick_id))
                 time.sleep(sleep_time)
             else:
                 logging.info(("No time for sleep for tick_id {tick_id}").format(tick_id=self._tick_id))

@@ -57,7 +57,7 @@ class ProtectedQueue:
             self._q = []
         return drained
 
-    def contains(self, x, timieout=0.1):
+    def contains(self, x, timeout=0.1):
         with self._cv:
             self._cv.wait(timeout=timeout)
             return x in self._q

@@ -1,5 +1,5 @@
 import threading, time, json, socket
-import messaging, das_game_settings, client_player, state_dummy, protected_queue, protected_game_state
+import messaging, das_game_settings, client_player, state_dummy, protected
 from random import shuffle
 
 class Client:
@@ -16,7 +16,7 @@ class Client:
         reply_msg = messaging.read_msg_from(self._server_socket, timeout=False)
         print('client got', str(reply_msg), ':)')
 
-        self._protected_game_state = protected_game_state.PotectedGameState()
+        self._protected_game_state = protected.PotectedGameState()
 
 
     def _ordered_server_list(self):
@@ -70,7 +70,7 @@ class Client:
                 self._updates.push(msg)
 
     def main_outgoing_loop(self):
-        self._player_requests = protected_queue.ProtectedQueue()
+        self._player_requests = protected.ProtectedQueue()
         # start off the player objects
         self._player_thread = threading.Thread(
             target=self._player.main_loop,

@@ -12,7 +12,8 @@ structures allow mapping back and forth:
     header2int[<str>] ==> <int>
 
 '''
-int2header = ['PING', 'C2S_HELLO', 'S2C_WELCOME', 'S2S_HELLO', 'S2S_WELCOME', 'S2S_SYNC_REQ', 'M_S2S_SYNC_REPLY']
+int2header = ['PING', 'C2S_HELLO', 'S2C_WELCOME', 'S2S_HELLO',
+    'S2S_WELCOME', 'S2S_SYNC_REQ', 'M_S2S_SYNC_REPLY', 'PLAYER_REQ_DUMMY']
 header2int = {v: k for k,v in enumerate(int2header)}
 
 '''
@@ -67,6 +68,7 @@ maybe simplify? idk
 '''
 M_PING = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
 M_C2S_HELLO = Message(header2int['C2S_HELLO'],-1,[])
+M_PLAYER_REQ_DUMMY = Message(header2int['PLAYER_REQ_DUMMY'],420,['foo', 69, 'get rekt'])
 def M_S2C_WELCOME(s_id):
     return Message(header2int['S2C_WELCOME'], s_id,[])
 def M_S2S_HELLO(s_id):

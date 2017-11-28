@@ -1,4 +1,22 @@
 import threading
+import state_dummy
+
+class PotectedGameState:
+    def __init__(self, state, timeout=0.1):
+        self._state = state
+        self.timeout = timeout
+        self._lock = threading.Lock()
+
+    def apply_func(self, func): #VERY generic. supply a function to be applied
+        assert callable(func)
+        with self._lock:
+            return func(state)
+
+    def replace_state(self, new_state):
+        assert isinstance(new_state, state_dummy.StateDummy)
+        with self._lock:
+            self._state = new_state
+
 
 class ProtectedQueue:
     def __init__(self, timeout=2.0):

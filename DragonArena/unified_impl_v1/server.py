@@ -57,10 +57,16 @@ class Server:
             messaging.write_msg_to(auth_sock, sync_req)
             sync_reply = messaging.read_msg_from(auth_sock)
             logging.info(("Got sync reply: {reply}").format(reply=str(sync_reply)))
-            assert sync_reply.msg_header == messaging.header2int['S2S_SYNC_REPLY']
-            self._tick_id = DragonArena.deserialize(sync_reply.args[0])
-            logging.info(("Got sync'd game state from server! serialized: {serialized_state}").format(serialized_state=sync_reply.args[1]))
-            self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
+            if sync_reply.msg_header != messaging.header2int['S2S_SYNC_REPLY']:
+                logging.info(("Expected S2S_SYNC_REPLY, got {msg}").format(msg=sync_reply))
+            self._tick_id = sync_reply.args[0]
+            try:
+                self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
+                logging.info(("Got sync'd game state from server! serialized: {serialized_state}").format(serialized_state=sync_reply.args[1]))
+            except:
+                logging.info(("Couldn't deserialize the given game state: {serialized_state}").format(serialized_state=sync_reply.args[1]))
+                exit(1)
+                #TODO try again?
             self._server_sockets = Server._socket_to_others({auth_index, server_id})
             hello_msg = messaging.M_S2S_HELLO(server_id)
             for i, s in enumerate(self._server_sockets):

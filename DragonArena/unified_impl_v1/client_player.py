@@ -28,6 +28,9 @@ class HumanPlayer(Player):
             yield messaging.M_PLAYER_REQ_DUMMY
 
 
+@staticmethod
+def manhattan_distance(loc1, loc2):
+    return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
 
 class BotPlayer(Player):
     def main_loop(self, protected_game_state):
@@ -44,3 +47,28 @@ class BotPlayer(Player):
             #lock released
             print('bot yield')
             yield messaging.M_PLAYER_REQ_DUMMY
+
+    # chris, integrate this plz
+    # suppose: my_id and da are respectively the bot's knight id
+    # and its da object
+    my_id = (1, 2)
+    da = DragonArena(2, 2, 2)
+
+    while True:  # while I'm alive and the game is running
+        must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
+                           da.heal_candidates(my_id))
+        if must_heal:
+            da.heal(my_id, must_heal[0])  # send this as request to server
+        else:
+            can_attack = da.attack_candidates(my_id)
+            if can_attack:
+                da.attack(my_id, can_attack[0])  # send this as req to server
+            else:
+                dragon_locations = da.get_dragon_locations()
+                my_loc = da.get_location(my_id)
+
+                # to continue, manhattan distance is defined up already
+
+
+
+

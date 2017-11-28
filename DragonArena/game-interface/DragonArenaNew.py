@@ -477,7 +477,7 @@ class DragonArena:
                          points=creature1.get_ap(),
                          old_hp=old_hp, new_hp=new_hp)
 
-    def attack_candidates(self, identifier):
+    def attack_candidates(self, identifier):  # used by bot and for dragons
         attacker_loc = self._id2loc(identifier)
         x = attacker_loc[0]
         y = attacker_loc[1]
@@ -489,7 +489,7 @@ class DragonArena:
                             )
         return target_loc
 
-    def heal_candidates(self, knight_id):
+    def heal_candidates(self, knight_id):  # used by bot
         healer_loc = self._id2loc(knight_id)
         x = healer_loc[0]
         y = healer_loc[1]
@@ -497,9 +497,15 @@ class DragonArena:
                       [(x, y + i) for i in xrange(5, -6)]
         return filter(self._is_occupied_by_knight, coordinates)
 
-    def get_dragons(self):
-        return filter(lambda x: isinstance(x, Dragon),
-                      self._creature2loc.keys())
+    def get_location(self, identifier):  # used by bot
+        return self._id2loc(identifier)
+
+    def get_dragon_locations(self):  # used by bot
+        return map(lambda d: self._creature2loc[d],
+                   filter(lambda x: isinstance(x, Dragon),
+                          self._creature2loc.keys()
+                          )
+                   )
 
     # Allows the calling server to process a round of dragon attacks.
     def let_dragons_attack(self):
@@ -563,7 +569,7 @@ class DragonArena:
 
         return arena
 
-    # called exclusively by deserialize in the DragonArena class
+    # called exclusively by deserialize in the DragonArena class!
     def restore(self, creature2loc, id2creature):
         self._creature2loc = creature2loc
         self._id2creature = id2creature

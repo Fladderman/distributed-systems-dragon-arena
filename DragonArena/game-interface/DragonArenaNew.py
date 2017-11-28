@@ -5,9 +5,6 @@ from sys import maxsize
 
 settings = json.load(open('../settings.json'))
 
-# iterators for dragons/knights
-# serialize & static deserialize
-
 
 class Creature:
     def __init__(self, name, identifier, max_hp, curr_hp, ap):

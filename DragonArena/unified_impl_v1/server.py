@@ -160,11 +160,19 @@ class Server:
                 print('sock dead. killing incoming reader daemon')
                 return
             print('msg yielded', msg)
-            if msg.msg_header == messaging.header2int['C2S_HELLO']: #todo check server secret
-                messaging.write_msg_to(socket, messaging.M_S2C_WELCOME(self._server_id))
+            if msg.header_matches_string('C2S_HELLO'):
+                print('neww client!')
+
+                #TODO calculate new_knight_id
+                new_knight_id = (1,1)
+                welcome = messaging.M_S2C_WELCOME(self._server_id, new_knight_id)
+                print('welcome', welcome)
+                messaging.write_msg_to(socket, welcome)
+                print('welcomed it!')
                 if True: # TODO if not above client capacity
                     self._handle_client_incoming(socket, addr)
-            elif msg.msg_header == messaging.header2int['S2S_HELLO']:
+            elif msg.header_matches_string('S2S_HELLO'):
+                print('neww server!')
                 messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
                 self._handle_server_incoming(socket, addr)
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:

@@ -1,4 +1,4 @@
-import threading, time, json, socket, sys, os
+import threading, time, json, socket, sys, os, logging
 import messaging, das_game_settings, client_player, protected
 from random import shuffle
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
@@ -12,7 +12,7 @@ class Client:
         print('self.sorted_server_ids', self.sorted_server_ids)
         self._server_socket = self._connect_to_a_server()
         print('self._server_socket', self._server_socket)
-        m = messaging.M_C2S_HELLO
+        m = messaging.M_C2S_HELLO()
         print('about to send msg', str(m))
         messaging.write_msg_to(self._server_socket, m)
         reply_msg = messaging.read_msg_from(self._server_socket, timeout=False)
@@ -47,7 +47,7 @@ class Client:
     attempts to connect
     '''
     @staticmethod
-    def sock_client(ip, port, timeout=2.0):
+    def sock_client(ip, port, timeout=1.0):
         assert isinstance(ip, str)
         assert isinstance(port, int)
         assert isinstance(timeout, int) or isinstance(timeout, float)
@@ -61,6 +61,7 @@ class Client:
 
     def main_loop(self):
         # split thread into outgoing and incoming
+        print('main loop!')
         incoming_thread = threading.Thread(
             target=self.main_incoming_loop,
             args=(),
@@ -70,9 +71,15 @@ class Client:
         self.main_outgoing_loop()
 
     def main_incoming_loop(self):
+        print('main incoming')
         for msg in messaging.read_many_msgs_from(self._server_socket):
+            print(str(msg))
             if msg != None:
-                self._updates.push(msg)
+                if msg.header_matches_string('UPDATE'):
+                    new_state = DragonArena.deserialize(msg.args[1])
+                    self._protected_game_state.replace_arena(new_state)
+                    print('replaced arena! :D')
+
 
     def main_outgoing_loop(self):
         req_generator = self._player.main_loop(self._protected_game_state)

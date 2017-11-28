@@ -24,6 +24,9 @@ int2header = [
     'PLAYER_REQ_DUMMY',
     'DONE',
     'UPDATE',
+    'R_HEAL',
+    'R_ATTACK',
+    'R_MOVE',
 ]
 header2int = {v: k for k,v in enumerate(int2header)}
 
@@ -82,22 +85,28 @@ Predefined messages
 maybe simplify? idk
 '''
 
+#TODO make more graceful
+
 # SERVER-SERVER SYNCHRO
 def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_SYNC_REQ'], s_id, [])
 def M_S2S_SYNC_REPLY(tick_id, serialized_state):return Message(header2int['S2S_SYNC_REPLY'], -1, [tick_id, serialized_state])
 def M_S2S_HELLO(s_id):                          return Message(header2int['S2S_HELLO'],s_id,[])
-M_S2S_WELCOME                                   = Message(header2int['S2S_WELCOME'],-1,[])
-M_S2S_SYNC_DONE                                 = Message(header2int['S2S_SYNC_DONE'],-1,[])
+def M_S2S_WELCOME():                            return Message(header2int['S2S_WELCOME'],-1,[])
+def M_S2S_SYNC_DONE():                          return Message(header2int['S2S_SYNC_DONE'],-1,[])
+
+def M_DONE(s_id, tick_id):                      return Message(header2int['DONE'], s_id, [tick_id])
 
 # SERVER-CLIENT SYNCHRO
-M_PING                                          = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
-def M_C2S_HELLO(s_id):                          return Message(header2int['C2S_HELLO'], s_id,[])
-M_S2C_WELCOME                                   = Message(header2int['S2C_WELCOME'], -1,[])
-def M_DONE(s_id, tick_id):                      return Message(header2int['DONE'], s_id, [tick_id])
+def M_PING():                                   return Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
+def M_C2S_HELLO():                              return Message(header2int['C2S_HELLO'], -1,[])
+def M_S2C_WELCOME(s_id, knight_id):             return Message(header2int['S2C_WELCOME'], s_id,[knight_id])
 def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
 
 # GAME REQS
-M_PLAYER_REQ_DUMMY                              = Message(header2int['PLAYER_REQ_DUMMY'],420,['foo', 69, 'get rekt'])
+def M_PLAYER_REQ_DUMMY():                       return Message(header2int['PLAYER_REQ_DUMMY'],420,['foo', 69, 'get rekt'])
+def M_R_HEAL(healer, healed):                   return Message(header2int['R_HEAL'], -1, [healer, healed])
+def M_R_ATTACK(attacker, attacked):             return Message(header2int['R_ATTACK'], -1, [attacker, attacked])
+def M_R_MOVE(knight_id, coord):                 return Message(header2int['R_MOVE'], -1, [knight_id, coord])
 
 
 def read_msg_from(socket, timeout=False):
@@ -191,6 +200,7 @@ def write_msg_to(socket, msg):
     tot_bytes = len(myfile.buf)
     sent_now = 1
     while sent_now != 0: # 0 means send done
+        print('zoopy')
         try: sent_now = socket.send(myfile.read(256))
         except: return False
     return True

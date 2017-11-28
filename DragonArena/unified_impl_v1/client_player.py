@@ -14,13 +14,13 @@ class HumanPlayer(Player):
     the game is over then the generator returns
     '''
 
-    def main_loop(self, protected_game_state):
-        assert isinstance(protected_game_state, protected.ProtectedGameState)
+    def main_loop(self, protected_dragon_arena, my_id):
+        assert isinstance(protected_dragon_arena, protected.ProtectedGameState)
         print('human player main loop')
         # has self._game_state_copy
         while True: # while game.playing
             time.sleep(0.5)
-            with protected_game_state as game_state:
+            with protected_dragon_arena as game_state:
                 # lock acquired
                 # read game state. decide what to do
                 pass
@@ -33,42 +33,27 @@ def manhattan_distance(loc1, loc2):
     return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
 
 class BotPlayer(Player):
-    def main_loop(self, protected_game_state):
-        assert isinstance(protected_game_state, protected.ProtectedGameState)
+    def main_loop(self, protected_dragon_arena, my_id):
+        assert isinstance(protected_dragon_arena, protected.ProtectedGameState)
         print('bot player main loop')
         # has self._game_state_copy
         while True: # while game.playing
             time.sleep(0.5)
-            with protected_game_state as game_state:
-                print('state locked')
-                # lock acquired
-                # read game state. decide what to do
-                pass
-            #lock released
-            print('bot yield')
-            yield messaging.M_PLAYER_REQ_DUMMY
+            with protected_dragon_arena as da:
+                must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
+                                   da.heal_candidates(my_id))
+                if must_heal:
+                    yield messaging.M_R_HEAL(my_id, must_heal[0]) # da.heal(my_id, must_heal[0])
+                else:
+                    can_attack = da.attack_candidates(my_id)
+                    if can_attack:
+                        yield messaging.M_R_ATTACK(my_id, can_attack[0]) # da.attack(my_id, can_attack[0])
+                    else:
+                        dragon_locations = da.get_dragon_locations()
+                        my_loc = da.get_location(my_id)
+                        # to continue, manhattan distance is defined up already
 
-    # chris, integrate this plz
-    # suppose: my_id and da are respectively the bot's knight id
-    # and its da object
-    my_id = (1, 2)
-    da = DragonArena(2, 2, 2)
+                        #?????
+                        # TODO code unfinished? You may need this : `yield messaging.M_R_MOVE(my_id, coord)`
 
-    while True:  # while I'm alive and the game is running
-        must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
-                           da.heal_candidates(my_id))
-        if must_heal:
-            da.heal(my_id, must_heal[0])  # send this as request to server
-        else:
-            can_attack = da.attack_candidates(my_id)
-            if can_attack:
-                da.attack(my_id, can_attack[0])  # send this as req to server
-            else:
-                dragon_locations = da.get_dragon_locations()
-                my_loc = da.get_location(my_id)
-
-                # to continue, manhattan distance is defined up already
-
-
-
-
+            #lock released, `with` expired

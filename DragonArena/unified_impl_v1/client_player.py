@@ -1,5 +1,7 @@
-import time
+import time, sys, os
 import messaging, protected
+sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
+from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
 class Player:
     def __init__(self):
@@ -18,6 +20,11 @@ class HumanPlayer(Player):
         # has self._game_state_copy
         while True: # while game.playing
             time.sleep(0.5)
+            with protected_game_state as game_state:
+                # lock acquired
+                # read game state. decide what to do
+                pass
+            #lock released
             yield messaging.M_PLAYER_REQ_DUMMY
 
 
@@ -29,4 +36,11 @@ class BotPlayer(Player):
         # has self._game_state_copy
         while True: # while game.playing
             time.sleep(0.5)
+            with protected_game_state as game_state:
+                print('state locked')
+                # lock acquired
+                # read game state. decide what to do
+                pass
+            #lock released
+            print('bot yield')
             yield messaging.M_PLAYER_REQ_DUMMY

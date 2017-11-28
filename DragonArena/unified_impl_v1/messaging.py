@@ -12,8 +12,19 @@ structures allow mapping back and forth:
     header2int[<str>] ==> <int>
 
 '''
-int2header = ['PING', 'C2S_HELLO', 'S2C_WELCOME', 'S2S_HELLO',
-    'S2S_WELCOME', 'S2S_SYNC_REQ', 'M_S2S_SYNC_REPLY', 'PLAYER_REQ_DUMMY']
+int2header = [
+    'S2S_SYNC_REQ',
+    'S2S_SYNC_REPLY',
+    'S2S_HELLO',
+    'S2S_WELCOME',
+    'S2S_SYNC_DONE'
+    'PING',
+    'C2S_HELLO',
+    'S2C_WELCOME',
+    'PLAYER_REQ_DUMMY',
+    'DONE',
+    'UPDATE',
+]
 header2int = {v: k for k,v in enumerate(int2header)}
 
 '''
@@ -27,6 +38,10 @@ class Message:
         self.msg_header = msg_header
         self.sender = sender
         self.args = args
+
+    def header_matches_string(self, string):
+        assert string in header2int
+        return header2int[string] == self.msg_header
 
     def same_header_as(self, other):
         if isinstance(other, Message):
@@ -67,17 +82,22 @@ Predefined messages
 maybe simplify? idk
 '''
 M_PING = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
-M_C2S_HELLO = Message(header2int['C2S_HELLO'],-1,[])
-M_PLAYER_REQ_DUMMY = Message(header2int['PLAYER_REQ_DUMMY'],420,['foo', 69, 'get rekt'])
-def M_S2C_WELCOME(s_id):
-    return Message(header2int['S2C_WELCOME'], s_id,[])
-def M_S2S_HELLO(s_id):
-    return Message(header2int['S2S_HELLO'],s_id,['server_secret_key_u433hfu4g'])
-M_S2S_WELCOME = Message(header2int['S2S_WELCOME'],-1,[])
-def M_S2S_SYNC_REQ(s_id):
-    return Message(header2int['S2S_SYNC_REQ'], s_id, [])
-def M_S2S_SYNC_REPLY(s_id, serialized_state):
-    return Message(header2int['S2S_SYNC_REPLY'], s_id, [serialized_state])
+
+# SERVER-SERVER SYNCHRO
+def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_SYNC_REQ'], s_id, [])
+def M_S2S_SYNC_REPLY(tick_id, serialized_state):return Message(header2int['S2S_SYNC_REPLY'], -1, [tick_id, serialized_state])
+def M_S2S_HELLO(s_id):                          return Message(header2int['S2S_HELLO'],s_id,[])
+M_S2S_WELCOME                                   = Message(header2int['S2S_WELCOME'],-1,[])
+M_S2S_SYNC_DONE                                 = Message(header2int['S2S_SYNC_DONE'],-1,[])
+
+# SERVER-CLIENT SYNCHRO
+def M_C2S_HELLO(s_id):                          return Message(header2int['C2S_HELLO'], s_id,[])
+M_S2C_WELCOME                                   = Message(header2int['S2C_WELCOME'], -1,[])
+def M_DONE(s_id, tick_id):                      return Message(header2int['DONE'], s_id, [tick_id])
+def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
+
+# GAME REQS
+M_PLAYER_REQ_DUMMY                              = Message(header2int['PLAYER_REQ_DUMMY'],420,['foo', 69, 'get rekt'])
 
 
 def read_msg_from(socket, timeout=False):
@@ -101,7 +121,7 @@ def read_msg_from(socket, timeout=False):
             if timeout:
                 return None
 
-def read_many_msgs_from(socket, timeout=True):
+def generate_messages_from(socket, timeout=True):
     assert isinstance(timeout, bool)
     '''
     Generator object. will read and yield messages from new_socket

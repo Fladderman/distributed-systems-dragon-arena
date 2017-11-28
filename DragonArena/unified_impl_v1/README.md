@@ -56,3 +56,4 @@ clients using PING time to sort their list of servers in descending 'goodness'
 servers keeping track of client capacity and disabling new client joins
 100% complete server-server joins
 server-server state synchro
+translation function from Message to action on game state (and back)

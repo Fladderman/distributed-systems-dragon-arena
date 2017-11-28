@@ -36,18 +36,20 @@ class Creature:
         return self._identifier
 
     def serialize(self):
-        return (isinstance(self, Knight),
-                self._identifier,
+        def f(tup): return [tup[0], tup[1]]
+        return [isinstance(self, Knight),
+                f(self._identifier),
                 self._max_hp,
                 self._curr_hp,
-                self._ap)
+                self._ap]
 
     @staticmethod
     def deserialize(o):
+        def g(list_of_two): return (list_of_two[0], list_of_two[1])
         if o[0]:  # knight
-            return Knight(o[1], o[2], o[3], o[4])
+            return Knight(g(o[1]), o[2], o[3], o[4])
         else:
-            return Dragon(o[1], o[2], o[3], o[4])
+            return Dragon(g(o[1]), o[2], o[3], o[4])
 
 
 class Knight(Creature):
@@ -529,7 +531,8 @@ class DragonArena:
     # Below: serialization for networking
 
     def serialize(self):
-        serial_creature2loc = map(lambda t: (t[0].serialize(), t[1]),
+        def f(tup): return [tup[0], tup[1]]
+        serial_creature2loc = map(lambda t: [t[0].serialize(), f(t[1])],
                                   self._creature2loc.items())
         # When deserializing, we will want to reconstruct id2loc.
         # It consists of:
@@ -537,7 +540,7 @@ class DragonArena:
         #   2. dead creature IDs that map to None
         # 1 can be reconstructed from serial_creature2loc
         # hence we only need to send the IDs of dead creatures in addition
-        dead_creature_ids = map(lambda t: t[0],
+        dead_creature_ids = map(lambda t: f(t[0]),
                                 filter(lambda t: t[1] is None,
                                        self._id2creature.items()))
         return (self._no_of_dragons,
@@ -549,20 +552,25 @@ class DragonArena:
 
     @staticmethod
     def deserialize(o):
+        def g(list_of_two): return (list_of_two[0], list_of_two[1])
+
         no_of_dragons = o[0]
         map_width = o[1]
         map_height = o[2]
         serial_creature2loc = o[3]
         dead_creature_ids = o[4]
 
-        creature2loc_list = map(lambda t: (Creature.deserialize(t[0]), t[1]),
-                                serial_creature2loc)
+        creature2loc_list = \
+            map(lambda l: (Creature.deserialize(l[0]), g(l[1])),
+                serial_creature2loc)
 
         creature2loc = dict(creature2loc_list)
-        id2creature = {c.get_identifier(): c for c, l in creature2loc_list}
+
+        id2creature = dict(map(lambda t: (t[0].get_identifier(), t[0]),
+                               creature2loc_list))
 
         for identifier in dead_creature_ids:
-            id2creature[identifier] = None
+            id2creature[g(identifier)] = None
 
         arena = DragonArena(no_of_dragons, map_width, map_height)
         arena.restore(creature2loc, id2creature)

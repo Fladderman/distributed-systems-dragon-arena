@@ -1,20 +1,15 @@
 import time, messaging
-import protected_queue
+import protected_queue, protected_game_state
 
 class Player:
     def __init__(self):
         pass
 
-    def setup(self, game_state_copy):
-        self._game_state_copy = game_state_copy
-
-    def main_loop(self, request_channel):
-        raise NotImplementedError
-
 
 class HumanPlayer(Player):
-    def main_loop(self, req_q):
+    def main_loop(self, req_q, protected_game_state):
         assert isinstance(req_q, protected_queue.ProtectedQueue)
+        assert isinstance(req_q, protected_game_state.ProtectedGameState)
 
         print('human player main loop')
         # has self._game_state_copy
@@ -24,8 +19,9 @@ class HumanPlayer(Player):
 
 
 class BotPlayer(Player):
-    def main_loop(self, req_q):
+    def main_loop(self, req_q, protected_game_state):
         assert isinstance(req_q, protected_queue.ProtectedQueue)
+        assert isinstance(req_q, protected_game_state.ProtectedGameState)
 
         print('bot player main loop')
         # has self._game_state_copy

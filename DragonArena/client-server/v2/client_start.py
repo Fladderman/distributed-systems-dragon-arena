@@ -1,14 +1,17 @@
 import client, client_player
+import sys
 
-BOT_PLAYER = True
+def make_player():
+    if len(sys.argv) == 2:
+        if sys.argv[1] == "human":
+            print('starting human client')
+            return client_player.HumanPlayer()
+        elif sys.argv[1] == "bot":
+            print('starting bot client')
+            return client_player.BotPlayer()
+    raise "Please run with 1 arg, either 'bot' or 'human'"
 
-player = client_player.BotPlayer() if BOT_PLAYER else client_player.HumanPlayer()
-
-client_0 = client.Client(player)
+client_0 = client.Client(make_player())
+print('client starter init complete')
 client_0.main_loop()
-
-'''
-Each client runs this script
-Client object connects on __init__()
-
-'''
+print('client starter main loop complete')

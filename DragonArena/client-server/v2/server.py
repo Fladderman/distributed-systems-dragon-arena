@@ -1,5 +1,6 @@
 import threading, time, json, socket
 import messaging, das_game_settings
+import state_dummy
 
 class ServerAcceptor:
     def __init__(self, port):
@@ -15,76 +16,81 @@ class ServerAcceptor:
         except:
             return None, None
 
-
-MASTER_SERVER = 0
 class Server:
-
     '''
     Server will first attempt to connect to other servers
     '''
-    def __init__(self):
+    def __init__(self, server_id): #server_id == index
         '''Prep phase. gotta handshake with everyone first'''
+        self._server_id = server_id
         self._accepting_clients = False;
-        self._clients = dict() # maps addr to sock
-        self._other_server_socks = [None for _ in range(0, len(das_game_settings.server_addresses))]
-        self._handshake_with_others()
-        i_am_first = all(None==item for item in self._other_server_socks)
-        self._game_state = Server.create_fresh_state() if i_am_first else self._get_state_from_someone()
+        self._serv_sockets = self._connect_to_other_servers()
+        print('_serv_sockets:', self._serv_sockets)
 
-        my_index = self._join_server_system()
-        print('socks:', self._other_server_socks)
+        id_of_authority_server = next( (x for x in self._serv_sockets if x!=None), None)
+        print('id_of_authority_server:', id_of_authority_server)
+        self._game_state = Server.create_fresh_state()\
+            if id_of_authority_server==None\
+            else self._get_state_from_someone(self._serv_sockets[id_of_authority_server])
+
+        self._clients = dict() #addr --> socket
+        self._requests = []
+        self._req_lock = threading.Lock()
+
         print('done')
         time.sleep(3.0)
-        my_port = das_game_settings.server_addresses[my_index][1]
+        my_port = das_game_settings.server_addresses[self._server_id][1]
         print('my_port', my_port)
-
-        self._my_server_id = None
         self._accepting_thread = threading.Thread(
             target=Server.handle_incoming_clients,
             args=(self, my_port),
         )
         self._accepting_thread.daemon = True
         self._accepting_thread.start()
-        self._requests = []
-        self._req_lock = threading.Lock()
+        self._accepting_clients = True;
         print('setup done')
+
+    def _get_state_from_someone(self, authority_server_socket):
+        messaging.write_msg_to(authority_server_socket, messaging.M_SERV_SYNC_REQ)
+        msg_check = lambda m:\
+            isinstance(m, Message)\
+            and m.msg_header == messaging.header2int['SERV_SYNC_REPLY']
+        reply = messaging.read_first_message_matching(authority_server_socket, msg_check)
+        return reply.args[0]
 
     def _get_state_from_someone(self):
         # TODO contact another server with `self._other_server_socks`
         # return the game state given by someone there
-        return "LELELE IDK ROFLMAO"
+        return state_dummy.StateDummy()
 
     @staticmethod
     def create_fresh_state():
         # TODO create a fresh game state object and return
-        return "LELELELE GAME STATE"
+        return state_dummy.StateDummy()
 
-    def _handshake_with_others(self):
+    def _connect_to_other_servers(self):
         '''
         first try to connect to all, populating self._other_server_socks
-        determine my ID
         then send each a M_SERV_HELLO
-        return my ID
         '''
+        serv_sockets = [None for _ in range(0, len(das_game_settings.server_addresses))]
+        socket.setdefaulttimeout(3.0)
+        msg = messaging.M_S2S_HELLO(self._server_id)
         for index, addr in enumerate(das_game_settings.server_addresses):
-            socket.setdefaulttimeout(2.0)
+            if index == self._server_id:
+                continue # skip myself
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 sock.connect((ip, port))
-                self._other_server_socks = sock
                 print('successfully conencted to', index, 'at', addr)
+                messaging.write_msg_to(sock, msg)
+                reply = messaging.read_msg_from(sock)
+                print('got reply', reply, 'from', addr)
+                assert reply.msg_header == messaging.header2int['M_S2S_WELCOME']
+                serv_sockets[index] = sock
             except:
                 print('failed to connect to ', index, 'at', addr)
-        my_index = (i for i,v in enumerate(self._other_server_socks) if v==None).next()
-        assert my_index is not None
-        msg = messaging.M_SERV_HELLO
-        for index, addr in enumerate(das_game_settings.server_addresses):
-            if self._other_server_socks[index] != None:
-                print('writing', msg, 'to', index, addr)
-                messaging.write_msg_to(self._other_server_socks[index], msg)
-            else:
-                print('failed to write to', index, addr)
-        return my_index
+        return serv_sockets
 
 
 
@@ -132,13 +138,16 @@ class Server:
                 my_req_pool = self._requests
                 self._requests = []
             if my_req_pool:
+                # DEBUG. nothing in this control branch is realistic. just for testing
                 print('tick drained', my_req_pool)
                 for msg in my_req_pool:
-                    c_sock = self._clients[msg.sender]
-                    response = messaging.M_SERV_WELCOME(_my_server_id)
-                    messaging.write_msg_to(c_sock, response, packer=maini_loop_packer)
-                    print('popping')
-                    self._clients.pop(msg.sender)
+                    if msg.sender in self._clients:
+                        c_sock = self._clients[msg.sender]
+                        response = messaging.M_S2C_WELCOME(self._server_id)
+                        print('response', response)
+                        messaging.write_msg_to(c_sock, response)
+                        print('popping')
+                        self._clients.pop(msg.sender)
 
 
 

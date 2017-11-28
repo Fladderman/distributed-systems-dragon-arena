@@ -1,7 +1,7 @@
 import threading, msgpack, time, json
 import socket
 from StringIO import StringIO
-socket.setdefaulttimeout(1.0) #todo mess around
+socket.setdefaulttimeout(1.0) #todo experiment with this
 
 
 '''
@@ -12,7 +12,7 @@ structures allow mapping back and forth:
     header2int[<str>] ==> <int>
 
 '''
-int2header = ['PING', 'CLIENT_HELLO', 'SERV_WELCOME', 'SERV_HELLO', 'SERV_SYNC_REQ', 'SERV_SYNC_REPLY']
+int2header = ['PING', 'C2S_HELLO', 'S2C_WELCOME', 'S2S_HELLO', 'S2S_WELCOME', 'S2S_SYNC_REQ', 'M_S2S_SYNC_REPLY']
 header2int = {v: k for k,v in enumerate(int2header)}
 
 '''
@@ -20,7 +20,7 @@ Each Message instance represents an instance of any network message
 '''
 class Message:
     def __init__(self, msg_header, sender, args):
-        assert isinstance(msg_header, int)
+        assert isinstance(msg_header, int) and msg_header in range(0, len(int2header))
         assert isinstance(sender, int)
         assert isinstance(args, list)
         self.msg_header = msg_header
@@ -54,21 +54,28 @@ class Message:
         return Message(msg_header, sender, args)
 
     def __repr__(self):
-        str_header = '??header??' if self.msg_header not in int2header else int2header[self.msg_header]
-        return (
-            'Message::' + str_header + ' from '
+        print('header', self.msg_header)
+        assert self.msg_header >= 0 and self.msg_header < len(int2header)
+        return 'Message::' + int2header[self.msg_header] + ' from ' \
             + str(self.sender) + ' with args:' + str(self.args)
-        )
 
+
+'''
+Predefined messages
+#TODO check the protocol
+maybe simplify? idk
+'''
 M_PING = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
-M_CLIENT_HELLO = Message(header2int['CLIENT_HELLO'],-1,[])
-def M_SERV_WELCOME(s_id):
-    Message(header2int['SERV_WELCOME'], s_id, ['server_secret_key_u433hfu4g'])
-M_SERV_HELLO = Message(header2int['SERV_HELLO'],-1,[])
-def M_SERV_SYNC_REQ(s_id):
-    Message(header2int['SERV_SYNC_REQ'], s_id, [])
-def M_SERV_SYNC_REPLY(s_id, serialized_state):
-    Message(header2int['SERV_SYNC_REPLY'], s_id, [serialized_state])
+M_C2S_HELLO = Message(header2int['C2S_HELLO'],-1,[])
+def M_S2C_WELCOME(s_id):
+    return Message(header2int['S2C_WELCOME'], s_id,[])
+def M_S2S_HELLO(s_id):
+    return Message(header2int['S2S_HELLO'],s_id,['server_secret_key_u433hfu4g'])
+M_S2S_WELCOME = Message(header2int['S2S_WELCOME'],-1,[])
+def M_S2S_SYNC_REQ(s_id):
+    return Message(header2int['S2S_SYNC_REQ'], s_id, [])
+def M_S2S_SYNC_REPLY(s_id, serialized_state):
+    return Message(header2int['S2S_SYNC_REPLY'], s_id, [serialized_state])
 
 
 def read_msg_from(socket, timeout=False):
@@ -87,8 +94,7 @@ def read_msg_from(socket, timeout=False):
                 #connection closed!
             unpacker.feed(x)
             for package in unpacker:
-                msg = Message.deserialize(package)
-                return msg
+                return Message.deserialize(package)
         except:
             if timeout:
                 return None
@@ -110,11 +116,43 @@ def read_many_msgs_from(socket, timeout=True):
                 #connection closed!
             unpacker.feed(x)
             for package in unpacker:
-                msg = Message.deserialize(package)
-                yield msg
+                yield Message.deserialize(package)
         except:
             if timeout:
                 yield None
+
+def write_many_msgs_to(socket, msg_iterable):
+    packer = msgpack.Packer()
+    all_went_perfectly = True
+    try:
+        for msg in msg_iterable:
+            assert isinstance(msg, Message)
+            myfile = StringIO()
+            myfile.write(packer.pack(msg.serialize()))
+            myfile = StringIO(myfile.getvalue())
+            tot_bytes = len(myfile.buf)
+            sent_now = 1
+            while sent_now != 0: # 0 means send done
+                try: sent_now = socket.send(myfile.read(256))
+                except: all_went_perfectly = False
+    except:
+        all_went_perfectly = False
+    return all_went_perfectly
+
+def read_first_message_matching(socket, func,  timeout=True, max_msg_count=-1):
+    assert isinstance(timeout, bool)
+    assert isinstance(max_msg_count, int)
+    assert callable(func)
+
+    msg_count = 0
+    start_time = time.time()
+    for msg in read_many_msgs_from(socket, timeout=timeout):
+        msg_count += 1
+        if func(msg) == True:
+            return msg
+        elif msg_count == max_msg_count or time.time() - start_time >=  timeout:
+            return None
+
 
 
 def write_msg_to(socket, msg):
@@ -131,11 +169,6 @@ def write_msg_to(socket, msg):
     tot_bytes = len(myfile.buf)
     sent_now = 1
     while sent_now != 0: # 0 means send done
-        try:
-            sent_now = socket.send(myfile.read(256))
-        except:
-            # writing results in error
-            return False
-        # the number read doesn't seem to matter.
-        # python is smart enough not to go out of bounds
+        try: sent_now = socket.send(myfile.read(256))
+        except: return False
     return True

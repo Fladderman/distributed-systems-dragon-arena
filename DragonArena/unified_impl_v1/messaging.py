@@ -85,7 +85,7 @@ M_PING = Message(header2int['PING'],-1,[]) # just nonsense for now. works as lon
 
 # SERVER-SERVER SYNCHRO
 def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_SYNC_REQ'], s_id, [])
-def M_S2S_SYNC_REPLY(serialized_state):         return Message(header2int['S2S_SYNC_REPLY'], -1, [serialized_state])
+def M_S2S_SYNC_REPLY(tick_id, serialized_state):return Message(header2int['S2S_SYNC_REPLY'], -1, [tick_id, serialized_state])
 def M_S2S_HELLO(s_id):                          return Message(header2int['S2S_HELLO'],s_id,[])
 M_S2S_WELCOME                                   = Message(header2int['S2S_WELCOME'],-1,[])
 M_S2S_SYNC_DONE                                 = Message(header2int['S2S_SYNC_DONE'],-1,[])

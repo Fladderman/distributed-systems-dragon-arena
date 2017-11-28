@@ -23,20 +23,33 @@ class ServerAcceptor:
             return None, None
 
 class Server:
-    def try_setup(self, server_id):
+    def __init__(self, server_id):
         logging.basicConfig(filename=('server_{s_id}.log'),format(s_id=server_id), filemode='w', level=logging.INFO)
         logging.info("Logging started at %s", str(time.time()))
         self._server_id = server_id
+        backoff_time = 0.1
+        while True:
+            time.sleep(backoff_time)
+            try:
+                self.try_setup()
+                break
+            except:
+                backoff_time *= 2.00
+        self.main_loop()
+
+    def try_setup(self):
         auth_sock, auth_index = self.connect_to_first_other_server()
         if auth_sock == None:
             # I am first! :D
             self._dragon_arena = Server.create_fresh_arena()
+            self._tick_id = 0
         else:
             # I'm not first :[
             messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_REQ(server_id))
-            reply = messaging.read_msg_from(auth_sock)
-            assert reply.msg_header == messaging.header2int['S2S_SYNC_REPLY']
-            self._dragon_arena = DragonArena.deserialize(reply.args[])
+            sync_reply = messaging.read_msg_from(auth_sock)
+            assert sync_reply.msg_header == messaging.header2int['S2S_SYNC_REPLY']
+            self._tick_id = DragonArena.deserialize(sync_reply.args[0])
+            self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
             self._server_socks = Server._socket_to_others({auth_index, server_id})
             for s in self._server_socks:
                 try:
@@ -70,42 +83,6 @@ class Server:
                 return sock, addr
         return None, None
 
-    def __init__(self, server_id): #server_id == index
-        '''step1. handshake with all other servers'''
-        self._server_id = server_id
-        self._accepting_clients = False;
-        self._kick_off_acceptor() # will still accept servers!
-        self._serv_sockets = self._connect_to_other_servers()
-        print('_serv_sockets:', self._serv_sockets)
-        id_of_authority_server = next( (x for x in self._serv_sockets if x!=None), None)
-        if id_of_authority_server == None:
-            # I am the first!
-            print(' I am the first server! #newyearnewme')
-            self._game_state = Server.create_fresh_arena()
-        else:
-            # I am joining a game in progress!
-            print(' I have joined a game in progress. Will sync with', id_of_authority_server)
-            self._game_state = self._sync_with_server(self._serv_sockets[id_of_authority_server])
-            pass
-
-        print('id_of_authority_server:', id_of_authority_server)
-        self._game_state = Server.create_fresh_arena()\
-            if id_of_authority_server==None\
-            else self._get_state_from(self._serv_sockets[id_of_authority_server])
-
-        #addr --> socket
-        self._newcomers = dict() # connections that haven't been associated with servers or clients yet
-        self._clients = dict()
-
-        self._requests = protected.ProtectedQueue()
-
-        print('done')
-        my_port = das_game_settings.server_addresses[self._server_id][1]
-        print('my_port', my_port)
-
-        self._accepting_clients = True;
-        print('setup done')
-
     def _kick_off_acceptor(self):
         acceptor_handle = threading.Thread(
             target=Server._handle_new_connections,
@@ -120,7 +97,7 @@ class Server:
             isinstance(m, Message)\
             and m.msg_header == messaging.header2int['SERV_SYNC_REPLY']
         reply = messaging.read_first_message_matching(authority_server_socket, msg_check)
-        return reply.args[0]
+        return reply.args[0], reply.args[1]
 
     @staticmethod
     def create_fresh_arena():

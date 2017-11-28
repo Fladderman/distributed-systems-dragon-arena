@@ -56,11 +56,11 @@ class Creature:
 class Knight(Creature):
     def __init__(self, identifier, max_hp=None, curr_hp=None, ap=None):
         player_settings = settings["player"]
-        max_hp = max_hp if max_hp else \
+        max_hp = max_hp if max_hp is not None else \
             random.randint(player_settings["hp"]["min"],
                            player_settings["hp"]["max"])
-        curr_hp = curr_hp if curr_hp else max_hp
-        ap = ap if ap else \
+        curr_hp = curr_hp if curr_hp is not None else max_hp
+        ap = ap if ap is not None else \
             random.randint(player_settings["ap"]["min"],
                            player_settings["ap"]["max"])
         Creature.__init__(self, "Knight", identifier, max_hp, curr_hp, ap)
@@ -72,11 +72,11 @@ class Knight(Creature):
 class Dragon(Creature):
     def __init__(self, identifier, max_hp=None, curr_hp=None, ap=None):
         dragon_settings = settings["dragon"]
-        max_hp = max_hp if max_hp else \
+        max_hp = max_hp if max_hp is not None else \
             random.randint(dragon_settings["hp"]["min"],
                            dragon_settings["hp"]["max"])
-        curr_hp = curr_hp if curr_hp else max_hp
-        ap = ap if ap else \
+        curr_hp = curr_hp if curr_hp is not None else max_hp
+        ap = ap if ap is not None else \
             random.randint(dragon_settings["ap"]["min"],
                            dragon_settings["ap"]["max"])
         Creature.__init__(self, "Dragon", identifier, max_hp, curr_hp, ap)
@@ -92,7 +92,6 @@ class DragonArena:
         self._no_of_dragons = no_of_dragons
         self._map_width = map_width
         self._map_height = map_height
-        self._game_in_progress = False
 
         # Generate all valid locations. Used in some private methods.
         self._locations = set(itertools.product(range(map_height),
@@ -136,7 +135,7 @@ class DragonArena:
 
     @staticmethod
     def format_id(identifier):
-        return "{{{type}:{id}}}".format(type=identifier[0], id=identifier[1])
+        return "{{{type}|{id}}}".format(type=identifier[0], id=identifier[1])
 
     def _get_living_dragon_ids(self):
         return map(self._creature2id,
@@ -177,8 +176,7 @@ class DragonArena:
         return not self._id_exists(identifier)
 
     def _is_dead(self, identifier):
-        # a[x] == True iff x points to None
-        return not self._id2creature[identifier]
+        return self._id2creature[identifier] is None
 
     def _is_alive(self, identifier):
         return self._id2creature[identifier].is_alive()
@@ -236,8 +234,9 @@ class DragonArena:
             blocker = self._loc2creature[to]
             return ("Knight {id} wants to move {dir} from {at}, but it is "
                     "blocked by {blocker_name} {blocker_id}."
-                    ).format(id=DragonArena.format_id(knight_id), dir=direction,
-                             at=at, blocker_name=blocker.get_name(),
+                    ).format(id=DragonArena.format_id(knight_id),
+                             dir=direction, at=at,
+                             blocker_name=blocker.get_name(),
                              blocker_id=DragonArena.format_id(
                                  blocker.get_identifier()))
 
@@ -280,7 +279,6 @@ class DragonArena:
 
         self._no_of_living_dragons = self._no_of_dragons
         self._no_of_living_knights = 0
-        self._game_in_progress = True
 
         opening_message = ["=== A NEW GAME STARTS.",
                            "The battlefield has size {h}x{w}.".format(
@@ -301,10 +299,6 @@ class DragonArena:
             opening_message.append(spawn_msg)
 
         return "\n".join(opening_message)
-
-    # Self-explanatory.
-    def game_over(self):
-        return not self._game_in_progress
 
     def game_is_full(self):
         return self._no_of_living_dragons + self._no_of_living_knights == \
@@ -353,7 +347,6 @@ class DragonArena:
         if self._all_knights_are_dead():
             end_game_msg = ("\n=== GAME OVER\n"
                             "All knights are dead. The dragons win!")
-            self._game_in_progress = False
 
         return ("Knight {id} at location {loc} committed suicide."
                 "{end_game_msg}"
@@ -436,14 +429,12 @@ class DragonArena:
                 if self._all_knights_are_dead():
                     end_game_msg = ("\n=== GAME OVER\n"
                                     "All knights are dead. The dragons win!")
-                    self._game_in_progress = False
             else:
                 self._no_of_living_dragons -= 1
 
                 if self._all_dragons_are_dead():
                     end_game_msg = ("\n=== GAME OVER\n"
                                     "All dragons are dead. The knights win!")
-                    self._game_in_progress = False
 
         return ("{name1} {id1} attacks {name2} {id2} for {dmg} damage, "
                 "reducing its hp from "
@@ -522,75 +513,53 @@ class DragonArena:
     # Below: serialization for networking
 
     def serialize(self):
+        serial_creature2loc = map(lambda t: (t[0].serialize(), t[1]),
+                                  self._creature2loc.items())
+        # When deserializing, we will want to reconstruct id2loc.
+        # It consists of:
+        #   1. living creature IDs that map to their loc
+        #   2. dead creature IDs that map to None
+        # 1 can be reconstructed from serial_creature2loc
+        # hence we only need to send the IDs of dead creatures in addition
+        dead_creature_ids = map(lambda t: t[0],
+                                filter(lambda t: t[1] is None,
+                                       self._id2creature.items()))
         return (self._no_of_dragons,
                 self._map_width,
                 self._map_height,
-                self._game_in_progress,
-                map(lambda t: (t[0].serialize(), t[1]),
-                    self._creature2loc.items()),
-                map(lambda t: (t[0], t[1].serialize()),
-                    self._id2creature.items())
+                serial_creature2loc,
+                dead_creature_ids
                 )
 
     @staticmethod
     def deserialize(o):
-        arena = DragonArena(o[0], o[1], o[2])
+        no_of_dragons = o[0]
+        map_width = o[1]
+        map_height = o[2]
+        serial_creature2loc = o[3]
+        dead_creature_ids = o[4]
 
-        creature2loc = dict(map(lambda t: (Creature.deserialize(t[0]), t[1]),
-                                o[4]))
-        id2creature = dict(map(lambda t: (t[0], Creature.deserialize(t[1])),
-                               o[5]))
+        creature2loc_list = map(lambda t: (Creature.deserialize(t[0]), t[1]),
+                                serial_creature2loc)
 
-        arena._restore(o[3], creature2loc, id2creature)
+        creature2loc = dict(creature2loc_list)
+        id2creature = {c.get_identifier(): c for c, l in creature2loc_list}
+
+        for identifier in dead_creature_ids:
+            id2creature[identifier] = None
+
+        arena = DragonArena(no_of_dragons, map_width, map_height)
+        arena.restore(creature2loc, id2creature)
 
         return arena
 
-    """ Deserialize does not yet work as intended (see below). Will fix later
-
->>> da = DragonArena(2,2,2)
->>> print da.new_game()
-=== A NEW GAME STARTS.
-The battlefield has size 2x2.
-2 dragons have been spawned.
-Dragon {-1:0} has been spawned at location (1, 0), with 75 hp and 5 ap.
-Dragon {-1:1} has been spawned at location (0, 1), with 88 hp and 20 ap.
->>> print da.spawn_knight((1,1))
-Knight {1:1} spawns at location (1, 1) with 16 hp and 7 ap.
->>> print da.spawn_knight((2321, 31234))
-Knight {2321:31234} spawns at location (0, 0) with 17 hp and 1 ap.
->>> snapshot = da.serialize()
->>> snapshot
-(2, 2, 2, True, [((True, (2321, 31234), 17, 17, 1), (0, 0)), ((False, (-1, 0), 75, 75, 5), (1, 0)), ((False, (-1, 1), 88, 88, 20), (0, 1)), ((True, (1, 1), 16, 16, 7), (1, 1))], [((2321, 31234), (True, (2321, 31234), 17, 17, 1)), ((-1, 1), (False, (-1, 1), 88, 88, 20)), ((-1, 0), (False, (-1, 0), 75, 75, 5)), ((1, 1), (True, (1, 1), 16, 16, 7))])
->>> print da.let_dragons_attack()
-Dragon {-1:0} attacks Knight {2321:31234} for 5 damage, reducing its hp from 17 to 12.
-Dragon {-1:1} attacks Knight {1:1} for 20 damage, reducing its hp from 16 to 0.
-Knight {1:1} dies.
->>> da2 = DragonArena.deserialize(snapshot)
->>> print da2.let_dragons_attack()
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-  File "DragonArenaNew.py", line 515, in let_dragons_attack
-    target_ids = self._get_knight_ids_in_attack_range(dragon_id)
-  File "DragonArenaNew.py", line 206, in _get_knight_ids_in_attack_range
-    dragon_loc = self._id2loc(dragon_id)
-  File "DragonArenaNew.py", line 559, in <lambda>
-    self._id2loc = lambda x: self._creature2loc[self._id2creature[x]]
-KeyError: <__main__.Dragon instance at 0x7f2fb413a710>
->>> 
-"""
-
     # called exclusively by deserialize in the DragonArena class
-    def _restore(self, game_in_progress, creature2loc, id2creature):
-        self._game_in_progress = game_in_progress
+    def restore(self, creature2loc, id2creature):
         self._creature2loc = creature2loc
         self._id2creature = id2creature
 
         self._loc2creature = dict(zip(self._creature2loc.values(),
                                       self._creature2loc.keys()))
-
-        self._creature2id = lambda x: x.get_identifier()
-        self._loc2id = lambda x: self._creature2id(self._loc2creature[x])
-        self._id2loc = lambda x: self._creature2loc[self._id2creature[x]]
 
         self._no_of_living_dragons = 0
         self._no_of_living_knights = 0

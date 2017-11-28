@@ -35,16 +35,24 @@ Each Message instance represents an instance of any network message
 '''
 class Message:
     def __init__(self, msg_header, sender, args):
-        assert isinstance(msg_header, int) and msg_header in range(0, len(int2header))
-        assert isinstance(sender, int)
-        assert isinstance(args, list)
-        self.msg_header = msg_header
-        self.sender = sender
-        self.args = args
+        try:
+            assert isinstance(msg_header, int) and msg_header in range(0, len(int2header))
+            assert isinstance(sender, int)
+            assert isinstance(args, list)
+            self.msg_header = msg_header
+            self.sender = sender
+            self.args = args
+        except:
+            print('MESSAGE INIT FAILED')
+            raise 'shit'
 
     def header_matches_string(self, string):
-        assert string in header2int
-        return header2int[string] == self.msg_header
+        try:
+            assert string in header2int
+            return header2int[string] == self.msg_header
+        except:
+            print('header_matches_string FAILED')
+            raise 'shit'
 
     def same_header_as(self, other):
         if isinstance(other, Message):
@@ -64,18 +72,27 @@ class Message:
 
     @staticmethod
     def deserialize(serialized_msg):
-        msg_header = serialized_msg[0]
-        sender = serialized_msg[1]
-        args = serialized_msg[2]
-        assert isinstance(msg_header, int)
-        assert isinstance(sender, int)
-        assert isinstance(args, list)
-        return Message(msg_header, sender, args)
+        try:
+            msg_header = serialized_msg[0]
+            sender = serialized_msg[1]
+            args = serialized_msg[2]
+            assert isinstance(msg_header, int)
+            assert isinstance(sender, int)
+            assert isinstance(args, list)
+            return Message(msg_header, sender, args)
+        except:
+            print('Msg DESERIALIZE FAILED')
+            raise 'shit'
 
     def __repr__(self):
-        assert self.msg_header >= 0 and self.msg_header < len(int2header)
-        return 'Message::' + int2header[self.msg_header] + ' from ' \
-            + str(self.sender) + ' with args:' + str(self.args)
+        try:
+            assert self.msg_header >= 0 and self.msg_header < len(int2header)
+            return 'Message::' + int2header[self.msg_header] + ' from ' \
+                + str(self.sender) + ' with args:' + str(self.args)
+        except:
+            print('Msg REPR FAILED')
+            raise 'shit'
+
 
 
 '''
@@ -85,6 +102,7 @@ maybe simplify? idk
 '''
 
 #TODO make more graceful
+#TODO fill in some sender fields. (BEWARE! calling incomplete functions crashes silently)
 
 # SERVER-SERVER SYNCHRO
 def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_SYNC_REQ'], s_id, [])
@@ -139,7 +157,7 @@ def generate_messages_from(socket, timeout=True):
     unpacker = msgpack.Unpacker()
     while True:
         try:
-            x = socket.recv(256)
+            x = socket.recv(1)
             if x == '':
                 print('socket dead!')
                 return
@@ -198,7 +216,12 @@ def write_msg_to(socket, msg):
     #pprint(vars(myfile))
     tot_bytes = len(myfile.buf)
     sent_now = 1
+    to_send = tot_bytes
     while sent_now != 0: # 0 means send done
-        try: sent_now = socket.send(myfile.read(256))
+        try:
+            sent_now = socket.send(myfile.read(to_send))
+            to_send -= sent_now
+            if to_send == 0:
+                return True;
         except: return False
     return True

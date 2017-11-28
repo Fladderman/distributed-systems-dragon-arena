@@ -84,12 +84,14 @@ class Server:
                         logging.info(("instead of WELCOME from {i}, got {msg}").format(i=i, msg=reply2))
                 except:
                     logging.info(("Couldn't HELLO server {i} with {hello_msg}. Oh well.").format(i=i, hello_msg=hello_msg))
-            messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_DONE())
+            sync_done = messaging.M_S2S_SYNC_DONE()
+            messaging.write_msg_to(auth_sock, sync_done)
+            logging.info(("Sent {sync_done} to {auth_index}.").format(sync_done=sync_done, auth_index=auth_index))
+            print("SYNC DONE :D")
             self._server_sockets[auth_index] = auth_sock
             logging.info(("Remembering socket for auth_server with id {auth_index}").format(auth_index=auth_index))
 
-
-        print('YASSS QUEEEEN')
+        print('WOOOHOOO READY')
         self._requests = protected.ProtectedQueue()
         self._waiting_sync_server_tuples = protected.ProtectedQueue() #(msg.sender, socket)
         self._client_sockets = dict()
@@ -185,13 +187,14 @@ class Server:
                 messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
                 self._handle_server_incoming(socket, addr)
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
-                logging.info(("This is server {s_id} that wants to sync! Killinig incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
+                logging.info(("This is server {s_id} that wants to sync! Killing incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
                 self._waiting_sync_server_tuples.enqueue((msg.sender, socket))
 
 
     def _handle_client_incoming(self, socket, addr):
         print('client handler!')
         for msg in messaging.generate_messages_from(socket, timeout=False):
+            print('client incoming', msg)
             logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
             pass
         print('client handler dead :(')
@@ -200,6 +203,7 @@ class Server:
         print('server handler!')
         for msg in messaging.generate_messages_from(socket, timeout=False):
             logging.info(("Got server incoming {msg}!").format(msg=str(msg)))
+            print('server incoming', msg)
             pass
         print('serv handler dead :(')
 
@@ -229,15 +233,12 @@ class Server:
             '''SWAP BUFFERS'''
             my_req_pool = self._requests.drain_if_probably_something()
             logging.info(("drained ({num_reqs}) requests in tick {tick_id}").format(num_reqs=len(my_req_pool), tick_id=self._tick_id))
-
-
             '''FLOOD REQS'''
             self._step_flood_reqs(my_req_pool)
 
             current_sync_tuples = self._waiting_sync_server_tuples.drain_if_probably_something()
             if current_sync_tuples:
                 # collect DONES before sending your own
-
                 logging.info(("servers {set} waiting to sync! LEADER tick. Suppressing DONE step").format(set=map(lambda x: x[0], current_sync_tuples)))
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
@@ -250,7 +251,6 @@ class Server:
 
             else: #NO SERVERS WAITING TO SYNC
                 # send own DONES before collecting those of others
-
                 logging.info(("No servers waiting to sync. Normal tick").format())
                 '''STEP FLOOD DONE'''
                 self._step_flood_done()
@@ -258,15 +258,11 @@ class Server:
                 my_req_pool.extend(self._step_read_reqs_and_wait())
 
 
-
-            self._step_flood_done()
-            logging.info(("Got all DONES. LEADER proceeding past barrier solo! boy I hope I don't deadlock ;)").format())
             '''SORT REQ SEQUENCE'''
             req_sequence = ordering_func(my_req_pool)
             '''APPLY AND LOG'''
             for req in req_sequence:
                 Server._apply_and_log(self._dragon_arena, req)
-
             '''UPDATE CLIENTS'''
             self._step_update_clients()
 
@@ -319,34 +315,51 @@ class Server:
 
     def _step_sync_servers(self, sync_tuples):
         update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id, self._dragon_arena.serialize())
+
+        #TODO here there are problems !!! wont work for some reasn
         for sender_id, socket in sync_tuples:
+            print('sync tup:', sender_id, socket)
             try:
                 messaging.write_msg_to(socket, update_msg)
-                logging.info(("Sent sync msg to waiting server {sender_id}").format(sender_id=sender_id))
-            except:
+                logging.info(("Sent sync msg {update_msg} to waiting server {sender_id}").format(update_msg=update_msg, sender_id=sender_id))
+            except Exception as e:
+                print('except', e)
                 logging.info(("Failed to send sync msg to waiting server {sender_id}").format(sender_id=sender_id))
 
         for sender_id, socket in sync_tuples:
+            if socket == None:
+                continue
+            print('awaiting DONE...')
             try:
                 reply = messaging.read_msg_from(socket, timeout=False)
+                print('got reply...', reply)
+                logging.info(("Got {msg} from sync server {sender_id}! :)").format(msg=reply, sender_id=sender_id))
+                print('istrue?', reply.header_matches_string('S2S_SYNC_DONE'))
                 if reply != None and reply.header_matches_string('S2S_SYNC_DONE'):
-                     logging.info(("Got {msg} from sync server {sender_id}! :)").format(msg=reply, sender_id=sender_id))
-                     self._server_sockets[sender_id] = socket
-                     server_incoming_thread = threading.Thread(
-                         target=Server._handle_server_incoming,
-                         args=(self, socket, das_game_settings.server_addresses[sender_id]),
-                     )
-                     logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
-            except:
+                    print('')
+                    self._server_sockets[sender_id] = socket
+                    server_incoming_thread = threading.Thread(
+                        target=Server._handle_server_incoming,
+                        args=(self, socket, das_game_settings.server_addresses[sender_id]),
+                    )
+                    logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
+
+                    # TODO the error is here somwhere
+            except Exception as e:
+                print('lolol', e)
                 logging.info(("Hmm. It seems that {sender_id} has crashed before syncing. Oh well :/").format(sender_id=sender_id))
+        logging.info(("Got to end of sync").format())
 
     def _step_update_clients(self):
-        update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
+        update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, 5) #TODO THIS IS DEBUG
+        # update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
         logging.info(("Update msg ready for tick {tick_id}").format(tick_id=self._tick_id))
+        logging.info(("Client set for tick {tick_id}: {clients}").format(tick_id=self._tick_id, clients=self._client_sockets.keys()))
         for addr, sock in self._client_sockets:
             #TODO investigate why addr is an ip and not (ip,port)
             try:
                 messaging.write_msg_to(sock, update_msg)
+                print('updated client', addr)
                 logging.info(("Successfully updated client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
             except:
                 logging.info(("Failed to update client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))

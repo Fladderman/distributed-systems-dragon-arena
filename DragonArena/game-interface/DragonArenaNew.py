@@ -539,9 +539,7 @@ class DragonArena:
         serial_creature2loc = o[3]
         dead_creature_ids = o[4]
 
-        def cr_d(serial_cr): return Creature.deserialize(serial_cr)
-
-        creature2loc_list = map(lambda t: (cr_d(t[0]), t[1]),
+        creature2loc_list = map(lambda t: (Creature.deserialize(t[0]), t[1]),
                                 serial_creature2loc)
 
         creature2loc = dict(creature2loc_list)

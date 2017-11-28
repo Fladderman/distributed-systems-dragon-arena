@@ -1,6 +1,8 @@
-import threading, time, json, socket
-import messaging, das_game_settings, client_player, state_dummy, protected
+import threading, time, json, socket, sys, os
+import messaging, das_game_settings, client_player, protected
 from random import shuffle
+sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
+from DragonArenaNew import DragonArena
 
 class Client:
     def __init__(self, player):
@@ -17,7 +19,7 @@ class Client:
         print('client got', str(reply_msg), ':)')
 
         # todo get state from server
-        self._protected_game_state = protected.ProtectedGameState(state_dummy.StateDummy())
+        self._protected_game_state = protected.ProtectedDragonArena(state_dummy.StateDummy())
 
 
     def _ordered_server_list(self):

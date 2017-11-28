@@ -1,0 +1,8 @@
+
+# if msg.sender in self._clients:
+#     c_sock = self._clients[msg.sender]
+#     response = messaging.M_S2C_WELCOME(self._server_id)
+#     print('response', response)
+#     messaging.write_msg_to(c_sock, response)
+#     print('popping')
+#     self._clients.pop(msg.sender)

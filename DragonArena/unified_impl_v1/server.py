@@ -59,18 +59,25 @@ class Server:
             logging.info(("Got sync reply: {reply}").format(reply=str(sync_reply)))
             assert sync_reply.msg_header == messaging.header2int['S2S_SYNC_REPLY']
             self._tick_id = DragonArena.deserialize(sync_reply.args[0])
+            logging.info(("Got sync'd game state from server! serialized: {serialized_state}").format(serialized_state=sync_reply.args[1]))
             self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
             self._server_sockets = Server._socket_to_others({auth_index, server_id})
-            for s in self._server_sockets:
+            hello_msg = messaging.M_S2S_HELLO(server_id)
+            for i, s in enumerate(self._server_sockets):
                 try:
-                    messaging.write_msg_to(auth_sock, messaging.M_S2S_HELLO(server_id))
-                    reply2 = messaging.read_msg_from(auth_sock)
-                except: pass
-                assert reply2.msg_header == messaging.header2int['S2S_WELCOME']
+                    messaging.write_msg_to(auth_sock, hello_msg)
+                    reply2 = messaging.read_msg_from(auth_sock,timeout=False)
+                    logging.info(("Successfully HELLO'd server {i} with {hello_msg}").format(i=i, hello_msg=hello_msg))
+                    if reply2.msg_header == messaging.header2int['S2S_WELCOME']:
+                        logging.info(("got expected WELCOME reply from {i}").format(i=i))
+                    else:
+                        logging.info(("instead of WELCOME from {i}, got {msg}").format(i=i, msg=reply2))
+                except:
+                    logging.info(("Couldn't HELLO server {i} with {hello_msg}. Oh well.").format(i=i, hello_msg=hello_msg))
             messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_DONE)
 
         self._requests = protected.ProtectedQueue()
-        self._syncing_server_ids = protected.ProtectedQueue()
+        self._waiting_sync_server_tuples = protected.ProtectedQueue() #(msg.sender, socket)
         self._client_sockets = dict()
         self._kick_off_acceptor()
         # all went ok :)
@@ -155,13 +162,8 @@ class Server:
                 messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
                 self._handle_server_incoming(socket, addr)
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
-                logging.info(("This is server {s_id} that wants to sync!").format(s_id=msg.sender))
-                self._syncing_server_ids.enqueue(msg.sender)
-                while self._syncing_server_ids.contains(msg.sender):
-                    # waiting for main_loop thread to sync this server. main loop will respond
-                    time.sleep(0.3)
-                #sync successful I guess!
-                self._handle_server_incoming(socket, addr)
+                logging.info(("This is server {s_id} that wants to sync! Killinig incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
+                self._waiting_sync_server_tuples.enqueue((msg.sender, socket))
 
 
     def _handle_client_incoming(self, socket, addr):
@@ -189,6 +191,7 @@ class Server:
         #TODO branch. decide what to do. writ result to log
         pass
 
+
     def main_loop(self):
         logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id))
         print('MAIN LOOP :)')
@@ -200,58 +203,44 @@ class Server:
             my_req_pool = self._requests.drain_if_probably_something()
             logging.info(("drained ({num_reqs}) requests in tick {tick_id}").format(num_reqs=len(my_req_pool), tick_id=self._tick_id))
 
-            servers_waiting = self._syncing_server_ids.drain_if_probably_something()
-            if servers_waiting:
-                logging.info(("Server has found ({num}) other servers waiting for sync! going to try become the LEADER").format(num=len(servers_waiting)))
-
 
             '''FLOOD REQS'''
-            for serv_id, sock in enumerate(self._server_sockets):
-                if sock == None:
-                    #TODO put back in
-                    #logging.info(("Skipping req flood to server_id {serv_id} (No socket)").format(serv_id=serv_id))
-                    continue
-                try:
-                    messaging.write_many_msgs_to(sock, my_req_pool)
-                    logging.info(("Finished flooding reqs to serv_id {serv_id}").format(serv_id=serv_id))
-                except:
-                     logging.info(("Flooding reqs to serv_id {serv_id} crashed!").format(serv_id=serv_id))
+            self._step_flood_reqs(my_req_pool)
+
+            current_sync_tuples = self._waiting_sync_server_tuples.drain_if_probably_something()
+            if current_sync_tuples:
+                logging.info(("servers {set} waiting to sync! LEADER tick. Suppressing DONE step").format(set=map(lambda x: x[0], current_sync_tuples)))
+                '''READ REQS AND WAIT'''
+                my_req_pool.extend(self._step_read_reqs_and_wait())
+                logging.info(("Got all DONES. LEADER proceeding past barrier solo! boy I hope I don't deadlock ;)").format())
+                '''SORT REQ SEQUENCE'''
+                req_sequence = ordering_func(my_req_pool)
+                '''APPLY AND LOG'''
+                for req in req_sequence:
+                    Server._apply_and_log(self._dragon_arena, req)
+                '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
+                # TODO no need to serialize the state a 2nd time. calc once and pass into both funcs
+                self._step_sync_servers(current_sync_tuples)
+                logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}").format(tick_id=self._tick_id))
+                '''STEP FLOOD DONE'''
+                self._step_flood_done()
 
 
-            logging.info(("Flooding reqs done for tick_id {tick_id}").format(tick_id=self._tick_id))
-            '''SEND DONE'''
-            for sock in self._server_sockets:
-                try: messaging.write_msg_to(sock, req)
-                except: pass # reader will remove it
+            else: #NO SERVERS WAITING TO SYNC
+                logging.info(("No servers waiting to sync. Normal tick").format())
+                '''STEP FLOOD DONE'''
+                self._step_flood_done()
+                '''READ REQS AND WAIT'''
+                my_req_pool.extend(self._step_read_reqs_and_wait())
+                '''SORT REQ SEQUENCE'''
+                req_sequence = ordering_func(my_req_pool)
+                '''APPLY AND LOG'''
+                for req in req_sequence:
+                    Server._apply_and_log(self._dragon_arena, req)
 
-            '''READ REQS AND WAIT'''
-            for serv_id, sock in enumerate(self._server_sockets):
-                if sock==None:
-                    #TODO put back in
-                    #logging.info(("Not waiting for DONE from {serv_id} (No socket)").format(serv_id=serv_id))
-                    pass
-                else:
-                    msgs = list(Server._generate_msgs_until_done_or_crash(sock))
-                    my_req_pool.extend(msgs)
-                    logging.info(("Got DONE from {serv_id} after ({num_reqs}) reqs. Total reqs == {total}").format(serv_id=serv_id, num_reqs=len(msgs), total=len(my_req_pool)))
-
-            '''SORT REQ SEQUENCE'''
-            req_sequence = ordering_func(my_req_pool)
-
-            '''APPLY AND LOG'''
-            for req in req_sequence:
-                Server._apply_and_log(self._dragon_arena, req)
 
             '''UPDATE CLIENTS'''
-            update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
-            logging.info(("Update msg ready for tick {tick_id}").format(tick_id=self._tick_id))
-            for addr, sock in self._client_sockets:
-                try:
-                    messaging.write_msg_to(sock, update_msg)
-                    logging.info(("Successfully updated client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
-                except:
-                    logging.info(("Failed to update client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
-            logging.info(("All updates done for tick_id {tick_id}").format(tick_id=self._tick_id))
+            self._step_update_clients()
 
             '''SLEEP STEP'''
             sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
@@ -263,3 +252,71 @@ class Server:
 
             logging.info(("Tick {tick_id} complete").format(tick_id=self._tick_id))
             self._tick_id += 1
+
+    def _step_flood_reqs(self, my_req_pool):
+        for serv_id, sock in enumerate(self._server_sockets):
+            if sock == None:
+                #TODO put back in
+                #logging.info(("Skipping req flood to server_id {serv_id} (No socket)").format(serv_id=serv_id))
+                continue
+            try:
+                messaging.write_many_msgs_to(sock, my_req_pool)
+                logging.info(("Finished flooding reqs to serv_id {serv_id}").format(serv_id=serv_id))
+            except:
+                 logging.info(("Flooding reqs to serv_id {serv_id} crashed!").format(serv_id=serv_id))
+
+    def _step_flood_done(self):
+        done_msg = messaging.M_DONE
+        logging.info(("Flooding reqs done for tick_id {tick_id}").format(tick_id=self._tick_id))
+        '''SEND DONE'''
+        for sock in self._server_sockets:
+            try: messaging.write_msg_to(sock, done_msg)
+            except: pass # reader will remove it
+
+    def _step_read_reqs_and_wait(self):
+        res = []
+        for serv_id, sock in enumerate(self._server_sockets):
+            if sock==None:
+                #TODO put back in
+                #logging.info(("Not waiting for DONE from {serv_id} (No socket)").format(serv_id=serv_id))
+                pass
+            else:
+                msgs = list(Server._generate_msgs_until_done_or_crash(sock))
+                res.extend(msgs)
+                logging.info(("Got DONE from {serv_id} after ({num_reqs}) reqs. Total reqs == {total}").format(serv_id=serv_id, num_reqs=len(msgs), total=len(my_req_pool)))
+        return res
+
+    def _step_sync_servers(self, sync_tuples):
+        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id, self._dragon_arena.serialize())
+        for sender_id, socket in sync_tuples:
+            try:
+                messaging.write_msg_to(socket, update_msg)
+                logging.info(("Sent sync msg to waiting server {sender_id}").format(sender_id=sender_id))
+            except:
+                logging.info(("Failed to send sync msg to waiting server {sender_id}").format(sender_id=sender_id))
+
+        for sender_id, socket in sync_tuples:
+            try:
+                reply = messaging.read_msg_from(socket, timeout=False)
+                if reply != None and reply.header_matches_string('S2S_SYNC_DONE'):
+                     logging.info(("Got {msg} from sync server {sender_id}! :)").format(msg=reply, sender_id=sender_id))
+                     self._server_sockets[sender_id] = socket
+                     server_incoming_thread = threading.Thread(
+                         target=Server._handle_server_incoming,
+                         args=(self, socket, das_game_settings.server_addresses[sender_id]),
+                     )
+                     logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
+            except:
+                logging.info(("Hmm. It seems that {sender_id} has crashed before syncing. Oh well :/").format(sender_id=sender_id))
+
+    def _step_update_clients(self):
+        update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
+        logging.info(("Update msg ready for tick {tick_id}").format(tick_id=self._tick_id))
+        for addr, sock in self._client_sockets:
+            #TODO investigate why addr is an ip and not (ip,port)
+            try:
+                messaging.write_msg_to(sock, update_msg)
+                logging.info(("Successfully updated client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
+            except:
+                logging.info(("Failed to update client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
+        logging.info(("All updates done for tick_id {tick_id}").format(tick_id=self._tick_id))

@@ -16,7 +16,8 @@ class Client:
         reply_msg = messaging.read_msg_from(self._server_socket, timeout=False)
         print('client got', str(reply_msg), ':)')
 
-        self._protected_game_state = protected.PotectedGameState()
+        # todo get state from server
+        self._protected_game_state = protected.ProtectedGameState(state_dummy.StateDummy())
 
 
     def _ordered_server_list(self):
@@ -57,15 +58,15 @@ class Client:
     def main_loop(self):
         # split thread into outgoing and incoming
         incoming_thread = threading.Thread(
-            target=self._player.main_incoming_loop,
-            args=(,),
+            target=self.main_incoming_loop,
+            args=(),
         )
         incoming_thread.daemon = True
         incoming_thread.start()
-        main_outgoing_loop()
+        self.main_outgoing_loop()
 
-    def main_incoming_loop(socket):
-        for msg in messaging.read_many_msgs_from(socket):
+    def main_incoming_loop(self):
+        for msg in messaging.read_many_msgs_from(self._server_socket):
             if msg != None:
                 self._updates.push(msg)
 
@@ -73,6 +74,7 @@ class Client:
         req_generator = self._player.main_loop(self._protected_game_state)
         for request in req_generator:
             assert isinstance(request, messaging.Message)
+            print('forwarding', request)
             try:
                 messaging.write_msg_to(self._server_socket, request)
             except:

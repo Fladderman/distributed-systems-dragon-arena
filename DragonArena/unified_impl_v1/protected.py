@@ -1,7 +1,7 @@
 import threading
 import state_dummy
 
-class PotectedGameState:
+class ProtectedGameState:
     def __init__(self, state, timeout=0.1):
         self._state = state
         self.timeout = timeout

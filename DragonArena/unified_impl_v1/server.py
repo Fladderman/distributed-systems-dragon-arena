@@ -53,7 +53,7 @@ class Server:
         else:
             # I'm not first :[
             logging.info(("I am NOT the first server!. Will sync with auth_index").format())
-            messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_REQ(server_id))
+            messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_REQ(self._server_id))
             sync_reply = messaging.read_msg_from(auth_sock)
             logging.info(("Got sync reply: {reply}").format(reply=str(sync_reply)))
             assert sync_reply.msg_header == messaging.header2int['S2S_SYNC_REPLY']
@@ -69,6 +69,7 @@ class Server:
             messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_DONE)
 
         self._requests = protected.ProtectedQueue()
+        self._syncing_server_ids = protected.ProtectedQueue()
         self._client_sockets = dict()
         self._kick_off_acceptor()
         # all went ok :)
@@ -78,7 +79,7 @@ class Server:
             if index == self._server_id: continue # skip myself
             sock = Server._try_connect_to(addr)
             if sock != None:
-                return sock, addr
+                return sock, index
         return None, None
 
     @staticmethod
@@ -89,7 +90,7 @@ class Server:
 
     @staticmethod
     def _try_connect_to(addr): #addr == (ip, port)
-        socket.setdefaulttimeout(1.5) #todo experiment with this
+        socket.setdefaulttimeout(0.3) #todo experiment with this
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect(addr)
@@ -129,7 +130,7 @@ class Server:
                 logging.info(("new acceptor connection from {addr}").format(addr=new_addr))
                 # print('new_client_tuple', (new_addr, new_socket))
                 #TODO handle the case that this new_addr is already associated with something
-                self._clients[new_addr] = new_socket
+                self._client_sockets[new_addr] = new_socket
                 client_incoming_thread = threading.Thread(
                     target=Server._handle_socket_incoming,
                     args=(self, new_socket, new_addr),
@@ -138,24 +139,29 @@ class Server:
                 client_incoming_thread.start()
 
     def _handle_socket_incoming(self, socket, addr):
-        logging.info(("handling messages from newcomer socket at {addr}").format(addr=new_addr))
-        for msg in messaging.generate_messages_from(client_sock):
+        logging.info(("handling messages from newcomer socket at {addr}").format(addr=addr))
+        for msg in messaging.generate_messages_from(socket,timeout=False):
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
             if msg == None:
-                continue
+                print('sock dead. killing incoming reader daemon')
+                return
             print('msg yielded', msg)
             if msg.msg_header == messaging.header2int['C2S_HELLO']: #todo check server secret
                 messaging.write_msg_to(socket, messaging.M_S2C_WELCOME(self._server_id))
                 if True: # TODO if not above client capacity
                     self._handle_client_incoming(socket, addr)
-                return
-            if msg.msg_header == messaging.header2int['S2S_HELLO']:
+            elif msg.msg_header == messaging.header2int['S2S_HELLO']:
                 messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
                 self._handle_server_incoming(socket, addr)
-                return
-            elif client_addr not in self._clients:
-                print('sock dead. killing incoming reader daemon')
-                return
+            elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
+                logging.info(("This is server {s_id} that wants to sync!").format(s_id=msg.sender))
+                self._syncing_server_ids.enqueue(msg.sender)
+                while self._syncing_server_ids.contains(msg.sender):
+                    # waiting for main_loop thread to sync this server. main loop will respond
+                    time.wait(0.3)
+                #sync successful I guess!
+                self._handle_server_incoming(socket, addr)
+
 
     def _handle_client_incoming(self, socket, addr):
         for msg in messaging.generate_messages_from(client_sock):
@@ -182,6 +188,7 @@ class Server:
 
     def main_loop(self):
         logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id))
+        print('MAIN LOOP :)')
         while True:
             tick_start = time.time()
             print('tick')
@@ -189,6 +196,8 @@ class Server:
             '''SWAP BUFFERS'''
             my_req_pool = self._requests.drain_if_probably_something()
             logging.info(("drained ({num_reqs}) requests in tick {tick_id}").format(num_reqs=len(my_req_pool), tick_id=self._tick_id))
+
+            servers_waiting = self._syncing_server_ids.drain_if_probably_something()
 
             '''FLOOD REQS'''
             for serv_id, sock in enumerate(self._server_sockets):

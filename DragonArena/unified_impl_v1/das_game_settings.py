@@ -8,5 +8,5 @@ server_addresses = [
     ("127.0.0.1", 2005),
 ]
 num_server_addresses = len(server_addresses)
-server_min_tick_time = 1.0
+server_min_tick_time = 4.0
 dragon_arena_init_settings = {'no_of_dragons':10, 'map_width':25, 'map_height':25}

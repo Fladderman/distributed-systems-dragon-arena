@@ -67,9 +67,13 @@ class Server:
                 logging.info(("Couldn't deserialize the given game state: {serialized_state}").format(serialized_state=sync_reply.args[1]))
                 exit(1)
                 #TODO try again?
-            self._server_sockets = Server._socket_to_others({auth_index, server_id})
-            hello_msg = messaging.M_S2S_HELLO(server_id)
+            self._server_sockets = Server._socket_to_others({auth_index, self._server_id})
+            print('self._server_sockets', self._server_sockets)
+            hello_msg = messaging.M_S2S_HELLO(self._server_id)
             for i, s in enumerate(self._server_sockets):
+                if s == None:
+                    logging.info(("Skipping HELLO to server {i}").format(i=i))
+                    continue
                 try:
                     messaging.write_msg_to(auth_sock, hello_msg)
                     reply2 = messaging.read_msg_from(auth_sock,timeout=False)
@@ -80,8 +84,12 @@ class Server:
                         logging.info(("instead of WELCOME from {i}, got {msg}").format(i=i, msg=reply2))
                 except:
                     logging.info(("Couldn't HELLO server {i} with {hello_msg}. Oh well.").format(i=i, hello_msg=hello_msg))
-            messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_DONE)
+            messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_DONE())
+            self._server_sockets[auth_index] = auth_sock
+            logging.info(("Remembering socket for auth_server with id {auth_index}").format(auth_index=auth_index))
 
+
+        print('YASSS QUEEEEN')
         self._requests = protected.ProtectedQueue()
         self._waiting_sync_server_tuples = protected.ProtectedQueue() #(msg.sender, socket)
         self._client_sockets = dict()
@@ -98,8 +106,8 @@ class Server:
 
     @staticmethod
     def _socket_to_others(except_indices):
-        f = lambda i: None if i in except_indices else _try_connect_to(das_game_settings.server_addresses[i])
-        return list(map(f, xrange(0, das_game_settings.num_servers)))
+        f = lambda i: None if i in except_indices else Server._try_connect_to(das_game_settings.server_addresses[i])
+        return list(map(f, xrange(0, das_game_settings.num_server_addresses)))
 
 
     @staticmethod
@@ -159,7 +167,7 @@ class Server:
             if msg == None:
                 print('sock dead. killing incoming reader daemon')
                 return
-            print('msg yielded', msg)
+            print('_handle_socket_incoming yielded', msg)
             if msg.header_matches_string('C2S_HELLO'):
                 print('neww client!')
 
@@ -170,6 +178,7 @@ class Server:
                 messaging.write_msg_to(socket, welcome)
                 print('welcomed it!')
                 if True: # TODO if not above client capacity
+                    self._client_sockets[addr] = socket
                     self._handle_client_incoming(socket, addr)
             elif msg.header_matches_string('S2S_HELLO'):
                 print('neww server!')
@@ -181,14 +190,18 @@ class Server:
 
 
     def _handle_client_incoming(self, socket, addr):
+        print('client handler!')
         for msg in messaging.generate_messages_from(socket, timeout=False):
             logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
             pass
+        print('client handler dead :(')
 
     def _handle_server_incoming(self, socket, addr):
+        print('server handler!')
         for msg in messaging.generate_messages_from(socket, timeout=False):
             logging.info(("Got server incoming {msg}!").format(msg=str(msg)))
             pass
+        print('serv handler dead :(')
 
     @staticmethod
     def _generate_msgs_until_done_or_crash(sock):
@@ -211,7 +224,7 @@ class Server:
         print('MAIN LOOP :)')
         while True:
             tick_start = time.time()
-            print('tick')
+            print('tick', self._tick_id)
 
             '''SWAP BUFFERS'''
             my_req_pool = self._requests.drain_if_probably_something()
@@ -223,35 +236,36 @@ class Server:
 
             current_sync_tuples = self._waiting_sync_server_tuples.drain_if_probably_something()
             if current_sync_tuples:
+                # collect DONES before sending your own
+
                 logging.info(("servers {set} waiting to sync! LEADER tick. Suppressing DONE step").format(set=map(lambda x: x[0], current_sync_tuples)))
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
-                logging.info(("Got all DONES. LEADER proceeding past barrier solo! boy I hope I don't deadlock ;)").format())
-                '''SORT REQ SEQUENCE'''
-                req_sequence = ordering_func(my_req_pool)
-                '''APPLY AND LOG'''
                 for req in req_sequence:
                     Server._apply_and_log(self._dragon_arena, req)
                 '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
-                # TODO no need to serialize the state a 2nd time. calc once and pass into both funcs
                 self._step_sync_servers(current_sync_tuples)
                 logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}").format(tick_id=self._tick_id))
                 '''STEP FLOOD DONE'''
-                self._step_flood_done()
-
 
             else: #NO SERVERS WAITING TO SYNC
+                # send own DONES before collecting those of others
+
                 logging.info(("No servers waiting to sync. Normal tick").format())
                 '''STEP FLOOD DONE'''
                 self._step_flood_done()
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
-                '''SORT REQ SEQUENCE'''
-                req_sequence = ordering_func(my_req_pool)
-                '''APPLY AND LOG'''
-                for req in req_sequence:
-                    Server._apply_and_log(self._dragon_arena, req)
 
+
+
+            self._step_flood_done()
+            logging.info(("Got all DONES. LEADER proceeding past barrier solo! boy I hope I don't deadlock ;)").format())
+            '''SORT REQ SEQUENCE'''
+            req_sequence = ordering_func(my_req_pool)
+            '''APPLY AND LOG'''
+            for req in req_sequence:
+                Server._apply_and_log(self._dragon_arena, req)
 
             '''UPDATE CLIENTS'''
             self._step_update_clients()
@@ -259,7 +273,7 @@ class Server:
             '''SLEEP STEP'''
             sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
             if sleep_time > 0.0:
-                logging.info(("Sleeping for ({sleep_time}) seconds for ick_id {tick_id}").format(sleep_time=sleep_time, tick_id=self._tick_id))
+                logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}").format(sleep_time=sleep_time, tick_id=self._tick_id))
                 time.sleep(sleep_time)
             else:
                 logging.info(("No time for sleep for tick_id {tick_id}").format(tick_id=self._tick_id))
@@ -289,6 +303,9 @@ class Server:
 
     def _step_read_reqs_and_wait(self):
         res = []
+        active_indices = filter(lambda x: self._server_sockets[x] != None, range(das_game_settings.num_server_addresses))
+        logging.info(("reading and waiting for servers {active_indices}").format(active_indices=active_indices))
+        print('other servers:', self._server_sockets)
         for serv_id, sock in enumerate(self._server_sockets):
             if sock==None:
                 #TODO put back in

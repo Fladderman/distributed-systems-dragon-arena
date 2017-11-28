@@ -18,10 +18,13 @@ class Client:
         reply_msg = messaging.read_msg_from(self._server_socket, timeout=False)
         print('client got', str(reply_msg), ':)')
         assert reply_msg.header_matches_string('S2C_WELCOME')
-
+        self._my_id = reply_msg.args[0]
+        first_update = messaging.read_msg_from(self._server_socket, timeout=False)
+        print('client got', str(reply_msg), ':)')
+        assert reply_msg.header_matches_string('UPDATE')
         # todo get state from server
         self._protected_game_state = protected.ProtectedDragonArena(
-            DragonArena.deserialize(reply_msg.args[0])
+            DragonArena.deserialize(first_update.args[1])
         )
 
     def _ordered_server_list(self):

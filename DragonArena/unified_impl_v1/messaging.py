@@ -73,7 +73,6 @@ class Message:
         return Message(msg_header, sender, args)
 
     def __repr__(self):
-        print('header', self.msg_header)
         assert self.msg_header >= 0 and self.msg_header < len(int2header)
         return 'Message::' + int2header[self.msg_header] + ' from ' \
             + str(self.sender) + ' with args:' + str(self.args)
@@ -200,7 +199,6 @@ def write_msg_to(socket, msg):
     tot_bytes = len(myfile.buf)
     sent_now = 1
     while sent_now != 0: # 0 means send done
-        print('zoopy')
         try: sent_now = socket.send(myfile.read(256))
         except: return False
     return True

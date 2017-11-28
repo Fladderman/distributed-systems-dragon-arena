@@ -47,3 +47,41 @@
 
    self._accepting_clients = True;
    print('setup done')
+
+
+
+
+       def _sync_with_server(self, authority_server_socket):
+           messaging.write_msg_to(authority_server_socket, messaging.M_SERV_SYNC_REQ)
+           msg_check = lambda m:\
+               isinstance(m, Message)\
+               and m.msg_header == messaging.header2int['SERV_SYNC_REPLY']
+           reply = messaging.read_first_message_matching(authority_server_socket, msg_check)
+           return reply.args[0], reply.args[1]
+
+
+
+
+   def _connect_to_other_servers(self):
+       '''
+       first try to connect to all, populating self._other_server_socks
+       then send each a M_SERV_HELLO
+       '''
+       serv_sockets = [None for _ in range(0, das_game_settings.num_servers)]
+       socket.setdefaulttimeout(3.0)
+       msg = messaging.M_S2S_HELLO(self._server_id)
+       for index, addr in enumerate(das_game_settings.server_addresses):
+           if index == self._server_id:
+               continue # skip myself
+           sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+           try:
+               sock.connect((ip, port))
+               print('successfully conencted to', index, 'at', addr)
+               messaging.write_msg_to(sock, msg)
+               reply = messaging.read_msg_from(sock)
+               print('got reply', reply, 'from', addr)
+               assert reply.msg_header == messaging.header2int['M_S2S_WELCOME']
+               serv_sockets[index] = sock
+           except:
+               print('failed to connect to ', index, 'at', addr)
+       return serv_sockets

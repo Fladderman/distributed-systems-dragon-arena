@@ -17,7 +17,7 @@ int2header = [
     'S2S_SYNC_REPLY',
     'S2S_HELLO',
     'S2S_WELCOME',
-    'S2S_SYNC_DONE'
+    'S2S_SYNC_DONE',
     'PING',
     'C2S_HELLO',
     'S2C_WELCOME',
@@ -81,7 +81,6 @@ Predefined messages
 #TODO check the protocol
 maybe simplify? idk
 '''
-M_PING = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
 
 # SERVER-SERVER SYNCHRO
 def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_SYNC_REQ'], s_id, [])
@@ -91,6 +90,7 @@ M_S2S_WELCOME                                   = Message(header2int['S2S_WELCOM
 M_S2S_SYNC_DONE                                 = Message(header2int['S2S_SYNC_DONE'],-1,[])
 
 # SERVER-CLIENT SYNCHRO
+M_PING                                          = Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
 def M_C2S_HELLO(s_id):                          return Message(header2int['C2S_HELLO'], s_id,[])
 M_S2C_WELCOME                                   = Message(header2int['S2C_WELCOME'], -1,[])
 def M_DONE(s_id, tick_id):                      return Message(header2int['DONE'], s_id, [tick_id])

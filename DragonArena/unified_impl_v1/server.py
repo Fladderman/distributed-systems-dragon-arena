@@ -24,29 +24,35 @@ class ServerAcceptor:
 
 class Server:
     def __init__(self, server_id):
-        logging.basicConfig(filename=('server_{s_id}.log'),format(s_id=server_id), filemode='w', level=logging.INFO)
-        logging.info("Logging started at %s", str(time.time()))
+        log_filename = ('server_{s_id}.log').format(s_id=server_id)
+        logging.basicConfig(filename=log_filename, filemode='w', level=logging.INFO)
         self._server_id = server_id
         backoff_time = 0.1
+        try_index = 0
         while True:
             time.sleep(backoff_time)
-            try:
-                self.try_setup()
-                break
-            except:
-                backoff_time *= 2.00
-        self.main_loop()
+            logging.info(("try number {try_index}").format(try_index=try_index))
+            try_index += 1
+            # try:
+            self.try_setup()
+            self.main_loop()
+            return
+
 
     def try_setup(self):
-        auth_sock, auth_index = self.connect_to_first_other_server()
+        auth_sock, auth_index = self._connect_to_first_other_server()
+        logging.info(("authority socket_index: {index}").format(index=auth_index))
         if auth_sock == None:
             # I am first! :D
+            logging.info(("I am the first server!").format())
             self._dragon_arena = Server.create_fresh_arena()
             self._tick_id = 0
         else:
             # I'm not first :[
+            logging.info(("I am NOT the first server!. Will sync with auth_index").format())
             messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_REQ(server_id))
             sync_reply = messaging.read_msg_from(auth_sock)
+            logging.info(("Got sync reply: {reply}").format(reply=str(sync_reply)))
             assert sync_reply.msg_header == messaging.header2int['S2S_SYNC_REPLY']
             self._tick_id = DragonArena.deserialize(sync_reply.args[0])
             self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
@@ -55,25 +61,12 @@ class Server:
                 try:
                     messaging.write_msg_to(auth_sock, messaging.M_S2S_HELLO(server_id))
                     reply2 = messaging.read_msg_from(auth_sock)
+                except: pass
                 assert reply2.msg_header == messaging.header2int['S2S_WELCOME']
             messaging.write_msg_to(auth_sock, messaging.M_S2S_SYNC_DONE)
 
         self._kick_off_acceptor()
         # all went ok :)
-
-    @staticmethod
-    def _socket_to_others(except_indices):
-        f = lambda i: None if i in except_indices else _try_connect_to(das_game_settings.server_addresses[i])
-        return list(map(f, xrange(0, das_game_settings.num_servers))
-
-
-    @staticmethod
-    def _try_connect_to(addr): #addr == (ip, port)
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect(addr)
-            return sock
-        except: return None
 
     def _connect_to_first_other_server(self):
         for index, addr in enumerate(das_game_settings.server_addresses):
@@ -83,21 +76,23 @@ class Server:
                 return sock, addr
         return None, None
 
-    def _kick_off_acceptor(self):
-        acceptor_handle = threading.Thread(
-            target=Server._handle_new_connections,
-            args=(self, my_port),
-        )
-        acceptor_handle.daemon = True
-        acceptor_handle.start()
+    @staticmethod
+    def _socket_to_others(except_indices):
+        f = lambda i: None if i in except_indices else _try_connect_to(das_game_settings.server_addresses[i])
+        return list(map(f, xrange(0, das_game_settings.num_servers)))
 
-    def _sync_with_server(self, authority_server_socket):
-        messaging.write_msg_to(authority_server_socket, messaging.M_SERV_SYNC_REQ)
-        msg_check = lambda m:\
-            isinstance(m, Message)\
-            and m.msg_header == messaging.header2int['SERV_SYNC_REPLY']
-        reply = messaging.read_first_message_matching(authority_server_socket, msg_check)
-        return reply.args[0], reply.args[1]
+
+    @staticmethod
+    def _try_connect_to(addr): #addr == (ip, port)
+        socket.setdefaulttimeout(1.5) #todo experiment with this
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect(addr)
+            logging.info(("Successfully socketed to {addr}").format(addr=addr))
+            return sock
+        except:
+            logging.info(("Failed to socket to {addr}").format(addr=addr))
+            return None
 
     @staticmethod
     def create_fresh_arena():
@@ -106,29 +101,14 @@ class Server:
         d.new_game()
         return d
 
-    def _connect_to_other_servers(self):
-        '''
-        first try to connect to all, populating self._other_server_socks
-        then send each a M_SERV_HELLO
-        '''
-        serv_sockets = [None for _ in range(0, das_game_settings.num_servers)]
-        socket.setdefaulttimeout(3.0)
-        msg = messaging.M_S2S_HELLO(self._server_id)
-        for index, addr in enumerate(das_game_settings.server_addresses):
-            if index == self._server_id:
-                continue # skip myself
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                sock.connect((ip, port))
-                print('successfully conencted to', index, 'at', addr)
-                messaging.write_msg_to(sock, msg)
-                reply = messaging.read_msg_from(sock)
-                print('got reply', reply, 'from', addr)
-                assert reply.msg_header == messaging.header2int['M_S2S_WELCOME']
-                serv_sockets[index] = sock
-            except:
-                print('failed to connect to ', index, 'at', addr)
-        return serv_sockets
+    def _kick_off_acceptor(self):
+        my_port = das_game_settings.server_addresses[self._server_id][1]
+        acceptor_handle = threading.Thread(
+            target=Server._handle_new_connections,
+            args=(self, my_port),
+        )
+        acceptor_handle.daemon = True
+        acceptor_handle.start()
 
     def _handle_socket_incoming(self, socket, addr):
         for msg in messaging.generate_messages_from(client_sock):
@@ -142,7 +122,7 @@ class Server:
                 return
             if msg.msg_header == messaging.header2int['S2S_HELLO']:
                 messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
-                self._handle_client_incoming(socket, addr)
+                self._handle_server_incoming(socket, addr)
                 return
             elif client_addr not in self._clients:
                 print('sock dead. killing incoming reader daemon')
@@ -178,7 +158,7 @@ class Server:
     def _generate_msgs_until_done_or_crash(sock):
         for msg in messaging.generate_messages_from(sock):
             if msg != None:
-                elif msg.header_matches_string('DONE'): return
+                if msg.header_matches_string('DONE'): return
                 else: yield msg
 
     @staticmethod

@@ -509,6 +509,9 @@ class DragonArena:
                           )
                    )
 
+    def can_move_up(self, identifier): # used by bot
+        return
+
     # Allows the calling server to process a round of dragon attacks.
     def let_dragons_attack(self):
         dragon_ids = map(self._creature2id, self.get_dragons())

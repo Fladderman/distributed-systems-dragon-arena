@@ -28,7 +28,6 @@ class HumanPlayer(Player):
             yield messaging.M_PLAYER_REQ_DUMMY
 
 
-@staticmethod
 def manhattan_distance(loc1, loc2):
     return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
 
@@ -37,21 +36,29 @@ class BotPlayer(Player):
         assert isinstance(protected_dragon_arena, protected.ProtectedGameState)
         print('bot player main loop')
         # has self._game_state_copy
-        while True: # while game.playing
+        while True:  # while game.playing    # Roy: And I'm not dead?
             time.sleep(0.5)
             with protected_dragon_arena as da:
                 must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
                                    da.heal_candidates(my_id))
                 if must_heal:
-                    yield messaging.M_R_HEAL(my_id, must_heal[0]) # da.heal(my_id, must_heal[0])
+                    yield messaging.M_R_HEAL(my_id, must_heal[0])
                 else:
                     can_attack = da.attack_candidates(my_id)
                     if can_attack:
-                        yield messaging.M_R_ATTACK(my_id, can_attack[0]) # da.attack(my_id, can_attack[0])
+                        yield messaging.M_R_ATTACK(my_id, can_attack[0])
                     else:
                         dragon_locations = da.get_dragon_locations()
                         my_loc = da.get_location(my_id)
-                        # to continue, manhattan distance is defined up already
+
+                        dist_with_loc = \
+                            map(lambda x: (manhattan_distance(my_loc, x), x),
+                                dragon_locations)
+
+                        # sort in place based on distance
+                        dist_with_loc.sort(key=lambda x: x[0])
+
+                        # continue later
 
                         #?????
                         # TODO code unfinished? You may need this : `yield messaging.M_R_MOVE(my_id, coord)`

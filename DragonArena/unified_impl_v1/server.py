@@ -3,7 +3,8 @@ import messaging, das_game_settings, protected
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
-#SUBROBLEMS:
+######################################
+#SUBROBLEMS START:
 def ordering_func(reqs):
     logging.info(("Applying ORDERING function to ({num_reqs}) reqs.").format(num_reqs=len(reqs)))
     req_sequence = []
@@ -26,6 +27,7 @@ def _request_is_valid(dragon_arena, message, sender): #TODO
     # based on the arguments, return True if this request IS valid. return False if it should not take effect
     return True
 
+#SUBROBLEMS END:
 ##############################
 
 class ServerAcceptor:
@@ -332,7 +334,7 @@ class Server:
             else:
                 msgs = list(Server._generate_msgs_until_done_or_crash(sock))
                 res.extend(msgs)
-                logging.info(("Got DONE from {serv_id} after ({num_reqs}) reqs. Total reqs == {total}").format(serv_id=serv_id, num_reqs=len(msgs), total=len(my_req_pool)))
+                logging.info(("Got DONE from {serv_id} after ({num_reqs}) reqs. Total reqs == {total}").format(serv_id=serv_id, num_reqs=len(msgs), total=len(res)))
         return res
 
     def _step_sync_servers(self, sync_tuples):

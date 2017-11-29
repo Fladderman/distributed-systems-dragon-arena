@@ -81,7 +81,12 @@ class Message:
             assert isinstance(args, list)
             return Message(msg_header, sender, args)
         except:
-            print('Msg DESERIALIZE FAILED')
+            print('Msg DESERIALIZE FAILED', serialized_msg)
+            print('Msg DESERIALIZE FAILED', serialized_msg)
+            print('Msg DESERIALIZE FAILED', serialized_msg)
+            print('Msg DESERIALIZE FAILED', serialized_msg)
+            print('Msg DESERIALIZE FAILED', serialized_msg)
+            print('Msg DESERIALIZE FAILED', serialized_msg)
             raise 'shit'
 
     def __repr__(self):

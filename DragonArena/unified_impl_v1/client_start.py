@@ -1,4 +1,5 @@
-import client, client_player
+import client
+import client_player
 import sys
 
 if __name__ == '__main__':

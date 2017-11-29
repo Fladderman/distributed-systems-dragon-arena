@@ -45,7 +45,7 @@ class Creature:
 
     @staticmethod
     def deserialize(o):
-        def g(list_of_two): return (list_of_two[0], list_of_two[1])
+        def g(list_of_two): return list_of_two[0], list_of_two[1]
         if o[0]:  # knight
             return Knight(g(o[1]), o[2], o[3], o[4])
         else:
@@ -502,15 +502,15 @@ class DragonArena:
     def get_location(self, identifier):  # used by bot
         return self._id2loc(identifier)
 
-    def get_dragon_locations(self):  # used by bot
-        return map(lambda d: self._creature2loc[d],
-                   filter(lambda x: isinstance(x, Dragon),
-                          self._creature2loc.keys()
-                          )
-                   )
+    def get_dragons(self):
+        return filter(lambda x: isinstance(x, Dragon),
+                      self._creature2loc.keys())
 
-    def can_move_up(self, identifier): # used by bot
-        return
+    def get_dragon_locations(self):  # used by bot
+        return map(lambda d: self._creature2loc[d], self.get_dragons())
+
+    def can_move_up(self, identifier):  # used by bot
+        pass
 
     # Allows the calling server to process a round of dragon attacks.
     def let_dragons_attack(self):
@@ -555,7 +555,7 @@ class DragonArena:
 
     @staticmethod
     def deserialize(o):
-        def g(list_of_two): return (list_of_two[0], list_of_two[1])
+        def g(list_of_two): return list_of_two[0], list_of_two[1]
 
         no_of_dragons = o[0]
         map_width = o[1]

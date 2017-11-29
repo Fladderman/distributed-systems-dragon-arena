@@ -11,9 +11,11 @@ import protected
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
-######################################
-#SUBROBLEMS START:
-def ordering_func(reqs, tick_id):
+# #####################################
+# SUBPROBLEMS START:
+
+
+def ordering_func(reqs, tick_id):  # solved
     logging.info("Applying ORDERING function to ({num_reqs}) reqs.".format(
         num_reqs=len(reqs)))
 
@@ -27,7 +29,7 @@ def ordering_func(reqs, tick_id):
     # that the order of how the messages are processed are unpredictable.
 
     random.seed(len(reqs) + tick_id)
-    random.shuffle(reqs, lambda : random.random())
+    random.shuffle(reqs, lambda: random.random())
 
     return reqs
 

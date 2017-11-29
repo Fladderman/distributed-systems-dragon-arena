@@ -18,12 +18,12 @@ class Client:
         m = messaging.M_C2S_HELLO()
         print('about to send msg', str(m))
         messaging.write_msg_to(self._server_socket, m)
-        reply_msg = messaging.read_msg_from(self._server_socket, timeout=False)
+        reply_msg = messaging.read_msg_from(self._server_socket, timeout=None)
         print('client got', str(reply_msg), ':)')
         assert reply_msg.header_matches_string('S2C_WELCOME')
         self._my_id = reply_msg.args[0]
         print('so far so good')
-        first_update = messaging.read_msg_from(self._server_socket, timeout=False)
+        first_update = messaging.read_msg_from(self._server_socket, timeout=None)
         print('client got', str(first_update), ':)')
         assert first_update.header_matches_string('UPDATE')
         # todo get state from server
@@ -82,7 +82,7 @@ class Client:
 
     def main_incoming_loop(self):
         print('main incoming')
-        for msg in messaging.generate_messages_from(self._server_socket, timeout=False):
+        for msg in messaging.generate_messages_from(self._server_socket, timeout=None):
             print(str(msg))
             if msg != None:
                 if msg.header_matches_string('UPDATE'):

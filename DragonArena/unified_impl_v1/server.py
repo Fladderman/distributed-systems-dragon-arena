@@ -64,8 +64,8 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
 #SUBPROBLEMS END:
 ##############################
 
-def endless_counter():
-    x = 0
+def count_up_from(start):
+    x = start
     try:
         while True:
             yield x
@@ -100,7 +100,7 @@ class Server:
         self._server_id = server_id
         # if I am crashing a lot in setup, do exponential backoff
         backoff_time = 0.1
-        for try_index in endless_counter():
+        for try_index in count_up_from(0):
             time.sleep(backoff_time)
             logging.info("try number {try_index}".format(try_index=try_index))
             # TODO backoff time, try again when this throws exception
@@ -111,6 +111,7 @@ class Server:
                 backoff_time *= 2
                 print('try setup exception')
                 continue
+            self._kick_off_acceptor()
             self.main_loop()
             return
 
@@ -186,8 +187,33 @@ class Server:
         self._requests = protected.ProtectedQueue()
         self._waiting_sync_server_tuples = protected.ProtectedQueue() #(msg.sender, socket)
         self._client_sockets = dict()
-        self._kick_off_acceptor()
-        # All went ok! time for main loop?
+        self._knight_id_generator = self._knight_id_generator_func()
+
+
+    def _knight_id_generator_func(self):
+        largest_taken_id_for_me =\
+            max(# largest index of my knights
+                map(# counter of my knights
+                    lambda x: x[1],
+                    filter(# MY KNIGHTS
+                        lambda x: x[0]==self._server_id,
+                        list(
+                            self._dragon_arena.get_knights(), # ALL KNIGHTS
+                        ) + [(self._server_id, -1)] #default
+                    ),
+                )
+            )
+
+        logging.info(("Prepared knight ID generator."
+                      "Will count up from ({server_id},{next_knight_id})"
+                      ).format(server_id=self._server_id,
+                               next_knight_id=largest_taken_id_for_me+1))
+        try:
+            for i in count_up_from(largest_taken_id_for_me + 1):
+                yield (self._server_id, i)
+        finally:
+            print('Cleaning up _knight_id_generator')
+            return
 
     def _active_servers(self):
         try:
@@ -261,20 +287,19 @@ class Server:
     def _handle_socket_incoming(self, socket, addr):
         logging.info(("handling messages from newcomer socket at {addr}"
                      ).format(addr=addr))
-        # generator = messaging.generate_messages_from(socket,timeout=None)
-        while True:
-            msg = messaging.read_msg_from(socket, timeout=None)
-        # for msg in generator:
+        generator = messaging.generate_messages_from(socket,timeout=None)
+        # while True:
+            # msg = messaging.read_msg_from(socket, timeout=None)
+        for msg in generator:
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
             if msg is None:
                 print('sock dead. killing incoming reader daemon')
                 return
             print('_handle_socket_incoming yielded', msg)
-            if msg.header_matches_string('C2S_HELLO'):
-                print('neww client!')
-
+            if messaging.is_message_with_header_string(msg, 'C2S_HELLO'):
+                print('new client!')
                 #TODO calculate new_knight_id
-                new_knight_id = (1,1)
+                new_knight_id = (1,1) #placeholder
                 welcome = messaging.M_S2C_WELCOME(self._server_id, new_knight_id)
                 print('welcome', welcome)
                 messaging.write_msg_to(socket, welcome)
@@ -297,11 +322,28 @@ class Server:
                 # generator.close()
                 return
 
-    def _handle_client_incoming(self, socket, addr):
+    def _handle_client_incoming(self, sock, addr):
+        player_id = next(self._knight_id_generator)
+        logging.info(("Generated player/knight ID {player_id} "
+                      "for the new client."
+                      ).format(player_id=player_id))
+        print('player_id', player_id)
+
         #TODO this function gets as param the player's knight ID
         #TODO before submitting it as a request, this handler will potentially mark a request as INVALID
         print('client handler!')
-        for msg in messaging.generate_messages_from(socket, timeout=None):
+        # for msg in messaging.generate_messages_from(socket, timeout=None):
+        while True:
+            msg = messaging.read_msg_from(sock, timeout=None)
+            print('client sumthn')
+            if msg == MessageError.CRASH:
+                print('client crashed!')
+                logging.info(("Incoming daemon noticed client at {addr} crashed."
+                              "Removing client"
+                              ).format(addr=addr))
+                self._client_sockets.pop(addr)
+                #TODO debug why a client cannot REJOIN
+                return
             #TODO overwrite the SENDER field. this is needed for logging AND to make sure the request is valid
             print('client incoming', msg)
             self._requests.enqueue(msg)
@@ -494,12 +536,13 @@ class Server:
         update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
         logging.info(("Update msg ready for tick {tick_id}").format(tick_id=self._tick_id))
         logging.info(("Client set for tick {tick_id}: {clients}").format(tick_id=self._tick_id, clients=self._client_sockets.keys()))
+        print('CLIENT SOCKS', self._client_sockets)
         for addr, sock in self._client_sockets.iteritems():
             #TODO investigate why addr is an ip and not (ip,port)
-            try:
-                messaging.write_msg_to(sock, update_msg)
+            if messaging.write_msg_to(sock, update_msg):
                 print('updated client', addr)
                 logging.info(("Successfully updated client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
-            except:
+            else:
                 logging.info(("Failed to update client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
+                self._client_sockets.pop(addr)
         logging.info(("All updates done for tick_id {tick_id}").format(tick_id=self._tick_id))

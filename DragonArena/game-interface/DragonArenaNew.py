@@ -502,6 +502,10 @@ class DragonArena:
     def get_location(self, identifier):  # used by bot
         return self._id2loc(identifier)
 
+    def get_knights(self):
+        return filter(lambda x: isinstance(x, Knight),
+                      self._creature2loc.keys())
+
     def get_dragons(self):
         return filter(lambda x: isinstance(x, Dragon),
                       self._creature2loc.keys())

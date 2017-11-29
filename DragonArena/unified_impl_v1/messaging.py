@@ -189,19 +189,20 @@ def read_msg_from(sock, timeout=None):
             return MessageError.CRASH
 
 
-def generate_messages_from(socket, timeout=True):
+def generate_messages_from(sock, timeout=True):
     print('ITSYABOI, GENERATOR')
-    assert isinstance(timeout, bool)
+    assert timeout is None or isinstance(timeout, float)
     '''
     Generator object. will read and yield messages from new_socket
     if timeout==True, may yield None objects. This allows the caller to regularly
     if
     '''
     unpacker = msgpack.Unpacker()
+    sock.settimeout(timeout)
     try:
         while True:
             try:
-                x = socket.recv(1)
+                x = sock.recv(1)
                 if x == '':
                     print('socket dead!')
                     return
@@ -210,7 +211,7 @@ def generate_messages_from(socket, timeout=True):
                     yield Message.deserialize(package)
             except:
                 if timeout:
-                    yield None
+                    yield MessageError.TIMEOUT
     finally:
         print('generator dieded')
         return

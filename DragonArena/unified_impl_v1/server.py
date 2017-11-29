@@ -64,6 +64,14 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
 #SUBPROBLEMS END:
 ##############################
 
+def endless_counter():
+    x = 0
+    try:
+        while True:
+            yield x
+            x += 1
+    finally:
+        return
 
 class ServerAcceptor:
     def __init__(self, port):
@@ -85,22 +93,22 @@ class Server:
     def __init__(self, server_id):
         log_filename = 'server_{s_id}.log'.format(s_id=server_id)
         logging.basicConfig(filename=log_filename, filemode='w', level=logging.INFO)
-        logging.info(("{line}\nServer {server_id} started logging at "
-                      "{time}\n{line}"
-                      ).format(line='==========\n', server_id=server_id,
-                               time=time.time()))
+        logging.info(("==========================\n"
+                      "Server {server_id} started logging at {time}\n"
+                      "=========================="
+                      ).format(server_id=server_id, time=time.time()))
         self._server_id = server_id
+        # if I am crashing a lot in setup, do exponential backoff
         backoff_time = 0.1
-        try_index = 0
-        while True:
-            # allow other servers to realize I've died
+        for try_index in endless_counter():
             time.sleep(backoff_time)
             logging.info("try number {try_index}".format(try_index=try_index))
-            try_index += 1
             # TODO backoff time, try again when this throws exception
             try:
                 self.try_setup()
             except Exception as e:
+                logging.info("  try number {try_index}".format(try_index=try_index))
+                backoff_time *= 2
                 print('try setup exception')
                 continue
             self.main_loop()
@@ -347,6 +355,10 @@ class Server:
 
             '''SLEEP STEP'''
             if self._waiting_sync_server_tuples.poll_nonempty():
+                logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
+                             ).format(tick_id=self._tick_id))
+            else:
+
                 sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
                 if sleep_time > 0.0:
                     logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
@@ -355,9 +367,6 @@ class Server:
                 else:
                     logging.info(("No time for sleep for tick_id {tick_id}"
                                  ).format(tick_id=self._tick_id))
-            else:
-                logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
-                             ).format(tick_id=self._tick_id))
 
             logging.info(("Tick {tick_id} complete").format(tick_id=self._tick_id))
             self._tick_id += 1

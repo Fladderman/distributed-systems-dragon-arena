@@ -149,6 +149,7 @@ def read_msg_from(socket, timeout=False):
     '''
     attempt to read a Message from the given socket
     may return None if timeout==True
+    raises exception if socket dies. but prints it first
     '''
     unpacker = msgpack.Unpacker()
     while True:
@@ -164,9 +165,8 @@ def read_msg_from(socket, timeout=False):
                 print('     ::read msg', x)
                 return x
         except Exception as e:
-            print(' OH FUCK ', e)
-            if timeout:
-                return None
+            print('RAISE read_msg_from exception', e)
+            raise e
 
 
 def generate_messages_from(socket, timeout=True):

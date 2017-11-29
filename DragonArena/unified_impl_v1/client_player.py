@@ -53,6 +53,33 @@ def manhattan_distance(loc1, loc2):
 
 class BotPlayer(Player):
     @staticmethod
+
+    def _choose_action_return_message(da, my_id):
+        must_heal =\
+            filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
+                   da.heal_candidates(my_id))
+        if must_heal:
+            return messaging.M_R_HEAL(my_id, must_heal[0])
+        can_attack = da.attack_candidates(my_id)
+        if can_attack:
+            return messaging.M_R_ATTACK(my_id, can_attack[0])
+        dragon_locations = da.get_dragon_locations()
+        my_loc = da.get_location(my_id)
+
+        dist_with_loc = \
+            map(lambda x: (manhattan_distance(my_loc, x), x),
+                dragon_locations)
+
+        # sort in place based on distance
+        dist_with_loc.sort(key=lambda x: x[0])
+
+        # continue later
+
+        # ?????
+        # TODO code unfinished? You may need this :
+        # `yield messaging.M_R_MOVE(my_id, coord)`
+
+
     def main_loop(protected_dragon_arena, my_id):
         assert isinstance(protected_dragon_arena,
                           protected.ProtectedDragonArena)
@@ -62,33 +89,9 @@ class BotPlayer(Player):
             while True:  # while game.playing    # Roy: And I'm not dead?
                 time.sleep(0.5)
                 with protected_dragon_arena as da:
-                    must_heal =\
-                        filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
-                               da.heal_candidates(my_id))
-                    if must_heal:
-                        yield messaging.M_R_HEAL(my_id, must_heal[0])
-                    else:
-                        can_attack = da.attack_candidates(my_id)
-                        if can_attack:
-                            yield messaging.M_R_ATTACK(my_id, can_attack[0])
-                        else:
-                            dragon_locations = da.get_dragon_locations()
-                            my_loc = da.get_location(my_id)
-
-                            dist_with_loc = \
-                                map(lambda x: (manhattan_distance(my_loc, x), x),
-                                    dragon_locations)
-
-                            # sort in place based on distance
-                            dist_with_loc.sort(key=lambda x: x[0])
-
-                            # continue later
-
-                            # ?????
-                            # TODO code unfinished? You may need this :
-                            # `yield messaging.M_R_MOVE(my_id, coord)`
-
+                    choice = self._choose_action_return_message(da, my_id)
                 # lock released, `with` expired
+                yield choice
         finally:
             # clean up generator
             return

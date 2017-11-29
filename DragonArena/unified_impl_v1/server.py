@@ -234,9 +234,10 @@ class Server:
                     self._handle_client_incoming(socket, addr)
                 return
             elif msg.header_matches_string('S2S_HELLO'):
-                print('neww server!')
+                print('server is up! synced by someone else server!')
+                self._server_sockets[msg.sender] = socket
                 messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
-                self._handle_server_incoming(socket, addr)
+                # self._handle_server_incoming(socket, addr)
                 return
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
                 logging.info(("This is server {s_id} that wants to sync! Killing incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
@@ -258,17 +259,18 @@ class Server:
             pass
         print('client handler dead :(')
 
-    def _handle_server_incoming(self, socket, addr):
-        print('server handler!')
-        while True:
-        # for msg in messaging.generate_messages_from(socket, timeout=False):
-            msg = messaging.read_msg_from(socket, timeout=False)
-            if msg is None:
-                print("FAAAAAAAAAAAk")
-            logging.info(("Got server incoming {msg}!").format(msg=str(msg)))
-            print('server incoming', msg)
-            pass
-        print('serv handler dead :(')
+        # def _handle_server_incoming(self, socket, addr):
+        #     print('server handler!')
+        #     while True:
+        #     # for msg in messaging.generate_messages_from(socket, timeout=False):
+        #         msg = messaging.read_msg_from(socket, timeout=False)
+        #         print('loopy')
+        #         if msg is None:
+        #             print("FAAAAAAAAAAAk")
+        #         logging.info(("Got server incoming {msg}!").format(msg=str(msg)))
+        #         print('server incoming', msg)
+        #         pass
+        #     print('serv handler dead :(')
 
 
 
@@ -372,7 +374,7 @@ class Server:
             else:
                 print('expecting done from ', serv_id)
                 while True:
-                    msg = messaging.read_msg_from(sock)
+                    msg = messaging.read_msg_from(sock, timeout=False)
                     print('mzg', msg)
                     if msg is None:
                         print('A')
@@ -426,11 +428,11 @@ class Server:
             if sync_done.header_matches_string('S2S_SYNC_DONE'):
                 print('YAHHH')
                 self._server_sockets[sender_id] = socket
-                server_incoming_thread = threading.Thread(
-                    target=Server._handle_server_incoming,
-                    args=(self, socket,
-                          das_game_settings.server_addresses[sender_id]),
-                )
+                # server_incoming_thread = threading.Thread(
+                #     target=Server._handle_server_incoming,
+                #     args=(self, socket,
+                #           das_game_settings.server_addresses[sender_id]),
+                # )
                 logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
 
                 # TODO the error is here somwhere

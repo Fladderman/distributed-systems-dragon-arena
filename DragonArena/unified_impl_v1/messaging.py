@@ -163,7 +163,8 @@ def read_msg_from(socket, timeout=False):
                 x = Message.deserialize(package)
                 print('     ::read msg', x)
                 return x
-        except:
+        except Exception as e:
+            print(' OH FUCK ', e)
             if timeout:
                 return None
 

@@ -3,6 +3,7 @@ import msgpack
 import time
 import json
 import socket
+import errno
 from StringIO import StringIO
 socket.setdefaulttimeout(1.0)  # todo experiment with this
 
@@ -23,6 +24,7 @@ int2header = [
     'PING',
     'C2S_HELLO',
     'S2C_WELCOME',
+    'S2C_REFUSE',
     'PLAYER_REQ_DUMMY',
     'DONE',
     'UPDATE',
@@ -31,6 +33,14 @@ int2header = [
     'R_MOVE',
 ]
 header2int = {v: k for k, v in enumerate(int2header)}
+
+def is_message_with_header_string(msg, header_string):
+    if isinstance(msg, Message):
+        return header2int[header_string] == msg.msg_header
+    elif msg == MessageError.CRASH or msg == MessageError.TIMEOUT:
+        return False
+    else:
+        raise ValueError('Neither Message nor MessageError instance was given')
 
 
 class Message:
@@ -127,6 +137,7 @@ def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_S
 def M_S2S_SYNC_REPLY(tick_id, serialized_state):return Message(header2int['S2S_SYNC_REPLY'], -1, [tick_id, serialized_state])
 def M_S2S_HELLO(s_id):                          return Message(header2int['S2S_HELLO'],s_id,[])
 def M_S2S_WELCOME():                            return Message(header2int['S2S_WELCOME'],-1,[])
+def M_S2S_REFUSE():                             return Message(header2int['S2C_REFUSE'],-1,[])
 def M_S2S_SYNC_DONE():                          return Message(header2int['S2S_SYNC_DONE'],-1,[])
 
 def M_DONE(s_id, tick_id):                      return Message(header2int['DONE'], s_id, [tick_id])
@@ -143,18 +154,24 @@ def M_R_HEAL(healer, healed):                   return Message(header2int['R_HEA
 def M_R_ATTACK(attacker, attacked):             return Message(header2int['R_ATTACK'], -1, [attacker, attacked])
 def M_R_MOVE(knight_id, coord):                 return Message(header2int['R_MOVE'], -1, [knight_id, coord])
 
+class MessageError:
+    CRASH = 1
+    TIMEOUT = 2
 
-def read_msg_from(socket, timeout=False):
-    assert isinstance(timeout, bool)
+def read_msg_from(sock, timeout=None):
+    assert timeout is None or isinstance(timeout, float)
     '''
-    attempt to read a Message from the given socket
-    may return None if timeout==True
-    raises exception if socket dies. but prints it first
+    attempts to read exactly ONE message from the given socket
+    may return Message
+    may return MessageError.CRASH
+    if timeout is not None:
+        may return MessageError.TIMEOUT
     '''
     unpacker = msgpack.Unpacker()
     while True:
         try:
-            x = socket.recv(1)
+            sock.settimeout(timeout)
+            x = sock.recv(1)
             if x == '':
                 print('socket dead!')
                 return None
@@ -164,9 +181,12 @@ def read_msg_from(socket, timeout=False):
                 x = Message.deserialize(package)
                 print('     ::read msg', x)
                 return x
-        except Exception as e:
-            print('RAISE read_msg_from exception', e)
-            raise e
+        except socket.timeout as e:
+            print("timeout error")
+            return MessageError.TIMEOUT
+        except:
+            print("sth else occured: ")
+            return MessageError.CRASH
 
 
 def generate_messages_from(socket, timeout=True):
@@ -191,7 +211,8 @@ def generate_messages_from(socket, timeout=True):
             except:
                 if timeout:
                     yield None
-    except GeneratorExit:
+    finally:
+        print('generator dieded')
         return
 
 

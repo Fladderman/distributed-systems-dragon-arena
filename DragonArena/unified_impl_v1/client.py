@@ -7,6 +7,7 @@ from DragonArenaNew import DragonArena
 class Client:
     def __init__(self, player):
         #TODO player reconnect after crash
+        #TODO handle S2C_REFUSE
 
         assert isinstance(player, client_player.Player)
         self._player = player

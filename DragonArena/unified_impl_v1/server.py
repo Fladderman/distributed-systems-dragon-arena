@@ -209,7 +209,10 @@ class Server:
 
     def _handle_socket_incoming(self, socket, addr):
         logging.info(("handling messages from newcomer socket at {addr}").format(addr=addr))
-        for msg in messaging.generate_messages_from(socket,timeout=False):
+        # generator = messaging.generate_messages_from(socket,timeout=False)
+        while True:
+            msg = messaging.read_msg_from(socket, timeout=False)
+        # for msg in generator:
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
             if msg is None:
                 print('sock dead. killing incoming reader daemon')
@@ -227,14 +230,19 @@ class Server:
                 if True: # TODO if not above client capacity
                     self._client_sockets[addr] = socket
                     self._handle_client_incoming(socket, addr)
+                return
             elif msg.header_matches_string('S2S_HELLO'):
                 print('neww server!')
                 messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
                 self._handle_server_incoming(socket, addr)
+                return
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
                 logging.info(("This is server {s_id} that wants to sync! Killing incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
                 self._waiting_sync_server_tuples.enqueue((msg.sender, socket))
-
+                print('OK KILLING GENERATOR?')
+                # time.sleep(1000)
+                # generator.close()
+                return
 
     def _handle_client_incoming(self, socket, addr):
         #TODO this function gets as param the player's knight ID
@@ -255,12 +263,14 @@ class Server:
             pass
         print('serv handler dead :(')
 
-    @staticmethod
-    def _generate_msgs_until_done_or_crash(sock):
-        for msg in messaging.generate_messages_from(sock, timeout=True):
-            if msg is not None:
-                if msg.header_matches_string('DONE'): return
-                else: yield msg
+    # @staticmethod
+    # def _generate_msgs_until_done_or_crash(sock):
+    #     while True:
+    #     for msg in messaging.generate_messages_from(sock, timeout=True):
+    #         msg = messaging.read_msg_from(sock, timeout=False)
+    #         if msg is None:
+    #             if msg.header_matches_string('DONE'): return
+    #             else: yield msg
 
 
 
@@ -358,12 +368,16 @@ class Server:
                 # (No socket)").format(serv_id=serv_id))
                 pass
             else:
+                while True:
+                    msg = messaging.read_msg_from(sock)
+                    if msg is None:
+                        logging.info(("IT BROKE!").format()
+                        break
+                    elif msg.same_header_as('DONE'):
+                        break
+                    else:
                 msgs = list(Server._generate_msgs_until_done_or_crash(sock))
-                res.extend(msgs)
-                logging.info(("Got DONE from {serv_id} after ({num_reqs}) "
-                              "reqs. Total reqs == {total}").format(
-                    serv_id=serv_id, num_reqs=len(msgs),
-                    total=len(my_req_pool)))
+                    res.append(msg)
         return res
 
     def _step_sync_servers(self, sync_tuples):
@@ -372,42 +386,45 @@ class Server:
 
         # TODO here there are problems !!! wont work for some reason
         for sender_id, socket in sync_tuples:
+            if socket is None:
+                continue
             print('sync tup:', sender_id, socket)
-            try:
-                messaging.write_msg_to(socket, update_msg)
+            if messaging.write_msg_to(socket, update_msg):
                 logging.info(("Sent sync msg {update_msg} to waiting server "
                               "{sender_id}").format(update_msg=update_msg,
                                                     sender_id=sender_id))
-            except Exception as e:
-                print('except', e)
+            else:
+                print('failed to send sync msg')
                 logging.info(("Failed to send sync msg to waiting server "
                               "{sender_id}").format(sender_id=sender_id))
 
         for sender_id, socket in sync_tuples:
             if socket is None:
                 continue
-            print('awaiting DONE...')
-            try:
-                reply = messaging.read_msg_from(socket, timeout=False)
-                print('got reply...', reply)
-                logging.info(("Got {msg} from sync server {sender_id}! "
-                              ":)").format(msg=reply, sender_id=sender_id))
-                print('istrue?', reply.header_matches_string('S2S_SYNC_DONE'))
-                if reply is not None and \
-                        reply.header_matches_string('S2S_SYNC_DONE'):
-                    print('')
-                    self._server_sockets[sender_id] = socket
-                    server_incoming_thread = threading.Thread(
-                        target=Server._handle_server_incoming,
-                        args=(self, socket,
-                              das_game_settings.server_addresses[sender_id]),
-                    )
-                    logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
-
-                    # TODO the error is here somwhere
-            except Exception as e:
-                print('lolol', e)
+            print('awaiting SYNC DONE from ',sender_id,'...')
+            logging.info(("awaiting SYNC DONE from {sender_id}...  "
+                          ).format(sender_id=sender_id))
+            sync_done = messaging.read_msg_from(socket, timeout=False)
+            print('got response...', sync_done)
+            if sync_done is None:
+                print('GOT NONE WHEN EXPECTED SYNC DONE')
                 logging.info(("Hmm. It seems that {sender_id} has crashed before syncing. Oh well :/").format(sender_id=sender_id))
+                continue
+            logging.info(("Got {msg} from sync server {sender_id}! "
+                          ":)").format(msg=sync_done, sender_id=sender_id))
+            print('istrue?', sync_done.header_matches_string('S2S_SYNC_DONE'))
+            if sync_done.header_matches_string('S2S_SYNC_DONE'):
+                print('YAHHH')
+                self._server_sockets[sender_id] = socket
+                server_incoming_thread = threading.Thread(
+                    target=Server._handle_server_incoming,
+                    args=(self, socket,
+                          das_game_settings.server_addresses[sender_id]),
+                )
+                logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
+
+                # TODO the error is here somwhere
+
         logging.info(("Got to end of sync").format())
 
     def _step_update_clients(self):

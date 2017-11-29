@@ -47,7 +47,7 @@ class Message:
             self.sender = sender
             self.args = args
         except:
-            print('MESSAGE INIT FAILED')
+            print('MESSAGE INIT FAILED', msg_header, sender, args)
             raise 'shit'
 
     def header_matches_string(self, string):
@@ -86,6 +86,7 @@ class Message:
             assert isinstance(args, list)
             return Message(msg_header, sender, args)
         except:
+            logging.info(("failed to deserialize {serialized_msg}").format(serialized_msg=serialized_msg))
             print 'Msg DESERIALIZE FAILED'
             raise 'shit'
 
@@ -138,13 +139,17 @@ def read_msg_from(socket, timeout=False):
     may return None if timeout==True
     '''
     unpacker = msgpack.Unpacker()
+    read_bytes = 0
     while True:
         try:
             x = socket.recv(1)
             if x == '':
                 print('socket dead!')
                 return None
-                # connection closed!
+                # connection closed
+            else:
+                read_bytes += 1
+                print(read_bytes)
             unpacker.feed(x)
             for package in unpacker:
                 return Message.deserialize(package)
@@ -154,6 +159,7 @@ def read_msg_from(socket, timeout=False):
 
 
 def generate_messages_from(socket, timeout=True):
+    print('ITSYABOI, GENERATOR')
     assert isinstance(timeout, bool)
     '''
     Generator object. will read and yield messages from new_socket
@@ -161,19 +167,26 @@ def generate_messages_from(socket, timeout=True):
     if
     '''
     unpacker = msgpack.Unpacker()
-    while True:
-        try:
-            x = socket.recv(1)
-            if x == '':
-                print('socket dead!')
-                return
-                # connection closed!
-            unpacker.feed(x)
-            for package in unpacker:
-                yield Message.deserialize(package)
-        except:
-            if timeout:
-                yield None
+    read_bytes = 0
+    try:
+        while True:
+            try:
+                x = socket.recv(1)
+                if x == '':
+                    print('socket dead!')
+                    return
+                else:
+                    read_bytes += 1
+                    print('>>', read_bytes)
+                    # connection closed!
+                unpacker.feed(x)
+                for package in unpacker:
+                    yield Message.deserialize(package)
+            except:
+                if timeout:
+                    yield None
+    except GeneratorExit:
+        return
 
 
 def write_many_msgs_to(socket, msg_iterable):

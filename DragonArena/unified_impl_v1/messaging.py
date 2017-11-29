@@ -174,7 +174,10 @@ def write_many_msgs_to(socket, msg_iterable):
     all_went_perfectly = True
     try:
         for msg in msg_iterable:
-            assert isinstance(msg, Message)
+            if not isinstance(msg, Message):
+                print('BAD. attempting to write_msg_to:', msg)
+            else:
+                print('out --> msg', msg, 'to socket', socket)
             myfile = StringIO()
             myfile.write(packer.pack(msg.serialize()))
             myfile = StringIO(myfile.getvalue())
@@ -204,7 +207,10 @@ def read_first_message_matching(socket, func,  timeout=True, max_msg_count=-1):
 
 
 def write_msg_to(socket, msg):
-    assert isinstance(msg, Message)
+    if not isinstance(msg, Message):
+        print('BAD. attempting to write_msg_to:', msg)
+    else:
+        print('out --> msg', msg, 'to socket', socket)
     '''
     send the given msg into the socket
     returns True if writing completes

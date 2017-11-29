@@ -3,11 +3,30 @@ import messaging, das_game_settings, protected
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
+#SUBROBLEMS:
 def ordering_func(reqs):
     logging.info(("Applying ORDERING function to ({num_reqs}) reqs.").format(num_reqs=len(reqs)))
     req_sequence = []
-    #TODO
+    #TODO return a deterministic sequence of the given reqs. Note that the input is an assorted LIST. output a LIST
     return req_sequence
+
+
+def _apply_and_log_all(dragon_arena, message_sequence): #TODO
+    assert isinstance(dragon_arena, DragonArena)
+    for msg in message_sequence:
+        assert isinstance(message, messaging.Message)
+        # TODO mutate the dragon_arena in response to each message in sequence.
+         #TODO log each outcome with a clear error msg
+        logging.info(("Application of {msg} resulted in ...").format(msg=str(msg)))
+    pass
+
+def _request_is_valid(dragon_arena, message, sender): #TODO
+    assert isinstance(dragon_arena, DragonArena)
+    assert isinstance(message, messaging.Message)
+    # based on the arguments, return True if this request IS valid. return False if it should not take effect
+    return True
+
+##############################
 
 class ServerAcceptor:
     def __init__(self, port):
@@ -192,9 +211,12 @@ class Server:
 
 
     def _handle_client_incoming(self, socket, addr):
+        #TODO this function gets as param the player's knight ID
+        #TODO before submitting it as a request, this handler will potentially mark a request as INVALID
         print('client handler!')
         for msg in messaging.generate_messages_from(socket, timeout=False):
             print('client incoming', msg)
+            self._requests.enqueue(msg)
             logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
             pass
         print('client handler dead :(')
@@ -214,13 +236,7 @@ class Server:
                 if msg.header_matches_string('DONE'): return
                 else: yield msg
 
-    @staticmethod
-    def _apply_and_log(dragon_arena, message, log_filename):
-        assert isinstance(dragon_arena, DragonArena)
-        assert isinstance(message, messaging.Message)
-        logging.info(("SORTED REQ: {req}").format(req=str(message)))
-        #TODO branch. decide what to do. writ result to log
-        pass
+
 
 
     def main_loop(self):
@@ -242,8 +258,6 @@ class Server:
                 logging.info(("servers {set} waiting to sync! LEADER tick. Suppressing DONE step").format(set=map(lambda x: x[0], current_sync_tuples)))
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
-                for req in req_sequence:
-                    Server._apply_and_log(self._dragon_arena, req)
                 '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
                 self._step_sync_servers(current_sync_tuples)
                 logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}").format(tick_id=self._tick_id))
@@ -261,8 +275,7 @@ class Server:
             '''SORT REQ SEQUENCE'''
             req_sequence = ordering_func(my_req_pool)
             '''APPLY AND LOG'''
-            for req in req_sequence:
-                Server._apply_and_log(self._dragon_arena, req)
+            _apply_and_log_all(self._dragon_arena, req_sequence)
             '''UPDATE CLIENTS'''
             self._step_update_clients()
 
@@ -277,6 +290,12 @@ class Server:
             logging.info(("Tick {tick_id} complete").format(tick_id=self._tick_id))
             self._tick_id += 1
 
+    def _active_server_indices(self):
+        return filter(
+            lambda x: self._server_sockets[x] != None,
+            range(das_game_settings.num_server_addresses),
+        )
+
     def _step_flood_reqs(self, my_req_pool):
         for serv_id, sock in enumerate(self._server_sockets):
             if sock == None:
@@ -290,16 +309,19 @@ class Server:
                  logging.info(("Flooding reqs to serv_id {serv_id} crashed!").format(serv_id=serv_id))
 
     def _step_flood_done(self):
-        done_msg = messaging.M_DONE
-        logging.info(("Flooding reqs done for tick_id {tick_id}").format(tick_id=self._tick_id))
+        done_msg = messaging.M_DONE(self._server_id, self._tick_id)
+        logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}").format(tick_id=self._tick_id, servers=self._active_server_indices()))
         '''SEND DONE'''
         for sock in self._server_sockets:
+            if sock == None:
+                #TODO log message maybe
+                continue
             try: messaging.write_msg_to(sock, done_msg)
             except: pass # reader will remove it
 
     def _step_read_reqs_and_wait(self):
         res = []
-        active_indices = filter(lambda x: self._server_sockets[x] != None, range(das_game_settings.num_server_addresses))
+        active_indices = self._active_server_indices()
         logging.info(("reading and waiting for servers {active_indices}").format(active_indices=active_indices))
         print('other servers:', self._server_sockets)
         for serv_id, sock in enumerate(self._server_sockets):
@@ -351,11 +373,11 @@ class Server:
         logging.info(("Got to end of sync").format())
 
     def _step_update_clients(self):
-        update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, 5) #TODO THIS IS DEBUG
-        # update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
+        # update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, 5) #TODO THIS IS DEBUG. last arg should be a serialized game state
+        update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
         logging.info(("Update msg ready for tick {tick_id}").format(tick_id=self._tick_id))
         logging.info(("Client set for tick {tick_id}: {clients}").format(tick_id=self._tick_id, clients=self._client_sockets.keys()))
-        for addr, sock in self._client_sockets:
+        for addr, sock in self._client_sockets.iteritems():
             #TODO investigate why addr is an ip and not (ip,port)
             try:
                 messaging.write_msg_to(sock, update_msg)

@@ -21,8 +21,8 @@ class Client:
         self._my_id = reply_msg.args[0]
         print('so far so good')
         first_update = messaging.read_msg_from(self._server_socket, timeout=False)
-        print('client got', str(reply_msg), ':)')
-        assert reply_msg.header_matches_string('UPDATE')
+        print('client got', str(first_update), ':)')
+        assert first_update.header_matches_string('UPDATE')
         # todo get state from server
         print('OK will try deserialize')
         self._protected_game_state = protected.ProtectedDragonArena(
@@ -80,7 +80,7 @@ class Client:
 
     def main_incoming_loop(self):
         print('main incoming')
-        for msg in messaging.read_many_msgs_from(self._server_socket):
+        for msg in messaging.generate_messages_from(self._server_socket):
             print(str(msg))
             if msg != None:
                 if msg.header_matches_string('UPDATE'):
@@ -90,8 +90,9 @@ class Client:
 
 
     def main_outgoing_loop(self):
-        req_generator = self._player.main_loop(self._protected_game_state)
+        req_generator = self._player.main_loop(self._protected_game_state, self._my_id)
         for request in req_generator:
+            print('player yielded request', request)
             assert isinstance(request, messaging.Message)
             print('forwarding', request)
             try:

@@ -15,7 +15,7 @@ class HumanPlayer(Player):
     '''
 
     def main_loop(self, protected_dragon_arena, my_id):
-        assert isinstance(protected_dragon_arena, protected.ProtectedGameState)
+        assert isinstance(protected_dragon_arena, protected.ProtectedDragonArena)
         print('human player main loop')
         # has self._game_state_copy
         while True: # while game.playing
@@ -25,7 +25,8 @@ class HumanPlayer(Player):
                 # read game state. decide what to do
                 pass
             #lock released
-            yield messaging.M_PLAYER_REQ_DUMMY
+            print('human player is just subbmitting nonsense lel')
+            yield messaging.M_R_HEAL(my_id, my_id)
 
 
 def manhattan_distance(loc1, loc2):
@@ -33,7 +34,7 @@ def manhattan_distance(loc1, loc2):
 
 class BotPlayer(Player):
     def main_loop(self, protected_dragon_arena, my_id):
-        assert isinstance(protected_dragon_arena, protected.ProtectedGameState)
+        assert isinstance(protected_dragon_arena, protected.ProtectedDragonArena)
         print('bot player main loop')
         # has self._game_state_copy
         while True:  # while game.playing    # Roy: And I'm not dead?

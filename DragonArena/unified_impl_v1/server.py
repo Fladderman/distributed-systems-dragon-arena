@@ -260,7 +260,9 @@ class Server:
 
     def _handle_server_incoming(self, socket, addr):
         print('server handler!')
-        for msg in messaging.generate_messages_from(socket, timeout=False):
+        while True:
+        # for msg in messaging.generate_messages_from(socket, timeout=False):
+            msg = messaging.read_msg_from(socket, timeout=False)
             if msg is None:
                 print("FAAAAAAAAAAAk")
             logging.info(("Got server incoming {msg}!").format(msg=str(msg)))
@@ -290,7 +292,7 @@ class Server:
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
-                req_sequence = ordering_func(my_req_pool)
+                req_sequence = ordering_func(my_req_pool, self._tick_id)
                 '''APPLY AND LOG'''
                 _apply_and_log_all(self._dragon_arena, req_sequence)
                 '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
@@ -307,7 +309,7 @@ class Server:
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
-                req_sequence = ordering_func(my_req_pool)
+                req_sequence = ordering_func(my_req_pool, self._tick_id)
                 '''APPLY AND LOG'''
                 _apply_and_log_all(self._dragon_arena, req_sequence)
 

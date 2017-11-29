@@ -72,6 +72,18 @@ class Message:
         else:
             return False
 
+    # We just want a deterministic and total order on msgs that is hardware
+    # independent. It relies on the following:
+    # - comparison between tuples is lexicographic
+    # - msg_header is an integer
+    # - sender is a tuple or an int. < between ints and tuples is supported
+    # - args is a list of whatever, NOT containing objects that stringify
+    #   to memory locations. so str will have the same outcome wherever it is
+    #   called, and < is lexicographical for strings
+    def __lt__(self, other):
+        return (self.msg_header, self.sender, str(self.args)) < \
+               (self.msg_header, self.sender, str(other.args))
+
     def serialize(self):
         return self.msg_header, self.sender, self.args
 

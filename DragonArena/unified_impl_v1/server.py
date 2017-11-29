@@ -1,32 +1,48 @@
-import threading, time, json, socket, sys, os, logging
-import messaging, das_game_settings, protected
+import threading
+import time
+import json
+import socket
+import sys
+import os
+import logging
+import messaging
+import das_game_settings
+import protected
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
-#SUBROBLEMS:
+# SUBPROBLEMS:
+
+
 def ordering_func(reqs):
-    logging.info(("Applying ORDERING function to ({num_reqs}) reqs.").format(num_reqs=len(reqs)))
+    logging.info("Applying ORDERING function to ({num_reqs}) reqs.".format(
+        num_reqs=len(reqs)))
     req_sequence = []
-    #TODO return a deterministic sequence of the given reqs. Note that the input is an assorted LIST. output a LIST
+    # TODO return a deterministic sequence of the given reqs.
+    # Note that the input is an assorted LIST. output a LIST
     return req_sequence
 
 
-def _apply_and_log_all(dragon_arena, message_sequence): #TODO
+def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     assert isinstance(dragon_arena, DragonArena)
     for msg in message_sequence:
-        assert isinstance(message, messaging.Message)
+        assert isinstance(msg, messaging.Message)
         # TODO mutate the dragon_arena in response to each message in sequence.
-         #TODO log each outcome with a clear error msg
-        logging.info(("Application of {msg} resulted in ...").format(msg=str(msg)))
+        # TODO log each outcome with a clear error msg
+        logging.info("Application of {msg} resulted in ...".format(
+            msg=str(msg)))
     pass
 
-def _request_is_valid(dragon_arena, message, sender): #TODO
+
+def _request_is_valid(dragon_arena, message, sender):  # TODO
     assert isinstance(dragon_arena, DragonArena)
     assert isinstance(message, messaging.Message)
-    # based on the arguments, return True if this request IS valid. return False if it should not take effect
+    # based on the arguments, return True if this request IS valid.
+    # return False if it should not take effect
     return True
 
 ##############################
+
 
 class ServerAcceptor:
     def __init__(self, port):
@@ -42,42 +58,52 @@ class ServerAcceptor:
         except:
             return None, None
 
+
 class Server:
     def __init__(self, server_id):
-        log_filename = ('server_{s_id}.log').format(s_id=server_id)
+        log_filename = 'server_{s_id}.log'.format(s_id=server_id)
         logging.basicConfig(filename=log_filename, filemode='w', level=logging.INFO)
-        logging.info(("{line}\nServer {server_id} started logging at {time}\n{line}").format(line='==========\n', server_id=server_id, time=time.time()))
+        logging.info(("{line}\nServer {server_id} started logging at "
+                      "{time}\n{line}"
+                      ).format(line='==========\n', server_id=server_id,
+                               time=time.time()))
         self._server_id = server_id
         backoff_time = 0.1
         try_index = 0
         while True:
             time.sleep(backoff_time)
-            logging.info(("try number {try_index}").format(try_index=try_index))
+            logging.info("try number {try_index}".format(try_index=try_index))
             try_index += 1
             # TODO backoff time, try again when this throws exception
             self.try_setup()
             self.main_loop()
             return
 
-
     def try_setup(self):
         auth_sock, auth_index = self._connect_to_first_other_server()
-        logging.info(("authority socket_index: {index}").format(index=auth_index))
-        if auth_sock == None:
+        logging.info("authority socket_index: {index}".format(
+            index=auth_index))
+        if auth_sock is None:
             # I am first! :D
-            logging.info(("I am the first server!").format())
+            logging.info("I am the first server!".format())
             self._dragon_arena = Server.create_fresh_arena()
             self._tick_id = 0
-            self._server_sockets = [None for _ in xrange(0, das_game_settings.num_server_addresses)]
+            self._server_sockets = \
+                [None for _ in xrange(0, das_game_settings.
+                                      num_server_addresses)]
         else:
             # I'm not first :[
             sync_req = messaging.M_S2S_SYNC_REQ(self._server_id)
-            logging.info(("I am NOT the first server!. Will sync with auth_index. sending msg {sync_req}").format(sync_req=sync_req))
+            logging.info(("I am NOT the first server!. "
+                          "Will sync with auth_index. "
+                          "sending msg {sync_req}").format(sync_req=sync_req))
             messaging.write_msg_to(auth_sock, sync_req)
             sync_reply = messaging.read_msg_from(auth_sock)
-            logging.info(("Got sync reply: {reply}").format(reply=str(sync_reply)))
+            logging.info("Got sync reply: {reply}".format(
+                reply=str(sync_reply)))
             if sync_reply.msg_header != messaging.header2int['S2S_SYNC_REPLY']:
-                logging.info(("Expected S2S_SYNC_REPLY, got {msg}").format(msg=sync_reply))
+                logging.info("Expected S2S_SYNC_REPLY, got {msg}".format(
+                    msg=sync_reply))
             self._tick_id = sync_reply.args[0]
             try:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
@@ -90,7 +116,7 @@ class Server:
             print('self._server_sockets', self._server_sockets)
             hello_msg = messaging.M_S2S_HELLO(self._server_id)
             for i, s in enumerate(self._server_sockets):
-                if s == None:
+                if s is None:
                     logging.info(("Skipping HELLO to server {i}").format(i=i))
                     continue
                 try:
@@ -121,7 +147,7 @@ class Server:
         for index, addr in enumerate(das_game_settings.server_addresses):
             if index == self._server_id: continue # skip myself
             sock = Server._try_connect_to(addr)
-            if sock != None:
+            if sock is not None:
                 return sock, index
         return None, None
 
@@ -169,7 +195,7 @@ class Server:
         while True:
             # print('acc loop')
             new_socket, new_addr = server_acceptor.next_incoming()
-            if new_socket != None:
+            if new_socket is not None:
                 logging.info(("new acceptor connection from {addr}").format(addr=new_addr))
                 # print('new_client_tuple', (new_addr, new_socket))
                 #TODO handle the case that this new_addr is already associated with something
@@ -185,7 +211,7 @@ class Server:
         logging.info(("handling messages from newcomer socket at {addr}").format(addr=addr))
         for msg in messaging.generate_messages_from(socket,timeout=False):
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
-            if msg == None:
+            if msg is None:
                 print('sock dead. killing incoming reader daemon')
                 return
             print('_handle_socket_incoming yielded', msg)
@@ -232,7 +258,7 @@ class Server:
     @staticmethod
     def _generate_msgs_until_done_or_crash(sock):
         for msg in messaging.generate_messages_from(sock, timeout=True):
-            if msg != None:
+            if msg is not None:
                 if msg.header_matches_string('DONE'): return
                 else: yield msg
 
@@ -292,13 +318,13 @@ class Server:
 
     def _active_server_indices(self):
         return filter(
-            lambda x: self._server_sockets[x] != None,
+            lambda x: self._server_sockets[x] is not None,
             range(das_game_settings.num_server_addresses),
         )
 
     def _step_flood_reqs(self, my_req_pool):
         for serv_id, sock in enumerate(self._server_sockets):
-            if sock == None:
+            if sock is None:
                 #TODO put back in
                 #logging.info(("Skipping req flood to server_id {serv_id} (No socket)").format(serv_id=serv_id))
                 continue
@@ -313,7 +339,7 @@ class Server:
         logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}").format(tick_id=self._tick_id, servers=self._active_server_indices()))
         '''SEND DONE'''
         for sock in self._server_sockets:
-            if sock == None:
+            if sock is None:
                 #TODO log message maybe
                 continue
             try: messaging.write_msg_to(sock, done_msg)
@@ -322,47 +348,59 @@ class Server:
     def _step_read_reqs_and_wait(self):
         res = []
         active_indices = self._active_server_indices()
-        logging.info(("reading and waiting for servers {active_indices}").format(active_indices=active_indices))
+        logging.info("reading and waiting for servers {active_indices}".
+                     format(active_indices=active_indices))
         print('other servers:', self._server_sockets)
         for serv_id, sock in enumerate(self._server_sockets):
-            if sock==None:
-                #TODO put back in
-                #logging.info(("Not waiting for DONE from {serv_id} (No socket)").format(serv_id=serv_id))
+            if sock is None:
+                # TODO put back in
+                # logging.info(("Not waiting for DONE from {serv_id}
+                # (No socket)").format(serv_id=serv_id))
                 pass
             else:
                 msgs = list(Server._generate_msgs_until_done_or_crash(sock))
                 res.extend(msgs)
-                logging.info(("Got DONE from {serv_id} after ({num_reqs}) reqs. Total reqs == {total}").format(serv_id=serv_id, num_reqs=len(msgs), total=len(my_req_pool)))
+                logging.info(("Got DONE from {serv_id} after ({num_reqs}) "
+                              "reqs. Total reqs == {total}").format(
+                    serv_id=serv_id, num_reqs=len(msgs),
+                    total=len(my_req_pool)))
         return res
 
     def _step_sync_servers(self, sync_tuples):
-        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id, self._dragon_arena.serialize())
+        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id,
+                                                self._dragon_arena.serialize())
 
-        #TODO here there are problems !!! wont work for some reasn
+        # TODO here there are problems !!! wont work for some reason
         for sender_id, socket in sync_tuples:
             print('sync tup:', sender_id, socket)
             try:
                 messaging.write_msg_to(socket, update_msg)
-                logging.info(("Sent sync msg {update_msg} to waiting server {sender_id}").format(update_msg=update_msg, sender_id=sender_id))
+                logging.info(("Sent sync msg {update_msg} to waiting server "
+                              "{sender_id}").format(update_msg=update_msg,
+                                                    sender_id=sender_id))
             except Exception as e:
                 print('except', e)
-                logging.info(("Failed to send sync msg to waiting server {sender_id}").format(sender_id=sender_id))
+                logging.info(("Failed to send sync msg to waiting server "
+                              "{sender_id}").format(sender_id=sender_id))
 
         for sender_id, socket in sync_tuples:
-            if socket == None:
+            if socket is None:
                 continue
             print('awaiting DONE...')
             try:
                 reply = messaging.read_msg_from(socket, timeout=False)
                 print('got reply...', reply)
-                logging.info(("Got {msg} from sync server {sender_id}! :)").format(msg=reply, sender_id=sender_id))
+                logging.info(("Got {msg} from sync server {sender_id}! "
+                              ":)").format(msg=reply, sender_id=sender_id))
                 print('istrue?', reply.header_matches_string('S2S_SYNC_DONE'))
-                if reply != None and reply.header_matches_string('S2S_SYNC_DONE'):
+                if reply is not None and \
+                        reply.header_matches_string('S2S_SYNC_DONE'):
                     print('')
                     self._server_sockets[sender_id] = socket
                     server_incoming_thread = threading.Thread(
                         target=Server._handle_server_incoming,
-                        args=(self, socket, das_game_settings.server_addresses[sender_id]),
+                        args=(self, socket,
+                              das_game_settings.server_addresses[sender_id]),
                     )
                     logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
 

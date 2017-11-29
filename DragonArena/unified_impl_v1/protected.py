@@ -10,8 +10,8 @@ class ProtectedDragonArena:
         self.timeout = timeout
         self._lock = threading.Lock()
 
-    def replace_arena(self, new_state):
-        assert isinstance(new_dragon_arena, state_dummy.StateDummy)
+    def replace_arena(self, new_dragon_arena):
+        assert isinstance(new_dragon_arena, DragonArena)
         with self._lock:
             self._dragon_arena = new_dragon_arena
 

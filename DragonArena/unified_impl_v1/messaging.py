@@ -59,10 +59,10 @@ class Message:
             raise 'shit'
 
     def same_header_as(self, other):
-        if isinstance(other, Message):
-            return self.msg_header == other.msg_header
-        else:
+        if other is None:
             return False
+        assert isinstance(other, Message)
+        return self.msg_header == other.msg_header
 
     def __eq__(self, other):
         if isinstance(other, Message):
@@ -139,7 +139,6 @@ def read_msg_from(socket, timeout=False):
     may return None if timeout==True
     '''
     unpacker = msgpack.Unpacker()
-    read_bytes = 0
     while True:
         try:
             x = socket.recv(1)
@@ -147,12 +146,11 @@ def read_msg_from(socket, timeout=False):
                 print('socket dead!')
                 return None
                 # connection closed
-            else:
-                read_bytes += 1
-                print(read_bytes)
             unpacker.feed(x)
             for package in unpacker:
-                return Message.deserialize(package)
+                x = Message.deserialize(package)
+                print('     ::read msg', x)
+                return x
         except:
             if timeout:
                 return None
@@ -167,7 +165,6 @@ def generate_messages_from(socket, timeout=True):
     if
     '''
     unpacker = msgpack.Unpacker()
-    read_bytes = 0
     try:
         while True:
             try:
@@ -175,10 +172,6 @@ def generate_messages_from(socket, timeout=True):
                 if x == '':
                     print('socket dead!')
                     return
-                else:
-                    read_bytes += 1
-                    print('>>', read_bytes)
-                    # connection closed!
                 unpacker.feed(x)
                 for package in unpacker:
                     yield Message.deserialize(package)
@@ -211,6 +204,8 @@ def write_many_msgs_to(socket, msg_iterable):
     except:
         all_went_perfectly = False
     return all_went_perfectly
+
+
 
 
 def read_first_message_matching(socket, func, timeout=True, max_msg_count=-1):

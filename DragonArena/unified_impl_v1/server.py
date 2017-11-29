@@ -14,6 +14,7 @@ from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 ######################################
 #SUBROBLEMS START:
 def ordering_func(reqs):
+    # all requests are CLIENT action requests. no others.
     logging.info("Applying ORDERING function to ({num_reqs}) reqs.".format(
         num_reqs=len(reqs)))
     req_sequence = []
@@ -23,6 +24,7 @@ def ordering_func(reqs):
 
 
 def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
+    # all requests are CLIENT action requests. no others.
     assert isinstance(dragon_arena, DragonArena)
     for msg in message_sequence:
         assert isinstance(msg, messaging.Message)
@@ -31,14 +33,6 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
         logging.info("Application of {msg} resulted in ...".format(
             msg=str(msg)))
     pass
-
-
-def _request_is_valid(dragon_arena, message, sender):  # TODO
-    assert isinstance(dragon_arena, DragonArena)
-    assert isinstance(message, messaging.Message)
-    # based on the arguments, return True if this request IS valid.
-    # return False if it should not take effect
-    return True
 
 #SUBROBLEMS END:
 ##############################
@@ -57,7 +51,6 @@ class ServerAcceptor:
             return client_socket, addr
         except:
             return None, None
-
 
 class Server:
     def __init__(self, server_id):
@@ -199,7 +192,7 @@ class Server:
                 logging.info(("new acceptor connection from {addr}").format(addr=new_addr))
                 # print('new_client_tuple', (new_addr, new_socket))
                 #TODO handle the case that this new_addr is already associated with something
-                self._client_sockets[new_addr] = new_socket
+                # self._client_sockets[new_addr] = new_socket
                 client_incoming_thread = threading.Thread(
                     target=Server._handle_socket_incoming,
                     args=(self, new_socket, new_addr),
@@ -249,6 +242,7 @@ class Server:
         #TODO before submitting it as a request, this handler will potentially mark a request as INVALID
         print('client handler!')
         for msg in messaging.generate_messages_from(socket, timeout=False):
+            #TODO overwrite the SENDER field. this is needed for logging AND to make sure the request is valid
             print('client incoming', msg)
             self._requests.enqueue(msg)
             logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
@@ -258,20 +252,12 @@ class Server:
     def _handle_server_incoming(self, socket, addr):
         print('server handler!')
         for msg in messaging.generate_messages_from(socket, timeout=False):
+            if msg is None:
+                print("FAAAAAAAAAAAk")
             logging.info(("Got server incoming {msg}!").format(msg=str(msg)))
             print('server incoming', msg)
             pass
         print('serv handler dead :(')
-
-    # @staticmethod
-    # def _generate_msgs_until_done_or_crash(sock):
-    #     while True:
-    #     for msg in messaging.generate_messages_from(sock, timeout=True):
-    #         msg = messaging.read_msg_from(sock, timeout=False)
-    #         if msg is None:
-    #             if msg.header_matches_string('DONE'): return
-    #             else: yield msg
-
 
 
 
@@ -294,10 +280,15 @@ class Server:
                 logging.info(("servers {set} waiting to sync! LEADER tick. Suppressing DONE step").format(set=map(lambda x: x[0], current_sync_tuples)))
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
+                '''SORT REQ SEQUENCE'''
+                req_sequence = ordering_func(my_req_pool)
+                '''APPLY AND LOG'''
+                _apply_and_log_all(self._dragon_arena, req_sequence)
                 '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
                 self._step_sync_servers(current_sync_tuples)
                 logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}").format(tick_id=self._tick_id))
                 '''STEP FLOOD DONE'''
+                self._step_flood_done()
 
             else: #NO SERVERS WAITING TO SYNC
                 # send own DONES before collecting those of others
@@ -306,12 +297,11 @@ class Server:
                 self._step_flood_done()
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
+                '''SORT REQ SEQUENCE'''
+                req_sequence = ordering_func(my_req_pool)
+                '''APPLY AND LOG'''
+                _apply_and_log_all(self._dragon_arena, req_sequence)
 
-
-            '''SORT REQ SEQUENCE'''
-            req_sequence = ordering_func(my_req_pool)
-            '''APPLY AND LOG'''
-            _apply_and_log_all(self._dragon_arena, req_sequence)
             '''UPDATE CLIENTS'''
             self._step_update_clients()
 
@@ -348,12 +338,14 @@ class Server:
         done_msg = messaging.M_DONE(self._server_id, self._tick_id)
         logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}").format(tick_id=self._tick_id, servers=self._active_server_indices()))
         '''SEND DONE'''
-        for sock in self._server_sockets:
+        for server_id, sock in enumerate(self._server_sockets):
             if sock is None:
                 #TODO log message maybe
                 continue
-            try: messaging.write_msg_to(sock, done_msg)
-            except: pass # reader will remove it
+            if messaging.write_msg_to(sock, done_msg):
+                logging.info(("sent {done_msg} to server_id {server_id}").format(done_msg=done_msg, server_id=server_id))
+
+                # crash
 
     def _step_read_reqs_and_wait(self):
         res = []
@@ -363,21 +355,28 @@ class Server:
         print('other servers:', self._server_sockets)
         for serv_id, sock in enumerate(self._server_sockets):
             if sock is None:
-                # TODO put back in
-                # logging.info(("Not waiting for DONE from {serv_id}
-                # (No socket)").format(serv_id=serv_id))
+                logging.info(("Not waiting for DONE from {serv_id} (No socket)"
+                            ).format(serv_id=serv_id))
                 pass
             else:
+                print('expecting done from ', serv_id)
                 while True:
                     msg = messaging.read_msg_from(sock)
+                    print('mzg', msg)
                     if msg is None:
-                        logging.info(("IT BROKE!").format()
+                        print('A')
+                        logging.info(("IT BROKE!").format())
                         break
-                    elif msg.same_header_as('DONE'):
+                    elif msg.header_matches_string('DONE'):
+                        print("B")
+                        print('got a DONE')
                         break
                     else:
-                msgs = list(Server._generate_msgs_until_done_or_crash(sock))
-                    res.append(msg)
+                        print("C")
+                        res.append(msg)
+
+        logging.info("Released from the barrier")
+        print("RELEASED")
         return res
 
     def _step_sync_servers(self, sync_tuples):

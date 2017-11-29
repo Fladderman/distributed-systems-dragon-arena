@@ -6,6 +6,8 @@ from DragonArenaNew import DragonArena
 
 class Client:
     def __init__(self, player):
+        #TODO player reconnect after crash
+
         assert isinstance(player, client_player.Player)
         self._player = player
         self.sorted_server_ids = self._ordered_server_list() #in order of descending 'quality
@@ -28,7 +30,6 @@ class Client:
         self._protected_game_state = protected.ProtectedDragonArena(
             DragonArena.deserialize(first_update.args[1])
         )
-
         #TODO it seems like
         print('OK deserialized correctly')
 
@@ -80,13 +81,15 @@ class Client:
 
     def main_incoming_loop(self):
         print('main incoming')
-        for msg in messaging.generate_messages_from(self._server_socket):
+        for msg in messaging.generate_messages_from(self._server_socket, timeout=False):
             print(str(msg))
             if msg != None:
                 if msg.header_matches_string('UPDATE'):
                     new_state = DragonArena.deserialize(msg.args[1])
                     self._protected_game_state.replace_arena(new_state)
                     print('replaced arena! :D')
+            else:
+                print('AAAAAAAAAAAAAAAAAAAAAAAAAAAAHHHHHHHHHHHHHHHHH')
 
 
     def main_outgoing_loop(self):

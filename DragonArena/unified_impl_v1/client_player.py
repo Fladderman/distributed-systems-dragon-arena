@@ -3,6 +3,7 @@ import sys
 import os
 import messaging
 import protected
+import random
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
@@ -10,6 +11,25 @@ from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 class Player:
     def __init__(self):
         pass
+
+class TickingPlayer(Player):
+    """
+    Bogus player class that just spams request. solely for testing
+    """
+
+    @staticmethod
+    def main_loop(protected_dragon_arena, my_id):
+        assert isinstance(protected_dragon_arena,
+                          protected.ProtectedDragonArena)
+        print('ticking player main loop')
+        # has self._game_state_copy
+        try:
+            while True:  # while game.playing
+                time.sleep(random.random())
+                yield messaging.M_R_HEAL(my_id, my_id)
+        finally:
+            # clean up generator
+            return
 
 
 class HumanPlayer(Player):
@@ -23,17 +43,8 @@ class HumanPlayer(Player):
     def main_loop(protected_dragon_arena, my_id):
         assert isinstance(protected_dragon_arena,
                           protected.ProtectedDragonArena)
-        print('human player main loop')
-        # has self._game_state_copy
-        while True:  # while game.playing
-            time.sleep(0.5)
-            with protected_dragon_arena as game_state:
-                # lock acquired
-                # read game state. decide what to do
-                pass
-            # lock released
-            print('human player is just submitting nonsense lel')
-            yield messaging.M_R_HEAL(my_id, my_id)
+        # TODO implement. look at BotPlayer for inspiration
+        raise NotImplemented
 
 
 def manhattan_distance(loc1, loc2):
@@ -47,33 +58,37 @@ class BotPlayer(Player):
                           protected.ProtectedDragonArena)
         print('bot player main loop')
         # has self._game_state_copy
-        while True:  # while game.playing    # Roy: And I'm not dead?
-            time.sleep(0.5)
-            with protected_dragon_arena as da:
-                must_heal =\
-                    filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
-                           da.heal_candidates(my_id))
-                if must_heal:
-                    yield messaging.M_R_HEAL(my_id, must_heal[0])
-                else:
-                    can_attack = da.attack_candidates(my_id)
-                    if can_attack:
-                        yield messaging.M_R_ATTACK(my_id, can_attack[0])
+        try:
+            while True:  # while game.playing    # Roy: And I'm not dead?
+                time.sleep(0.5)
+                with protected_dragon_arena as da:
+                    must_heal =\
+                        filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
+                               da.heal_candidates(my_id))
+                    if must_heal:
+                        yield messaging.M_R_HEAL(my_id, must_heal[0])
                     else:
-                        dragon_locations = da.get_dragon_locations()
-                        my_loc = da.get_location(my_id)
+                        can_attack = da.attack_candidates(my_id)
+                        if can_attack:
+                            yield messaging.M_R_ATTACK(my_id, can_attack[0])
+                        else:
+                            dragon_locations = da.get_dragon_locations()
+                            my_loc = da.get_location(my_id)
 
-                        dist_with_loc = \
-                            map(lambda x: (manhattan_distance(my_loc, x), x),
-                                dragon_locations)
+                            dist_with_loc = \
+                                map(lambda x: (manhattan_distance(my_loc, x), x),
+                                    dragon_locations)
 
-                        # sort in place based on distance
-                        dist_with_loc.sort(key=lambda x: x[0])
+                            # sort in place based on distance
+                            dist_with_loc.sort(key=lambda x: x[0])
 
-                        # continue later
+                            # continue later
 
-                        # ?????
-                        # TODO code unfinished? You may need this :
-                        # `yield messaging.M_R_MOVE(my_id, coord)`
+                            # ?????
+                            # TODO code unfinished? You may need this :
+                            # `yield messaging.M_R_MOVE(my_id, coord)`
 
-            # lock released, `with` expired
+                # lock released, `with` expired
+        finally:
+            # clean up generator
+            return

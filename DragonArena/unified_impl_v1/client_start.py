@@ -11,7 +11,10 @@ if __name__ == '__main__':
             elif sys.argv[1] == "bot":
                 print('starting bot client')
                 return client_player.BotPlayer()
-        raise "Please run with 1 arg, either 'bot' or 'human'"
+        elif sys.argv[1] == "ticking":
+                print('starting ticking client')
+                return client_player.BotPlayer()
+        raise "Please run with 1 arg from {{'bot', 'human', 'ticking'}}"
 
     client_0 = client.Client(make_player())
     print('client starter init complete')

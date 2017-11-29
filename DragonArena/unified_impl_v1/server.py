@@ -328,13 +328,13 @@ class Server:
                 self._step_sync_servers(current_sync_tuples)
                 logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}").format(tick_id=self._tick_id))
                 '''STEP FLOOD DONE'''
-                self._step_flood_done()
+                self._step_flood_done(except_server_ids={serv_addr for serv_addr, sock in current_sync_tuples})
 
             else: #NO SERVERS WAITING TO SYNC
                 # send own DONES before collecting those of others
                 logging.info(("No servers waiting to sync. Normal tick").format())
                 '''STEP FLOOD DONE'''
-                self._step_flood_done()
+                self._step_flood_done(except_server_ids={})
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
@@ -346,12 +346,18 @@ class Server:
             self._step_update_clients()
 
             '''SLEEP STEP'''
-            sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
-            if sleep_time > 0.0:
-                logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}").format(sleep_time=sleep_time, tick_id=self._tick_id))
-                time.sleep(sleep_time)
+            if self._waiting_sync_server_tuples.poll_nonempty():
+                sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
+                if sleep_time > 0.0:
+                    logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
+                                 ).format(sleep_time=sleep_time, tick_id=self._tick_id))
+                    time.sleep(sleep_time)
+                else:
+                    logging.info(("No time for sleep for tick_id {tick_id}"
+                                 ).format(tick_id=self._tick_id))
             else:
-                logging.info(("No time for sleep for tick_id {tick_id}").format(tick_id=self._tick_id))
+                logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
+                             ).format(tick_id=self._tick_id))
 
             logging.info(("Tick {tick_id} complete").format(tick_id=self._tick_id))
             self._tick_id += 1
@@ -374,14 +380,18 @@ class Server:
             except:
                  logging.info(("Flooding reqs to serv_id {serv_id} crashed!").format(serv_id=serv_id))
 
-    def _step_flood_done(self):
+    def _step_flood_done(self, except_server_ids):
+        # need to specify except_server_ids of newly-synced server. this prevents them from getting an extra DONE
         done_msg = messaging.M_DONE(self._server_id, self._tick_id)
         logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}").format(tick_id=self._tick_id, servers=self._active_server_indices()))
         '''SEND DONE'''
-        for server_id, sock in enumerate(self._server_sockets):
-            if sock is None:
-                #TODO log message maybe
+        for server_id in self._active_server_indices():
+            if server_id in except_server_ids:
+                logging.info(("Suppressing {server_id}'s DONE message."
+                              "It was newly synced and wasn't part of the barrier."
+                              ).format(server_id=server_id))
                 continue
+            sock = self._server_sockets[server_id]
             if messaging.write_msg_to(sock, done_msg):
                 logging.info(("sent {done_msg} to server_id {server_id}").format(done_msg=done_msg, server_id=server_id))
 
@@ -422,8 +432,9 @@ class Server:
         return res
 
     def _step_sync_servers(self, sync_tuples):
+        #synced server has the NEXT tick as the starting tick, as they start with the 'freshly synced' state
         #TODO ensure tick IDs are matching up
-        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id,
+        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id + 1,
                                                 self._dragon_arena.serialize())
 
         # TODO here there are problems !!! wont work for some reason

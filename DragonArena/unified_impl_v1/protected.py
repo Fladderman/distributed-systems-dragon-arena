@@ -62,6 +62,9 @@ class ProtectedQueue:
             self._cv.wait(timeout=timeout)
             return x in self._q
 
+    def poll_nonempty(self):
+        return len(self._q) > 0
+
     def drain_if_probably_something(self, timeout=0.1):
         return self.drain(timeout=timeout) if len(self._q) > 0 else []
 

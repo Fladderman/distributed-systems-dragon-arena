@@ -37,6 +37,7 @@ class Message:
     """
     Each Message instance represents an instance of any network message
     """
+
     def __init__(self, msg_header, sender, args):
         try:
             assert isinstance(msg_header, int) and \
@@ -138,7 +139,6 @@ def M_S2C_WELCOME(s_id, knight_id):             return Message(header2int['S2C_W
 def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
 
 # GAME REQS
-def M_PLAYER_REQ_DUMMY():                       return Message(header2int['PLAYER_REQ_DUMMY'],420,['foo', 69, 'get rekt'])
 def M_R_HEAL(healer, healed):                   return Message(header2int['R_HEAL'], -1, [healer, healed])
 def M_R_ATTACK(attacker, attacked):             return Message(header2int['R_ATTACK'], -1, [attacker, attacked])
 def M_R_MOVE(knight_id, coord):                 return Message(header2int['R_MOVE'], -1, [knight_id, coord])
@@ -207,7 +207,7 @@ def write_many_msgs_to(socket, msg_iterable):
             my_file = StringIO()
             my_file.write(packer.pack(msg.serialize()))
             my_file = StringIO(my_file.getvalue())
-            tot_bytes = len(my_file.buf)
+            # tot_bytes = len(my_file.buf)
             sent_now = 1
             while sent_now != 0:  # 0 means send done
                 try:

@@ -1,11 +1,11 @@
 import threading
 import time
-import json
 import socket
 import sys
 import os
 import logging
 import messaging
+import random
 import das_game_settings
 import protected
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
@@ -13,14 +13,23 @@ from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
 ######################################
 #SUBROBLEMS START:
-def ordering_func(reqs):
-    # all requests are CLIENT action requests. no others.
+def ordering_func(reqs, tick_id):
     logging.info("Applying ORDERING function to ({num_reqs}) reqs.".format(
         num_reqs=len(reqs)))
-    req_sequence = []
-    # TODO return a deterministic sequence of the given reqs.
-    # Note that the input is an assorted LIST. output a LIST
-    return req_sequence
+
+    # First sort all reqs in place. Assumes that __lt__ and __eq__ are
+    # implemented in the message object, and that their outcomes are
+    # deterministic and hardware-independent.
+    reqs.sort()
+
+    # Now all servers would have the same sorted list to start with. This
+    # list is then randomly shuffled in place using a shared seed so that the
+    # that the order of how the messages are processed are unpredictable.
+
+    random.seed(len(reqs) + tick_id)
+    random.shuffle(reqs, lambda : random.random())
+
+    return reqs
 
 
 def _apply_and_log_all(dragon_arena, message_sequence):  # TODO

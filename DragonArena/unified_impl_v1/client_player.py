@@ -53,8 +53,11 @@ def manhattan_distance(loc1, loc2):
 
 class BotPlayer(Player):
     @staticmethod
-
     def _choose_action_return_message(da, my_id):
+        ''' given the dragon arena `da`, make a decision on the next
+        action for the bot to take. formulate this as a Message (request) from
+        the set {MOVE, ATTACK, HEAL} and return it as your action
+        '''
         must_heal =\
             filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
                    da.heal_candidates(my_id))
@@ -90,7 +93,7 @@ class BotPlayer(Player):
                 time.sleep(0.5)
                 with protected_dragon_arena as da:
                     choice = self._choose_action_return_message(da, my_id)
-                # lock released, `with` expired
+                # `with` expired. dragon arena unlocked
                 yield choice
         finally:
             # clean up generator

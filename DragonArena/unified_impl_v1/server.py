@@ -40,13 +40,28 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     assert isinstance(dragon_arena, DragonArena)
     for msg in message_sequence:
         assert isinstance(msg, messaging.Message)
+
+        if msg.sender != msg.args[0]:
+            # git negged, do log
+            continue
+
+            # msg sender args
+
+        if msg.header_matches_string("R_MOVE"):
+            print "666"
+        elif msg.header_matches_string("R_HEAL"):
+            print "999"
+        elif msg.header_matches_string("R_ATTACK"):
+            print "boo"
+        else:
+            raise "chris fukt up damn"
         # TODO mutate the dragon_arena in response to each message in sequence.
         # TODO log each outcome with a clear error msg
         logging.info("Application of {msg} resulted in ...".format(
             msg=str(msg)))
     pass
 
-#SUBROBLEMS END:
+#SUBPROBLEMS END:
 ##############################
 
 

@@ -1,8 +1,8 @@
-import json
 import itertools
 import random
+import das_game_settings as dgs
 from sys import maxsize
-settings = json.load(open('settings.json'))
+
 
 class Creature:
     def __init__(self, name, identifier, max_hp, curr_hp, ap):
@@ -50,14 +50,13 @@ class Creature:
 
 class Knight(Creature):
     def __init__(self, identifier, max_hp=None, curr_hp=None, ap=None):
-        player_settings = settings["player"]
         max_hp = max_hp if max_hp is not None else \
-            random.randint(player_settings["hp"]["min"],
-                           player_settings["hp"]["max"])
+            random.randint(dgs.knight_hp_bounds[0],
+                           dgs.knight_hp_bounds[1])
         curr_hp = curr_hp if curr_hp is not None else max_hp
         ap = ap if ap is not None else \
-            random.randint(player_settings["ap"]["min"],
-                           player_settings["ap"]["max"])
+            random.randint(dgs.knight_ap_bounds[0],
+                           dgs.knight_ap_bounds[1])
         Creature.__init__(self, "Knight", identifier, max_hp, curr_hp, ap)
 
     def is_healed_by(self, other):
@@ -66,14 +65,13 @@ class Knight(Creature):
 
 class Dragon(Creature):
     def __init__(self, identifier, max_hp=None, curr_hp=None, ap=None):
-        dragon_settings = settings["dragon"]
         max_hp = max_hp if max_hp is not None else \
-            random.randint(dragon_settings["hp"]["min"],
-                           dragon_settings["hp"]["max"])
+            random.randint(dgs.dragon_hp_bounds[0],
+                           dgs.dragon_hp_bounds[1])
         curr_hp = curr_hp if curr_hp is not None else max_hp
         ap = ap if ap is not None else \
-            random.randint(dragon_settings["ap"]["min"],
-                           dragon_settings["ap"]["max"])
+            random.randint(dgs.dragon_ap_bounds[0],
+                           dgs.dragon_ap_bounds[1])
         Creature.__init__(self, "Dragon", identifier, max_hp, curr_hp, ap)
 
 

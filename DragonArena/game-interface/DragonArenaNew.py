@@ -84,6 +84,8 @@ class DragonArena:
         # allow at least one knight to be spawned
         assert no_of_dragons < map_width * map_height
 
+        self.key = random.randint(0, 100000)
+
         self._tick = 0
 
         self._DRAGON = -1
@@ -248,6 +250,8 @@ class DragonArena:
     # the map again.
     def new_game(self):
         self._tick = 0
+
+        self.key = random.randint(0, 10000)
 
         # Initialize all dragon objects.
         dragons = [Dragon((self._DRAGON, i))
@@ -437,7 +441,7 @@ class DragonArena:
         assert self._id_exists(id2)
 
         # ensure heal is valid
-        assert id1[0] != -1 and id2[0] != -1
+        assert id1[0] != self._DRAGON and id2[0] != self._DRAGON
 
         # check for death
 
@@ -498,7 +502,7 @@ class DragonArena:
         coordinates = [(x + i, y) for i in xrange(5, -6)] + \
                       [(x, y + i) for i in xrange(5, -6)]
         coords = filter(self._is_occupied_by_knight, coordinates)
-        return  map(self._loc2id, coords)
+        return map(self._loc2id, coords)
 
     def get_location(self, identifier):  # used by bot
         return self._id2loc(identifier)
@@ -540,6 +544,9 @@ class DragonArena:
 
         return "\n".join(log_messages)
 
+    def was_ever_a_knight(self, identifier):
+        return self._id_exists(identifier) and identifier[0] >= 0
+
     def is_knight(self, identifier):  # by server
         return self._id_exists(identifier) and \
                isinstance(self._id2creature[identifier], Knight)
@@ -567,7 +574,8 @@ class DragonArena:
                 self._map_height,
                 serial_creature2loc,
                 dead_creature_ids,
-                self._tick
+                self._tick,
+                self.key
                 )
 
     @staticmethod
@@ -578,6 +586,7 @@ class DragonArena:
         serial_creature2loc = o[3]
         dead_creature_ids = o[4]
         tick = o[5]
+        key = o[6]
 
         creature2loc_list = \
             map(lambda l: (Creature.deserialize(l[0]), tuple(l[1])),
@@ -592,13 +601,14 @@ class DragonArena:
             id2creature[tuple(identifier)] = None
 
         arena = DragonArena(no_of_dragons, map_width, map_height)
-        arena.restore(creature2loc, id2creature, tick)
+        arena.restore(creature2loc, id2creature, tick, key)
 
         return arena
 
     # called exclusively by deserialize in the DragonArena class!
-    def restore(self, creature2loc, id2creature, tick):
+    def restore(self, creature2loc, id2creature, tick, key):
         self._tick = tick
+        self.key = key
         self._creature2loc = creature2loc
         self._id2creature = id2creature
 

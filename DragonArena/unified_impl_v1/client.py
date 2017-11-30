@@ -5,11 +5,10 @@ sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import DragonArena
 from messaging import Message, MessageError
 from das_game_settings import debug_print
+from math import sqrt
+import random
 
 class Client:
-
-
-
 
     def __init__(self, player):
         #TODO player reconnect after crash
@@ -36,7 +35,8 @@ class Client:
                         continue
                     debug_print('self._server_socket', self._server_socket)
                     '''2. send hello'''
-                    hello_msg = messaging.M_C2S_HELLO()
+                    self._random_salt = random.randint(0, 999999)
+                    hello_msg = messaging.M_C2S_HELLO(self._random_salt)
                     debug_print('about to send msg', str(hello_msg))
                     messaging.write_msg_to(self._server_socket, hello_msg)
                     '''2. get reply (expect welcome)'''
@@ -49,6 +49,7 @@ class Client:
                         raise RuntimeError('crash or timeout')
                     '''3. get my knight's ID'''
                     self._my_id = tuple(reply_msg.args[0])
+                    self._secret = reply_msg.args[1]
                     debug_print('so far so good')
                     '''4. wait for 1st game update'''
                     first_update = messaging.read_msg_from(self._server_socket, timeout=max(das_game_settings.max_done_wait, das_game_settings.client_handshake_timeout))
@@ -85,8 +86,6 @@ class Client:
         x = range(0, len(das_game_settings.server_addresses))
         shuffle(x)
         return x
-
-
 
     @staticmethod
     def measure_rtt_to(ip, port):
@@ -163,6 +162,5 @@ class Client:
                 incoming_thread.daemon = True
                 incoming_thread.start()
                 print('Recovered :D')
-
 
         debug_print('no more requests')

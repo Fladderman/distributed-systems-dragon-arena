@@ -298,15 +298,23 @@ class Server:
             print('_handle_socket_incoming yielded', msg)
             if messaging.is_message_with_header_string(msg, 'C2S_HELLO'):
                 print('new client!')
-                #TODO calculate new_knight_id
-                new_knight_id = (1,1) #placeholder
-                welcome = messaging.M_S2C_WELCOME(self._server_id, new_knight_id)
+                player_id = next(self._knight_id_generator)
+                logging.info(("Generated player/knight ID {player_id} "
+                              "for the new client."
+                              ).format(player_id=player_id))
+
+                spawn_msg = messaging.M_SPAWN(player_id)
+                logging.info(("Enqueued spawn request {spawn_msg} "
+                              "for the new client."
+                              ).format(spawn_msg=spawn_msg))
+                self._requests.enqueue(spawn_msg)
+                welcome = messaging.M_S2C_WELCOME(self._server_id, player_id)
                 print('welcome', welcome)
                 messaging.write_msg_to(socket, welcome)
                 print('welcomed it!')
                 if True: # TODO if not above client capacity
                     self._client_sockets[addr] = socket
-                    self._handle_client_incoming(socket, addr)
+                    self._handle_client_incoming(socket, addr, player_id)
                 return
             elif msg.header_matches_string('S2S_HELLO'):
                 print('server is up! synced by someone else server!')
@@ -322,15 +330,9 @@ class Server:
                 # generator.close()
                 return
 
-    def _handle_client_incoming(self, sock, addr):
-        player_id = next(self._knight_id_generator)
-        logging.info(("Generated player/knight ID {player_id} "
-                      "for the new client."
-                      ).format(player_id=player_id))
-        print('player_id', player_id)
-
+    def _handle_client_incoming(self, sock, addr, player_id):
         #TODO this function gets as param the player's knight ID
-        #TODO before submitting it as a request, this handler will potentially mark a request as INVALID
+        #TODO before submitting it as a request, this handler wi
         print('client handler!')
         # for msg in messaging.generate_messages_from(socket, timeout=None):
         while True:
@@ -345,6 +347,7 @@ class Server:
                 #TODO debug why a client cannot REJOIN
                 return
             #TODO overwrite the SENDER field. this is needed for logging AND to make sure the request is valid
+            msg.sender = player_id # Server annotates this to ensure client doesnt doctor their packets
             print('client incoming', msg)
             self._requests.enqueue(msg)
             logging.info(("Got client incoming {msg}!").format(msg=str(msg)))

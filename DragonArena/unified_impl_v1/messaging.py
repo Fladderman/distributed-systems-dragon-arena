@@ -7,7 +7,6 @@ import errno
 from StringIO import StringIO
 socket.setdefaulttimeout(1.0)  # todo experiment with this
 
-
 '''
 messages are stored and sent using integers in the header field
 this is for compactness. For readability, the following two
@@ -25,7 +24,7 @@ int2header = [
     'C2S_HELLO',
     'S2C_WELCOME',
     'S2C_REFUSE',
-    'PLAYER_REQ_DUMMY',
+    'SPAWN',
     'DONE',
     'UPDATE',
     'R_HEAL',
@@ -148,6 +147,8 @@ def M_PING():                                   return Message(header2int['PING'
 def M_C2S_HELLO():                              return Message(header2int['C2S_HELLO'], -1,[])
 def M_S2C_WELCOME(s_id, knight_id):             return Message(header2int['S2C_WELCOME'], s_id,[knight_id])
 def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
+
+def M_SPAWN(knight_id):                         return Message(header2int['SPAWN'], -1, [knight_id])
 
 # GAME REQS
 def M_R_HEAL(healer, healed):                   return Message(header2int['R_HEAL'], -1, [healer, healed])

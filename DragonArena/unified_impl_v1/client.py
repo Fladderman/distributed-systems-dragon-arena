@@ -21,7 +21,7 @@ class Client:
         reply_msg = messaging.read_msg_from(self._server_socket, timeout=None)
         print('client got', str(reply_msg), ':)')
         assert reply_msg.header_matches_string('S2C_WELCOME')
-        self._my_id = reply_msg.args[0]
+        self._my_id = tuple(reply_msg.args[0])
         print('so far so good')
         first_update = messaging.read_msg_from(self._server_socket, timeout=None)
         print('client got', str(first_update), ':)')
@@ -62,8 +62,8 @@ class Client:
         assert isinstance(port, int)
         assert isinstance(timeout, int) or isinstance(timeout, float)
         try:
-            socket.setdefaulttimeout(timeout)
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.4)
             s.connect((ip, port))
             return s
         except:
@@ -95,11 +95,11 @@ class Client:
 
     def main_outgoing_loop(self):
         req_generator = self._player.main_loop(self._protected_game_state, self._my_id)
+        print('ready?')
         for request in req_generator:
             print('player yielded request', request)
             assert isinstance(request, messaging.Message)
             print('forwarding', request)
-            try:
-                messaging.write_msg_to(self._server_socket, request)
-            except:
+            if not messaging.write_msg_to(self._server_socket, request):
                 print('failed to write outbound requests!')
+        print('no more requests')

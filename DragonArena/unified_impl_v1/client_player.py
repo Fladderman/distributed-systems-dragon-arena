@@ -21,8 +21,11 @@ class TickingPlayer(Player):
                           protected.ProtectedDragonArena)
         print('ticking player main loop')
         # has self._game_state_copy
+        for i in range(20):
+            print('YEEEE')
         try:
             while True:  # while game.playing
+                print('tick')
                 time.sleep(random.random())
                 yield messaging.M_R_HEAL(my_id, my_id)
         finally:
@@ -49,6 +52,7 @@ def manhattan_distance(loc1, loc2):
 
 
 class BotPlayer(Player):
+
     @staticmethod
     def _choose_action_return_message(da, my_id):
         ''' given the dragon arena `da`, make a decision on the next
@@ -80,18 +84,20 @@ class BotPlayer(Player):
         # `yield messaging.M_R_MOVE(my_id, coord)`
 
 
+    @staticmethod
     def main_loop(protected_dragon_arena, my_id):
         assert isinstance(protected_dragon_arena,
                           protected.ProtectedDragonArena)
         print('bot player main loop')
+        print('my id', my_id)
         # has self._game_state_copy
         try:
             while True:  # while game.playing    # Roy: And I'm not dead?
                 time.sleep(0.5)
                 with protected_dragon_arena as da:
-                    choice = self._choose_action_return_message(da, my_id)
+                    choice = BotPlayer._choose_action_return_message(da, my_id)
                 # `with` expired. dragon arena unlocked
                 yield choice
-        finally:
+        except GeneratorExit:
             # clean up generator
             return

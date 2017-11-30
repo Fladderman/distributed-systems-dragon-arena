@@ -9,12 +9,10 @@ from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
 
 class Player:
-    def __init__(self):
-        pass
+    pass
 
 class TickingPlayer(Player):
-    """
-    Bogus player class that just spams request. solely for testing
+    """ Bogus player class that just spams request. solely for testing
     """
 
     @staticmethod
@@ -33,8 +31,7 @@ class TickingPlayer(Player):
 
 
 class HumanPlayer(Player):
-    """
-    main_loop() is a generator that `yield`s request messages.
+    """ main_loop() is a generator that `yield`s request messages.
         (client outgoing thread is calling and will forward yielded messages)
     the game is over then the generator returns
     """

@@ -58,7 +58,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
         # TODO ensure this message is sent from a SERVER (id will be Int). not a CLIENT (id is a tuple
         # tuple(msg.arg[0]) is the id of the newly-spawned knight.
         # be sure to create it on the board somewhere deterministically
-        elif msg.header_matches_string("SPAWN"):)
+        elif msg.header_matches_string("SPAWN"):
             print "zoopy"
         else:
             raise "chris fukt up damn"

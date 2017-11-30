@@ -81,14 +81,14 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
             raise "chris fukt up damn"
 
         if bad:
-            logging.info("Message {msg} from {sender} was ignored. "
-                         "Reason: {reason}").format(msg=str(msg),
-                                                    sender=msg.sender,
-                                                    reason=result)
+            logging.info(("Message {msg} from {sender} was ignored. "
+                          "Reason: {reason}").format(msg=str(msg),
+                                                     sender=msg.sender,
+                                                     reason=result))
         else:
-            logging.info("Message {msg} from {sender} was processed"
-                         "successfully. DAS feedback: {result}").format(
-                msg=str(msg), sender=msg.sender, reason=result)
+            logging.info(("Message {msg} from {sender} was processed"
+                          "successfully. DAS feedback: {result}").format(
+                msg=str(msg), sender=msg.sender, reason=result))
 
 #SUBPROBLEMS END:
 ##############################

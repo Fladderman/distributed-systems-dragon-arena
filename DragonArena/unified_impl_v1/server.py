@@ -87,7 +87,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
                                                      reason=result))
         else:
             logging.info(("Message {msg} from {sender} was processed"
-                          "successfully. DAS feedback: {result}").format(
+                          "successfully. DAS feedback: {reason}").format(
                 msg=str(msg), sender=msg.sender, reason=result))
 
 #SUBPROBLEMS END:

@@ -99,7 +99,8 @@ class BotPlayer(Player):
         # has self._game_state_copy
         try:
             while True:  # TODO: while game.playing    # Roy: And I'm not dead?
-                time.sleep(0.5)
+                time.sleep(1.5)
+                _shitty_visualizer(da)
                 with protected_dragon_arena as da:
                     choice = BotPlayer._choose_action_return_message(da, my_id)
                 # `with` expired. dragon arena unlocked
@@ -108,3 +109,19 @@ class BotPlayer(Player):
         except GeneratorExit:
             # clean up generator
             return
+
+def _shitty_visualizer(da):
+    w = da._map_width
+    h = da._map_height
+    for y in range(h):
+        ln = ''
+        for x in range(w):
+            try:
+                c = da._loc2creature[(x,y)]
+                if isinstance(c, Dragon):
+                    ln += ' D'
+                elif isinstance(c, Knight):
+                    ln +=' k'
+            except:
+                ln += ' .'
+        print(ln)

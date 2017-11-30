@@ -45,10 +45,6 @@ class HumanPlayer(Player):
         raise NotImplemented
 
 
-def manhattan_distance(loc1, loc2):
-    return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
-
-
 class BotPlayer(Player):
 
     @staticmethod
@@ -60,34 +56,44 @@ class BotPlayer(Player):
         must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
                            da.heal_candidates(my_id))
         if must_heal:
-            return messaging.M_R_HEAL(my_id, must_heal[0])
+            yield messaging.M_R_HEAL(my_id, must_heal[0])
         can_attack = da.attack_candidates(my_id)
         if can_attack:
-            return messaging.M_R_ATTACK(my_id, can_attack[0])
+            yield messaging.M_R_ATTACK(my_id, can_attack[0])
+        # else get moving
+
         dragon_locations = da.get_dragon_locations()
+
+        def manhattan_distance(loc1, loc2):
+            return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
+
+        def min_distance_to_dragon(loc):
+            return reduce(min, map(lambda z: manhattan_distance(loc, z),
+                                   dragon_locations))
+
         my_loc = x, y = da.get_location(my_id)
 
-        dist_with_loc = map(lambda z: (manhattan_distance(my_loc, z), z),
-                            dragon_locations)
-
-        # sort in place based on distance
-        dist_with_loc.sort(key=lambda z: z[0])
+        current_min = min_distance_to_dragon(my_loc)
 
         adjacent = filter(da.is_valid_location,
                           [(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
-        available_adjacent = filter(lambda z: not da.is_occupied(z),
-                                    adjacent)
 
+        with_dists = map(lambda z: (z, min_distance_to_dragon(z)),
+                         adjacent)
 
+        with_dists.sort(key=lambda z: z[1])
 
-        if available_adjacent
+        available_improving = \
+            filter(lambda t: da.is_not_occupied(t[0]) and t[1] < current_min,
+                   with_dists)
 
-
-        # continue later
-
-        # ?????
-        # TODO code unfinished? You may need this :
-        # `yield messaging.M_R_MOVE(my_id, coord)`
+        if available_improving:
+            # we can improve by going to an available location
+            yield messaging.M_R_MOVE(my_id, available_improving[0][1])
+        else:
+            # none of the available locations improve. try an improving
+            # location that is occupied at the moment and hope for the best
+            yield messaging.M_R_MOVE(my_id, with_dists[0][1])
 
     @staticmethod
     def main_loop(protected_dragon_arena, my_id):

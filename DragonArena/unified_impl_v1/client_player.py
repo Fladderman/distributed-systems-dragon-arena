@@ -68,8 +68,8 @@ class BotPlayer(Player):
             return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
 
         def min_distance_to_dragon(loc):
-            return reduce(min, map(lambda z: manhattan_distance(loc, z),
-                                   dragon_locations))
+            return min(map(lambda z: manhattan_distance(loc, z),
+                           dragon_locations))
 
         my_loc = x, y = da.get_location(my_id)
         current_min = min_distance_to_dragon(my_loc)

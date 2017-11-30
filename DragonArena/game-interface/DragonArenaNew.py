@@ -169,11 +169,11 @@ class DragonArena:
     def _id_is_fresh(self, identifier):
         return not self._id_exists(identifier)
 
-    def _is_dead(self, identifier):
+    def is_dead(self, identifier):
         return self._id2creature[identifier] is None
 
     def _is_alive(self, identifier):
-        return not self._is_dead(identifier)
+        return not self.is_dead(identifier)
 
     # horizontal or vertical (our notion of distance), maxsize otherwise
     def _distance(self, id1, id2):
@@ -200,7 +200,7 @@ class DragonArena:
         assert(self._id_exists(knight_id))
 
         # knight might have died previously, ok
-        if self._is_dead(knight_id):
+        if self.is_dead(knight_id):
             return ("Knight {id} wants to move {dir}, but it is dead."
                     ).format(id=DragonArena.format_id(knight_id),
                              dir=direction)
@@ -370,13 +370,13 @@ class DragonArena:
 
         # check for death
 
-        if self._is_dead(id1):
+        if self.is_dead(id1):
             return ("{name1} {id1} wants to attack {name2} {id2}, but {name1} "
                     "{id1} is dead."
                     ).format(name1=name1, id1=DragonArena.format_id(id1),
                              name2=name2, id2=DragonArena.format_id(id2))
 
-        if self._is_dead(id2):
+        if self.is_dead(id2):
             return ("{name1} {id1} wants to attack {name2} {id2}, but {name2} "
                     "{id2} is already dead."
                     ).format(name1=name1, id1=DragonArena.format_id(id1),
@@ -444,13 +444,13 @@ class DragonArena:
 
         # check for death
 
-        if self._is_dead(id1):
+        if self.is_dead(id1):
             return ("Knight {id1} wants to heal Knight {id2}, but Knight "
                     "{id1} is dead."
                     ).format(id1=DragonArena.format_id(id1),
                              id2=DragonArena.format_id(id2))
 
-        if self._is_dead(id2):
+        if self.is_dead(id2):
             return ("Knight {id1} wants to heal Knight {id2}, but Knight "
                     "{id2} is dead."
                     ).format(id1=DragonArena.format_id(id1),

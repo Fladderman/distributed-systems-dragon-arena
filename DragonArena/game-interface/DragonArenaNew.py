@@ -86,7 +86,7 @@ class DragonArena:
 
         self.key = random.randint(0, 100000)
 
-        self._tick = 0
+        self._tick = 1
 
         self._DRAGON = -1
 
@@ -303,7 +303,9 @@ class DragonArena:
         assert self._id_is_fresh(proposed_id)
         assert not self.game_is_full()
 
-        seed = self._tick * (self._no_of_living_knights + 1)
+        seed = self._tick * (self._no_of_living_knights + 1) + \
+            proposed_id[0] + proposed_id[1]
+
         random.seed(seed)
 
         knight = Knight(proposed_id)

@@ -437,7 +437,7 @@ class DragonArena:
         assert self._id_exists(id2)
 
         # ensure heal is valid
-        assert id1[0] != -1 and id2[0] != -1
+        assert id1[0] != self._DRAGON and id2[0] != self._DRAGON
 
         # check for death
 

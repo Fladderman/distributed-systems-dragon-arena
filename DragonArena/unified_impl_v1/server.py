@@ -38,6 +38,9 @@ def ordering_func(reqs, tick_id):  # solved
 def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     # all requests are CLIENT action requests. no others.
     assert isinstance(dragon_arena, DragonArena)
+
+    dragon_arena.increment_tick()
+
     for msg in message_sequence:
         assert isinstance(msg, messaging.Message)
 
@@ -47,7 +50,6 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
 
         # valid = msg.permitted_in_server_application_function() and ``correct sender``
 
-
         if msg.header_matches_string("R_MOVE"):
             print "666"
         elif msg.header_matches_string("R_HEAL"):
@@ -55,7 +57,8 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
         elif msg.header_matches_string("R_ATTACK"):
             print "boo"
 
-        # TODO ensure this message is sent from a SERVER (id will be Int). not a CLIENT (id is a tuple
+        # TODO ensure this message is sent from a SERVER (id will be Int).
+        # #not a CLIENT (id is a tuple
         # tuple(msg.arg[0]) is the id of the newly-spawned knight.
         # be sure to create it on the board somewhere deterministically
         elif msg.header_matches_string("SPAWN"):

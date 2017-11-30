@@ -62,21 +62,28 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
                 bad = True
                 result = "Bad move request."
         elif msg.header_matches_string("R_HEAL"):
-            if dragon_arena.is_knight(msg.args[0]):
-                result = dragon_arena.heals(msg.sender, msg.args[0])
+            if dragon_arena.is_knight(tuple(msg.args[0])):
+                result = dragon_arena.heal(tuple(msg.sender), tuple(msg.args[0]))
             else:
                 bad = True
                 result = "Bad heal request."
         elif msg.header_matches_string("R_ATTACK"):
-            if dragon_arena.is_dragon(msg.args[0]):
-                result = dragon_arena.attacks(msg.sender, msg.args[0])
+            if dragon_arena.is_dragon(tuple(msg.args[0])):
+                result = dragon_arena.attack(tuple(msg.sender), tuple(msg.args[0]))
             else:
                 bad = True
                 result = "Bad attack request."
         elif msg.header_matches_string("SPAWN"):
             assert isinstance(msg.sender, int)  # must be server id
-
-            result = dragon_arena.spawn_knight(msg.args[0])
+            result = dragon_arena.spawn_knight(tuple(msg.args[0]))
+        elif msg.header_matches_string("DESPAWN"):
+            assert isinstance(msg.sender, int)  # must be server id
+            k = tuple(msg.args[0])
+            if dragon_arena._is_alive(k):
+                logging.info(("Suppressing DESPAWN for knight {k}. "
+                              "Knight is already dead."
+                              ).format(k=k))
+                result = dragon_arena.kill_knight(k)
         else:
             raise "chris fukt up damn"
 
@@ -86,10 +93,14 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
                                                      sender=msg.sender,
                                                      reason=result))
         else:
-            logging.info(("Message {msg} from {sender} was processed"
+            logging.info(("Message {msg} from {sender} was processed "
                           "successfully. DAS feedback: {reason}").format(
                 msg=str(msg), sender=msg.sender, reason=result))
-
+    #TODO LOG
+    result = dragon_arena.let_dragons_attack()
+    logging.info(("Player actions successfully processed for tick {tick_id}"
+                 ).format(tick_id=dragon_arena.get_tick()))
+    logging.info(result)
 #SUBPROBLEMS END:
 ##############################
 
@@ -356,7 +367,7 @@ class Server:
                               "for the new client."
                               ).format(player_id=player_id))
 
-                spawn_msg = messaging.M_SPAWN(player_id)
+                spawn_msg = messaging.M_SPAWN(self._server_id, player_id)
                 logging.info(("Enqueued spawn request {spawn_msg} "
                               "for the new client."
                               ).format(spawn_msg=spawn_msg))
@@ -392,6 +403,7 @@ class Server:
                 logging.info(("Incoming daemon noticed client at {addr} crashed."
                               "Removing client"
                               ).format(addr=addr))
+                self._requests.enqueue(messaging.M_DESPAWN(self._server_id, player_id))
                 self._client_sockets.pop(addr)
                 #TODO debug why a client cannot REJOIN
                 break

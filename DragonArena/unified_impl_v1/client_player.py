@@ -3,6 +3,7 @@ import sys
 import os
 import messaging
 import protected
+import das_game_settings
 import random
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
@@ -67,6 +68,9 @@ class BotPlayer(Player):
         # else get moving
 
         dragon_locations = da.get_dragon_locations()
+        if not dragon_locations:
+            return None
+        # print('dragon_locations' , dragon_locations)
 
         def manhattan_distance(loc1, loc2):
             return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
@@ -77,15 +81,21 @@ class BotPlayer(Player):
 
         my_loc = x, y = da.get_location(my_id)
         current_min = min_distance_to_dragon(my_loc)
-        adjacent = filter(da.is_valid_location,
+        # print('current_min', current_min)
+        adjacent = filter(lambda z: da.is_valid_location(z[0]),
                           [((x+1, y), 'd'), ((x-1, y), 'u'),
                            ((x, y+1), 'r'), ((x, y-1), 'l')])
+        # print('adjacent' , adjacent)
+        #MUST be non-empty
         improving = \
             filter(lambda z: min_distance_to_dragon(z[0]) < current_min,
                    adjacent)
-        available_improving = filter(lambda z: da.is_not_occupied[0],
+        # print('improving', improving)
+        available_improving = filter(lambda z: not da.is_occupied_location(z[0]),
                                      improving)
         pick_from = available_improving if available_improving else improving
+        if not pick_from:
+            return None
         direction = random.choice(pick_from)[1]
 
         return messaging.M_R_MOVE(direction)
@@ -99,9 +109,9 @@ class BotPlayer(Player):
         # has self._game_state_copy
         try:
             while True:  # TODO: while game.playing    # Roy: And I'm not dead?
-                time.sleep(1.5)
-                _shitty_visualizer(da)
+                time.sleep(das_game_settings.server_min_tick_time)
                 with protected_dragon_arena as da:
+                    _shitty_visualizer(da)
                     choice = BotPlayer._choose_action_return_message(da, my_id)
                 # `with` expired. dragon arena unlocked
                 if choice is not None:
@@ -119,7 +129,7 @@ def _shitty_visualizer(da):
             try:
                 c = da._loc2creature[(x,y)]
                 if isinstance(c, Dragon):
-                    ln += ' D'
+                    ln += ' ' + str(c.get_identifier()[1])
                 elif isinstance(c, Knight):
                     ln +=' k'
             except:

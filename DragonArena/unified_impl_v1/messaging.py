@@ -26,6 +26,7 @@ int2header = [
     'S2C_WELCOME',
     'S2C_REFUSE',
     'SPAWN',
+    'DESPAWN',
     'DONE',
     'UPDATE',
     'R_HEAL',
@@ -155,7 +156,8 @@ def M_C2S_HELLO():                              return Message(header2int['C2S_H
 def M_S2C_WELCOME(s_id, knight_id):             return Message(header2int['S2C_WELCOME'], s_id,[knight_id])
 def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
 
-def M_SPAWN(knight_id):                         return Message(header2int['SPAWN'], -1, [knight_id])
+def M_SPAWN(s_id, knight_id):                   return Message(header2int['SPAWN'], s_id, [knight_id])
+def M_DESPAWN(s_id, knight_id):                 return Message(header2int['DESPAWN'], -1, [knight_id])
 
 # GAME REQS
 def M_R_HEAL(healed):                   return Message(header2int['R_HEAL'], -1, [healed])
@@ -187,7 +189,7 @@ def read_msg_from(sock, timeout=None):
             unpacker.feed(x)
             for package in unpacker:
                 x = Message.deserialize(package)
-                print('     ::read msg', x)
+                # print('     ::read msg', x)
                 return x
         except socket.timeout as e:
             print("timeout error")
@@ -232,8 +234,8 @@ def write_many_msgs_to(socket, msg_iterable):
         for msg in msg_iterable:
             if not isinstance(msg, Message):
                 print('BAD. attempting to write_msg_to:', msg)
-            else:
-                print('try out --> msg', msg, 'to socket', socket)
+            # else:
+            #     print('try out --> msg', msg, 'to socket', socket)
             my_file = StringIO()
             my_file.write(packer.pack(msg.serialize()))
             my_file = StringIO(my_file.getvalue())
@@ -269,8 +271,8 @@ def read_first_message_matching(socket, func, timeout=True, max_msg_count=-1):
 def write_msg_to(socket, msg):
     if not isinstance(msg, Message):
         print('BAD. attempting to write_msg_to:', msg)
-    else:
-        print('out --> msg', msg, 'to socket', socket)
+    # else:
+    #     print('out --> msg', msg, 'to socket', socket)
     '''
     send the given msg into the socket
     returns True if writing completes

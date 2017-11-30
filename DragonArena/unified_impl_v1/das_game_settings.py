@@ -12,7 +12,7 @@ server_addresses = [
 ]
 
 S2S_wait_for_welcome_timeout = 0.2
-server_min_tick_time = 4.0
+server_min_tick_time = 0.5
 
 # A server will certainly not refuse a new client if the server has < min_server_client_capacity clients
 min_server_client_capacity = 3

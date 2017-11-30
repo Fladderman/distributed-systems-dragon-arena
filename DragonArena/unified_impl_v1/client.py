@@ -132,7 +132,7 @@ class Client:
     def main_incoming_loop(self):
         print('main incoming')
         for msg in messaging.generate_messages_from(self._server_socket, timeout=None):
-            print(str(msg))
+            # print(str(msg))
             if msg != None:
                 if msg.header_matches_string('UPDATE'):
                     new_state = DragonArena.deserialize(msg.args[1])
@@ -146,9 +146,9 @@ class Client:
         req_generator = self._player.main_loop(self._protected_game_state, self._my_id)
         print('ready?')
         for request in req_generator:
-            print('player yielded request', request)
+            # print('player yielded request', request)
             assert isinstance(request, Message)
-            print('forwarding', request)
+            # print('forwarding', request)
             if not messaging.write_msg_to(self._server_socket, request):
                 print('failed to write outbound requests!')
 

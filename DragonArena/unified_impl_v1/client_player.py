@@ -56,10 +56,10 @@ class BotPlayer(Player):
         must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
                            da.heal_candidates(my_id))
         if must_heal:
-            yield messaging.M_R_HEAL(must_heal[0])
+            return messaging.M_R_HEAL(must_heal[0])
         can_attack = da.attack_candidates(my_id)
         if can_attack:
-            yield messaging.M_R_ATTACK(can_attack[0])
+            return messaging.M_R_ATTACK(can_attack[0])
         # else get moving
 
         dragon_locations = da.get_dragon_locations()
@@ -84,7 +84,7 @@ class BotPlayer(Player):
         pick_from = available_improving if available_improving else improving
         direction = random.choice(pick_from)[1]
 
-        yield messaging.M_R_MOVE(direction)
+        return messaging.M_R_MOVE(direction)
 
     @staticmethod
     def main_loop(protected_dragon_arena, my_id):

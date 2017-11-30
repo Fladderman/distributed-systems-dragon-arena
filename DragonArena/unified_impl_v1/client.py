@@ -50,7 +50,7 @@ class Client:
                     self._my_id = tuple(reply_msg.args[0])
                     print('so far so good')
                     '''4. wait for 1st game update'''
-                    first_update = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
+                    first_update = messaging.read_msg_from(self._server_socket, timeout=max(das_game_settings.max_done_wait, das_game_settings.client_handshake_timeout))
                     print('expecting update. client got', str(first_update))
                     if not messaging.is_message_with_header_string(first_update, 'UPDATE'):
                         raise RuntimeError('got' + str(first_update) + 'instead of first update')

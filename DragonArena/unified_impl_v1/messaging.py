@@ -40,7 +40,7 @@ def is_message_with_header_string(msg, header_string):
     elif msg == MessageError.CRASH or msg == MessageError.TIMEOUT:
         return False
     else:
-        raise ValueError('Neither Message nor MessageError instance was given')
+        raise ValueError('Neither Message nor MessageError instance was given', str(msg))
 
 
 class Message:

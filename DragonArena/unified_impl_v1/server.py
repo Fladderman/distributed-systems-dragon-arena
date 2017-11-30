@@ -163,9 +163,11 @@ class Server:
             self._tick_id = sync_reply.args[0]
             try:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
-                logging.info(("Got sync'd game state from server! serialized: {serialized_state}").format(serialized_state=sync_reply.args[1]))
+                logging.info(("Got sync'd game state from server! serialized: {serialized_state}"
+                             ).format(serialized_state=sync_reply.args[1]))
             except Exception as e:
-                logging.info(("Couldn't deserialize the given game state: {serialized_state}").format(serialized_state=sync_reply.args[1]))
+                logging.info(("Couldn't deserialize the given game state: {serialized_state}"
+                             ).format(serialized_state=sync_reply.args[1]))
                 raise RuntimeError('failed to serialize game state...', e)
             self._server_sockets = Server._socket_to_others({auth_index, self._server_id})
 
@@ -173,18 +175,23 @@ class Server:
             for server_id, sock in self._active_servers():
                 if messaging.write_msg_to(sock, hello_msg):
                     logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
-                                 ).format(server_id=server_id, hello_msg=hello_msg))
+                                 ).format(server_id=server_id,
+                                          hello_msg=hello_msg))
                 else:
                     logging.info(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
-                                 ).format(server_id=server_id, hello_msg=hello_msg))
+                                 ).format(server_id=server_id,
+                                          hello_msg=hello_msg))
                     # server must have crashed in the meantime!
                     self._server_sockets[server_id] = None
                     continue
                 welcome_msg = messaging.read_msg_from(sock,timeout=das_game_settings.S2S_wait_for_welcome_timeout)
                 if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):
-                    logging.info(("got expected WELCOME reply from {i}").format(i=i))
+                    logging.info(("got expected WELCOME reply from {server_id}"
+                                 ).format(server_id=server_id))
                 else:
-                    logging.info(("instead of WELCOME from {i}, got {msg}").format(i=i, msg=reply2))
+                    logging.info(("instead of WELCOME from {server_id}, got {msg}"
+                                 ).format(server_id=server_id,
+                                          msg=reply2))
                     # server must have crashed in the meantime!
                     self._server_sockets[server_id] = None
             sync_done = messaging.M_S2S_SYNC_DONE()
@@ -479,9 +486,9 @@ class Server:
                      format(active_indices=active_indices))
         print('other servers:', self._server_sockets)
 
-        for serv_id, sock in self._active_servers():
+        for server_id, sock in self._active_servers():
             temp_batch = []
-            print('expecting done from ', serv_id)
+            print('expecting done from ', server_id)
             while True:
                 msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
                 if messaging.is_message_with_header_string(msg, 'DONE'):
@@ -496,7 +503,7 @@ class Server:
                     # some other request message BEFORE a done
                     temp_batch.append(msg)
                 else:
-                    if msgs is MessageError.CRASH:
+                    if msg is MessageError.CRASH:
                         logging.info(("Wait&recv for {server_id} ended in CRASH"
                                      ).format(server_id=server_id))
                     else:
@@ -505,7 +512,7 @@ class Server:
                                      ).format(server_id=server_id))
                     print('Lost connection!')
                     # Clean up, discard temp_batch
-                    self._server_sockets[serv_id] = None
+                    self._server_sockets[server_id] = None
                     break
 
 

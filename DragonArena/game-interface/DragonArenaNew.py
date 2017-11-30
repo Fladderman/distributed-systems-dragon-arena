@@ -36,20 +36,18 @@ class Creature:
         return self._identifier
 
     def serialize(self):
-        def f(tup): return [tup[0], tup[1]]
         return [isinstance(self, Knight),
-                f(self._identifier),
+                tuple(self._identifier),
                 self._max_hp,
                 self._curr_hp,
                 self._ap]
 
     @staticmethod
     def deserialize(o):
-        def g(list_of_two): return list_of_two[0], list_of_two[1]
         if o[0]:  # knight
-            return Knight(g(o[1]), o[2], o[3], o[4])
+            return Knight(list(o[1]), o[2], o[3], o[4])
         else:
-            return Dragon(g(o[1]), o[2], o[3], o[4])
+            return Dragon(list(o[1]), o[2], o[3], o[4])
 
 
 class Knight(Creature):
@@ -151,19 +149,12 @@ class DragonArena:
     def _get_random_available_location(self):
         return random.sample(self._get_available_locations(), 1)[0]
 
-    def _is_valid_location(self, location):
-        return 0 <= location[0] < self._map_height and \
-               0 <= location[1] < self._map_width
-
-    def _is_occupied_location(self, location):
-        return location in self._get_occupied_locations()
-
     def _is_occupied_by_knight(self, location):
-        return self._is_occupied_location(location) and \
+        return self.is_occupied_location(location) and \
                isinstance(self._loc2creature[location], Knight)
 
     def _is_occupied_by_dragon(self, location):
-        return self._is_occupied_location(location) and \
+        return self.is_occupied_location(location) and \
                isinstance(self._loc2creature[location], Dragon)
 
     def _id_exists(self, identifier):
@@ -211,13 +202,13 @@ class DragonArena:
         at = self._id2loc(knight_id)
         to = next_location(at)
 
-        if not self._is_valid_location(to):
+        if not self.is_valid_location(to):
             return ("Knight {id} wants to move {dir} from {at}, but it is "
                     "blocked by the arena boundary."
                     ).format(id=DragonArena.format_id(knight_id),
                              dir=direction, at=at)
 
-        if self._is_occupied_location(to):
+        if self.is_occupied_location(to):
             blocker = self._loc2creature[to]
             return ("Knight {id} wants to move {dir} from {at}, but it is "
                     "blocked by {blocker_name} {blocker_id}."
@@ -513,8 +504,12 @@ class DragonArena:
     def get_dragon_locations(self):  # used by bot
         return map(lambda d: self._creature2loc[d], self.get_dragons())
 
-    def can_move_up(self, identifier):  # used by bot
-        pass
+    def is_valid_location(self, location):  # used by bot and internally
+        return 0 <= location[0] < self._map_height and \
+               0 <= location[1] < self._map_width
+
+    def is_occupied_location(self, location): # used by bot and internally
+        return location in self._get_occupied_locations()
 
     # Allows the calling server to process a round of dragon attacks.
     def let_dragons_attack(self):
@@ -538,8 +533,7 @@ class DragonArena:
     # Below: serialization for networking
 
     def serialize(self):
-        def f(tup): return [tup[0], tup[1]]
-        serial_creature2loc = map(lambda t: [t[0].serialize(), f(t[1])],
+        serial_creature2loc = map(lambda t: [t[0].serialize(), list(t[1])],
                                   self._creature2loc.items())
         # When deserializing, we will want to reconstruct id2loc.
         # It consists of:
@@ -547,7 +541,7 @@ class DragonArena:
         #   2. dead creature IDs that map to None
         # 1 can be reconstructed from serial_creature2loc
         # hence we only need to send the IDs of dead creatures in addition
-        dead_creature_ids = map(lambda t: f(t[0]),
+        dead_creature_ids = map(lambda t: list(t[0]),
                                 filter(lambda t: t[1] is None,
                                        self._id2creature.items()))
         return (self._no_of_dragons,
@@ -559,8 +553,6 @@ class DragonArena:
 
     @staticmethod
     def deserialize(o):
-        def g(list_of_two): return list_of_two[0], list_of_two[1]
-
         no_of_dragons = o[0]
         map_width = o[1]
         map_height = o[2]
@@ -568,7 +560,7 @@ class DragonArena:
         dead_creature_ids = o[4]
 
         creature2loc_list = \
-            map(lambda l: (Creature.deserialize(l[0]), g(l[1])),
+            map(lambda l: (Creature.deserialize(l[0]), tuple(l[1])),
                 serial_creature2loc)
 
         creature2loc = dict(creature2loc_list)
@@ -577,7 +569,7 @@ class DragonArena:
                                creature2loc_list))
 
         for identifier in dead_creature_ids:
-            id2creature[g(identifier)] = None
+            id2creature[tuple(identifier)] = None
 
         arena = DragonArena(no_of_dragons, map_width, map_height)
         arena.restore(creature2loc, id2creature)

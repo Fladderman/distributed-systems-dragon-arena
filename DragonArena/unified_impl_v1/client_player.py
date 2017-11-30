@@ -11,6 +11,7 @@ from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 class Player:
     pass
 
+
 class TickingPlayer(Player):
     """ Bogus player class that just spams request. solely for testing
     """
@@ -52,34 +53,41 @@ class BotPlayer(Player):
 
     @staticmethod
     def _choose_action_return_message(da, my_id):
-        ''' given the dragon arena `da`, make a decision on the next
+        """ given the dragon arena 'da', make a decision on the next
         action for the bot to take. formulate this as a Message (request) from
         the set {MOVE, ATTACK, HEAL} and return it as your action
-        '''
-        must_heal =\
-            filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
-                   da.heal_candidates(my_id))
+        """
+        must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
+                           da.heal_candidates(my_id))
         if must_heal:
             return messaging.M_R_HEAL(my_id, must_heal[0])
         can_attack = da.attack_candidates(my_id)
         if can_attack:
             return messaging.M_R_ATTACK(my_id, can_attack[0])
         dragon_locations = da.get_dragon_locations()
-        my_loc = da.get_location(my_id)
+        my_loc = x, y = da.get_location(my_id)
 
-        dist_with_loc = \
-            map(lambda x: (manhattan_distance(my_loc, x), x),
-                dragon_locations)
+        dist_with_loc = map(lambda z: (manhattan_distance(my_loc, z), z),
+                            dragon_locations)
 
         # sort in place based on distance
-        dist_with_loc.sort(key=lambda x: x[0])
+        dist_with_loc.sort(key=lambda z: z[0])
+
+        adjacent = filter(da.is_valid_location,
+                          [(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
+        available_adjacent = filter(lambda z: not da.is_occupied(z),
+                                    adjacent)
+
+
+
+        if available_adjacent
+
 
         # continue later
 
         # ?????
         # TODO code unfinished? You may need this :
         # `yield messaging.M_R_MOVE(my_id, coord)`
-
 
     @staticmethod
     def main_loop(protected_dragon_arena, my_id):

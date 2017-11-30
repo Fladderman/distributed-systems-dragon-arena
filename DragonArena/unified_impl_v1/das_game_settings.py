@@ -25,7 +25,7 @@ dragon_arena_init_settings = {'no_of_dragons': 10,
                               'map_height': 25
                               }
 
-client_ping_max_time = 0.3
+client_ping_max_time = 0.06
 client_handshake_timeout = 0.5
 
 

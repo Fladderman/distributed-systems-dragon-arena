@@ -5,6 +5,10 @@ sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import DragonArena
 
 class Client:
+
+
+
+
     def __init__(self, player):
         #TODO player reconnect after crash
         #TODO handle S2C_REFUSE
@@ -13,26 +17,49 @@ class Client:
         self._player = player
         self.sorted_server_ids = Client._ordered_server_list() #in order of descending 'quality
         print('self.sorted_server_ids', self.sorted_server_ids)
-        self._server_socket = self._connect_to_a_server()
-        print('self._server_socket', self._server_socket)
-        m = messaging.M_C2S_HELLO()
-        print('about to send msg', str(m))
-        messaging.write_msg_to(self._server_socket, m)
-        reply_msg = messaging.read_msg_from(self._server_socket, timeout=None)
-        print('client got', str(reply_msg), ':)')
-        assert reply_msg.header_matches_string('S2C_WELCOME')
-        self._my_id = tuple(reply_msg.args[0])
-        print('so far so good')
-        first_update = messaging.read_msg_from(self._server_socket, timeout=None)
-        print('client got', str(first_update), ':)')
-        assert first_update.header_matches_string('UPDATE')
-        # todo get state from server
-        print('OK will try deserialize')
-        self._protected_game_state = protected.ProtectedDragonArena(
-            DragonArena.deserialize(first_update.args[1])
-        )
-        #TODO it seems like
-        print('OK deserialized correctly')
+        self.connect_to_a_server()
+
+
+
+    def connect_to_a_server(self):
+        while True:
+            backoff = 0.01
+            for serv_id in self.sorted_server_ids:
+                try:
+                    ip, port = das_game_settings.server_addresses[serv_id]
+                    print('Trying server at', ip, port)
+                    self._server_socket = Client.sock_client(ip, port)
+                    if self._server_socket is None:
+                        continue
+                    print('self._server_socket', self._server_socket)
+                    m = messaging.M_C2S_HELLO()
+                    print('about to send msg', str(m))
+                    messaging.write_msg_to(self._server_socket, m)
+                    reply_msg = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
+                    print('client got', str(reply_msg), ':)')
+                    if reply_msg.header_matches_string('REFUSE'):
+                        print('got refused!')
+                        continue
+
+                    assert reply_msg.header_matches_string('S2C_WELCOME')
+                    self._my_id = tuple(reply_msg.args[0])
+                    print('so far so good')
+                    first_update = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
+                    print('client got', str(first_update), ':)')
+                    assert first_update.header_matches_string('UPDATE')
+                    # todo get state from server
+                    print('OK will try deserialize')
+                    self._protected_game_state = protected.ProtectedDragonArena(
+                        DragonArena.deserialize(first_update.args[1])
+                    )
+                    #TODO it seems like
+                    print('OK deserialized correctly')
+                except Exception as e:
+                    print('CONNECTION WENT AWRY', e)
+
+            print('failed to connect to everyone! D:')
+            time.sleep(backoff)
+            backoff *= 2
 
     @staticmethod
     def _ordered_server_list():
@@ -67,17 +94,6 @@ class Client:
         time.sleep(0.7)
         return rtt
 
-    def _connect_to_a_server(self):
-        for i in range(0,10):
-            print('connect loop', i)
-            for serv_id in self.sorted_server_ids:
-                ip, port = das_game_settings.server_addresses[serv_id]
-                maybe_sock = Client.sock_client(ip, port)
-                if maybe_sock is not None:
-                    return maybe_sock
-                else:
-                    print('connection to', serv_id, 'failed...')
-        raise "Couldn't connect to anybody :("
 
     '''
     attempts to connect
@@ -128,4 +144,6 @@ class Client:
             print('forwarding', request)
             if not messaging.write_msg_to(self._server_socket, request):
                 print('failed to write outbound requests!')
+
+
         print('no more requests')

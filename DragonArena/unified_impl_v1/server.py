@@ -311,7 +311,7 @@ class Server:
         d = DragonArena(**das_game_settings.dragon_arena_init_settings)
         d.new_game()
         logging.info(("Created fresh arena  with settings {settings} and key {key}"
-                     ).format(settings=das_game_settings.dragon_arena_init_settings
+                     ).format(settings=das_game_settings.dragon_arena_init_settings,
                               key=d.key))
         return d
 
@@ -373,7 +373,7 @@ class Server:
                               "for the new client."
                               ).format(spawn_msg=spawn_msg))
                 self._requests.enqueue(spawn_msg)
-                client_secret = Server._client_secret(addr[0], msg.args[0], player_id, self._dragon_arena.key)
+                client_secret = Server._client_secret(addr[0], tuple(player_id), msg.args[0], self._dragon_arena.key)
                 welcome = messaging.M_S2C_WELCOME(self._server_id, player_id, client_secret)
                 logging.info(("Derived client secret {client_secret}."
                               ).format(client_secret=client_secret))
@@ -396,8 +396,8 @@ class Server:
                 knight_id = msg.args[1]
                 secret = msg.args[2]
                 #ip, player_id, client_random_salt
-                secret_should_be = Server._client_secret(addr[0], knight_id, salt, self._dragon_arena.key)
-                if secret != secret_should_be or not self._dragon_arena.was_ever_a_knight(knight_id):
+                secret_should_be = Server._client_secret(addr[0], tuple(knight_id), salt, self._dragon_arena.key)
+                if secret != secret_should_be:
                     debug_print('secret mismatch!')
                     logging.info(("Refused a client`s reconnection. Secret was {secret} but should have been {secret_should_be}."
                                   ).format(secret_should_be=secret_should_be,
@@ -409,7 +409,7 @@ class Server:
                                   ).format(secret=secret))
                     welcome = messaging.M_S2C_WELCOME(self._server_id, knight_id, secret)
                     logging.info(("Derived client secret {client_secret}."
-                                  ).format(client_secret=client_secret))
+                                  ).format(client_secret=secret))
                     debug_print('welcome', welcome)
                     messaging.write_msg_to(sock, welcome)
                     debug_print('welcomed it back!')
@@ -454,6 +454,7 @@ class Server:
 
     @staticmethod
     def _client_secret(ip, player_id, client_random_salt, dragon_arena_key):
+        logging.info("GEN SECRET {} {} {} {}".format(ip, player_id, client_random_salt, dragon_arena_key))
         m = hashlib.md5()
         m.update(str(ip))
         m.update(str(player_id))

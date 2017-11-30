@@ -99,7 +99,8 @@ class BotPlayer(Player):
                 with protected_dragon_arena as da:
                     choice = BotPlayer._choose_action_return_message(da, my_id)
                 # `with` expired. dragon arena unlocked
-                yield choice
+                if choice is not None:
+                    yield choice
         except GeneratorExit:
             # clean up generator
             return

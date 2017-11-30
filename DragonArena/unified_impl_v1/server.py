@@ -144,11 +144,13 @@ class Server:
         else:
             # I'm not first :[
             print('AUTHORITY SERVER:', auth_index)
+            '''1. SYNC REQ ===> '''
             sync_req = messaging.M_S2S_SYNC_REQ(self._server_id)
             logging.info(("I am NOT the first server!. "
                           "Will sync with auth_index. "
                           "sending msg {sync_req}").format(sync_req=sync_req))
             messaging.write_msg_to(auth_sock, sync_req)
+            '''2. <=== SYNC REPLY '''
             sync_reply = messaging.read_msg_from(auth_sock, timeout=None)
             logging.info("Got sync reply: {reply}".format(
                 reply=str(sync_reply)))
@@ -157,7 +159,7 @@ class Server:
             else:
                 logging.info("Expected S2S_SYNC_REPLY, got {msg}".format(
                     msg=sync_reply))
-                raise RuntimeError('expected sync reply')
+                raise RuntimeError('expected sync reply! got ' + str(msg))
             self._tick_id = sync_reply.args[0]
             try:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
@@ -170,9 +172,13 @@ class Server:
             hello_msg = messaging.M_S2S_HELLO(self._server_id)
             for server_id, sock in self._active_servers():
                 if messaging.write_msg_to(auth_sock, hello_msg):
-                    logging.info(("Successfully HELLO'd server {i} with {hello_msg}").format(i=i, hello_msg=hello_msg))
+                    logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
+                                 ).format(server_id=server_id, hello_msg=hello_msg))
                 else:
-                    logging.info(("Couldn't HELLO server {i} with {hello_msg}. Oh well.").format(i=i, hello_msg=hello_msg))
+                    logging.info(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
+                                 ).format(server_id=server_id, hello_msg=hello_msg))
+                    # server must have crashed in the meantime!
+                    self._server_sockets[server_id] = None
                     continue
                 welcome_msg = messaging.read_msg_from(auth_sock,timeout=None)
                 if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):

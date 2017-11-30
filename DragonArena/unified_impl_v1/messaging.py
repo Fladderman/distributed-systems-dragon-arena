@@ -61,6 +61,12 @@ class Message:
             print('MESSAGE INIT FAILED', msg_header, sender, args)
             raise 'shit'
 
+    def permitted_by_clients(self):
+        return int2header[self.msg_header] in {'MOVE', 'ATTACK', 'HEAL'}
+
+    def permitted_in_server_application_function(self):
+        return self.permitted_by_clients or self.msg_header == header2int['SPAWN']
+
     def header_matches_string(self, string):
         try:
             assert string in header2int

@@ -11,6 +11,10 @@ server_addresses = [
 debug_printing = True
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 0.5
+dragon_ap_bounds = [5, 20]
+dragon_hp_bounds = [50, 100]
+knight_ap_bounds = [1, 10]
+knight_hp_bounds = [10, 20]
 
 # A server will certainly not refuse a new client if the server has < min_server_client_capacity clients
 min_server_client_capacity = 3

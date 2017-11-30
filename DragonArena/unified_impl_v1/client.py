@@ -22,7 +22,7 @@ class Client:
 
 
 
-    def _connect_to_a_server(self):
+    def _connect_to_a_server(self, reconnect=False):
         backoff = 0.05
         while True:
             for serv_id in self.sorted_server_ids:
@@ -35,8 +35,12 @@ class Client:
                         continue
                     debug_print('self._server_socket', self._server_socket)
                     '''2. send hello'''
-                    self._random_salt = random.randint(0, 999999)
-                    hello_msg = messaging.M_C2S_HELLO(self._random_salt)
+                    if not reconnect:
+                        self._random_salt = random.randint(0, 999999)
+                        hello_msg = messaging.M_C2S_HELLO(self._random_salt)
+                    else:
+                        hello_msg = messaging.M_C2S_HELLO_AGAIN(self._random_salt, self._my_id, self._secret)
+
                     debug_print('about to send msg', str(hello_msg))
                     messaging.write_msg_to(self._server_socket, hello_msg)
                     '''2. get reply (expect welcome)'''
@@ -154,7 +158,7 @@ class Client:
             debug_print('forwarding', request)
             if not messaging.write_msg_to(self._server_socket, request):
                 debug_print('failed to write outbound requests!')
-                self._connect_to_a_server()
+                self._connect_to_a_server(reconnect=True)
                 incoming_thread = threading.Thread(
                     target=self.main_incoming_loop,
                     args=(),

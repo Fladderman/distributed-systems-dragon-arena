@@ -310,8 +310,9 @@ class Server:
         # ** unpacks dictionary as keyed arguments
         d = DragonArena(**das_game_settings.dragon_arena_init_settings)
         d.new_game()
-        logging.info(("Created fresh arena  with settings {settings}"
-                     ).format(settings=das_game_settings.dragon_arena_init_settings))
+        logging.info(("Created fresh arena  with settings {settings} and key {key}"
+                     ).format(settings=das_game_settings.dragon_arena_init_settings
+                              key=d.key))
         return d
 
     def _kick_off_acceptor(self):
@@ -372,13 +373,48 @@ class Server:
                               "for the new client."
                               ).format(spawn_msg=spawn_msg))
                 self._requests.enqueue(spawn_msg)
-                client_secret = Server._client_secret(addr[0], msg.arg[0])
+                client_secret = Server._client_secret(addr[0], msg.args[0], player_id, self._dragon_arena.key)
                 welcome = messaging.M_S2C_WELCOME(self._server_id, player_id, client_secret)
+                logging.info(("Derived client secret {client_secret}."
+                              ).format(client_secret=client_secret))
                 debug_print('welcome', welcome)
                 messaging.write_msg_to(sock, welcome)
                 debug_print('welcomed it!')
                 self._client_sockets[addr] = sock
                 self._handle_client_incoming(sock, addr, player_id)
+                return
+            elif messaging.is_message_with_header_string(msg,'C2S_HELLO_AGAIN'):
+                if self._i_should_refuse_clients():
+                    messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
+                    logging.info(("Refused a client at {addr} "
+                                  "Server loads are currently approx. {loads}."
+                                  ).format(addr=addr,
+                                           loads=self._server_client_load))
+                    return
+                debug_print('returning client!')
+                salt = msg.args[0]
+                knight_id = msg.args[1]
+                secret = msg.args[2]
+                #ip, player_id, client_random_salt
+                secret_should_be = Server._client_secret(addr[0], knight_id, salt, self._dragon_arena.key)
+                if secret != secret_should_be or not self._dragon_arena.was_ever_a_knight(knight_id):
+                    debug_print('secret mismatch!')
+                    logging.info(("Refused a client`s reconnection. Secret was {secret} but should have been {secret_should_be}."
+                                  ).format(secret_should_be=secret_should_be,
+                                           secret=secret))
+                    messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
+                else:
+
+                    logging.info(("Client successfully reconnected with secret {secret}."
+                                  ).format(secret=secret))
+                    welcome = messaging.M_S2C_WELCOME(self._server_id, knight_id, secret)
+                    logging.info(("Derived client secret {client_secret}."
+                                  ).format(client_secret=client_secret))
+                    debug_print('welcome', welcome)
+                    messaging.write_msg_to(sock, welcome)
+                    debug_print('welcomed it back!')
+                    self._client_sockets[addr] = sock
+                    self._handle_client_incoming(sock, addr, player_id)
                 return
             elif msg.header_matches_string('S2S_HELLO'):
                 debug_print('server is up! synced by someone else server!')
@@ -416,10 +452,13 @@ class Server:
             pass
         debug_print('client handler dead :(')
 
-    def _client_secret(ip, client_random_salt):
+    @staticmethod
+    def _client_secret(ip, player_id, client_random_salt, dragon_arena_key):
         m = hashlib.md5()
-        m.update("Nobody inspects")
-        m.update(" the spammish repetition")
+        m.update(str(ip))
+        m.update(str(player_id))
+        m.update(str(client_random_salt))
+        m.update(str(dragon_arena_key))
         return m.hexdigest()
 
     def main_loop(self):

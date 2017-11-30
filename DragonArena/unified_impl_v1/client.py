@@ -11,7 +11,7 @@ class Client:
 
         assert isinstance(player, client_player.Player)
         self._player = player
-        self.sorted_server_ids = self._ordered_server_list() #in order of descending 'quality
+        self.sorted_server_ids = Client._ordered_server_list() #in order of descending 'quality
         print('self.sorted_server_ids', self.sorted_server_ids)
         self._server_socket = self._connect_to_a_server()
         print('self._server_socket', self._server_socket)
@@ -34,11 +34,38 @@ class Client:
         #TODO it seems like
         print('OK deserialized correctly')
 
-    def _ordered_server_list(self):
+    @staticmethod
+    def _ordered_server_list():
+        server_addresses = das_game_settings.server_addresses # long name
+        rtts = [
+            Client.measure_rtt_to(*addr)
+            for addr in server_addresses
+        ]
+        # sort server addresses according to rtts
+        ordered = [i for _,i in sorted(zip(rtts, range(len(server_addresses))))]
+        print('rtts', rtts)
+        print('ordered', ordered)
+
         # todo ping etc etc
         x = range(0, len(das_game_settings.server_addresses))
         shuffle(x)
         return x
+
+
+
+    @staticmethod
+    def measure_rtt_to(ip, port):
+        print('rtt to...', ip, port, 'is...')
+        start_time = time.time()
+        result = Client.sock_client(ip, port, timeout=das_game_settings.client_ping_max_time)
+        rtt = (time.time() - start_time
+              if result is not None
+              else das_game_settings.client_ping_max_time)
+        if result is not None:
+            result.close()
+        print('rtt', rtt)
+        time.sleep(0.7)
+        return rtt
 
     def _connect_to_a_server(self):
         for i in range(0,10):
@@ -51,7 +78,6 @@ class Client:
                 else:
                     print('connection to', serv_id, 'failed...')
         raise "Couldn't connect to anybody :("
-
 
     '''
     attempts to connect

@@ -4,6 +4,7 @@ import time
 import json
 import socket
 import errno
+import logging
 from StringIO import StringIO
 socket.setdefaulttimeout(1.0)  # todo experiment with this
 
@@ -109,7 +110,7 @@ class Message:
             return Message(msg_header, sender, args)
         except:
             logging.info(("failed to deserialize {serialized_msg}").format(serialized_msg=serialized_msg))
-            print 'Msg DESERIALIZE FAILED'
+            print ('Msg DESERIALIZE FAILED, INPUT: <', serialized_msg)
             raise 'shit'
 
     def __repr__(self):
@@ -185,8 +186,8 @@ def read_msg_from(sock, timeout=None):
         except socket.timeout as e:
             print("timeout error")
             return MessageError.TIMEOUT
-        except:
-            print("sth else occured: ")
+        except Exception as e :
+            print("sth else occured: ", e)
             return MessageError.CRASH
 
 

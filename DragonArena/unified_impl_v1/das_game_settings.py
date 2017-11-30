@@ -7,6 +7,7 @@ server_addresses = [
     ("127.0.0.1", 2004),
     ("127.0.0.1", 2005),
 ]
+client_ping_max_time = 0.3
 num_server_addresses = len(server_addresses)
 server_min_tick_time = 4.0
 dragon_arena_init_settings = {'no_of_dragons': 10,

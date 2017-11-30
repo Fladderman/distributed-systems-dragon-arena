@@ -295,8 +295,8 @@ class Server:
             # msg = messaging.read_msg_from(socket, timeout=None)
         for msg in generator:
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
-            if msg is None:
-                print('sock dead. killing incoming reader daemon')
+            if msg is MessageError.CRASH:
+                print('newcomer socket died in the cradle :(. Hopefully just a ping. killing incoming reader daemon')
                 return
             print('_handle_socket_incoming yielded', msg)
             if messaging.is_message_with_header_string(msg, 'C2S_HELLO'):
@@ -516,7 +516,7 @@ class Server:
                           ).format(sender_id=sender_id))
             sync_done = messaging.read_msg_from(socket, timeout=None)
             print('got response...', sync_done)
-            if sync_done is None:
+            if sync_done is MessageError.CRASH:
                 print('GOT NONE WHEN EXPECTED SYNC DONE')
                 logging.info(("Hmm. It seems that {sender_id} has crashed before syncing. Oh well :/").format(sender_id=sender_id))
                 continue
@@ -526,14 +526,7 @@ class Server:
             if sync_done.header_matches_string('S2S_SYNC_DONE'):
                 print('YAHHH')
                 self._server_sockets[sender_id] = socket
-                # server_incoming_thread = threading.Thread(
-                #     target=Server._handle_server_incoming,
-                #     args=(self, socket,
-                #           das_game_settings.server_addresses[sender_id]),
-                # )
                 logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
-
-                # TODO the error is here somwhere
 
         logging.info(("Got to end of sync").format())
 

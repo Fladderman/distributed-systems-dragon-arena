@@ -11,6 +11,7 @@ import protected
 from messaging import Message, MessageError
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
+from das_game_settings import debug_print
 
 # #####################################
 # SUBPROBLEMS START:
@@ -126,10 +127,8 @@ class ServerAcceptor:
             while True:
                 client_socket, addr = self._sock.accept()
                 yield client_socket, addr
-            # except:
-            #     print('ACCEPTOR HAD A PROBLEM!')
         except GeneratorExit:
-            print('acceptor generator killed')
+            debug_print('acceptor generator killed')
             return
 
 class Server:
@@ -150,7 +149,7 @@ class Server:
                 self.try_setup()
             except Exception as e:
                 logging.info("  try number {try_index}".format(try_index=try_index))
-                print('try setup exception. backing off', e)
+                debug_print('try setup exception. backing off', e)
                 time.sleep(backoff_time)
                 backoff_time *= 2
                 continue
@@ -160,14 +159,14 @@ class Server:
 
     def try_setup(self):
         '''Will throw exceptions upwards if things fail'''
-        print('OK')
+        debug_print('OK')
         auth_sock, auth_index = self._connect_to_first_other_server()
-        print(auth_sock, auth_index)
+        debug_print(auth_sock, auth_index)
         logging.info("authority socket_index: {index}".format(
             index=auth_index))
         if auth_sock is None:
             # I am first! :D
-            print('I AM THE FIRST SERVER:', auth_index)
+            debug_print('I AM THE FIRST SERVER:', auth_index)
             logging.info("I am the first server!".format())
             self._dragon_arena = Server.create_fresh_arena()
             # self._tick_id() = 0
@@ -176,7 +175,7 @@ class Server:
                                       num_server_addresses)]
         else:
             # I'm not first :[
-            print('AUTHORITY SERVER:', auth_index)
+            debug_print('AUTHORITY SERVER:', auth_index)
             '''1. SYNC REQ ===> '''
             sync_req = messaging.M_S2S_SYNC_REQ(self._server_id)
             logging.info(("I am NOT the first server!. "
@@ -240,7 +239,7 @@ class Server:
             logging.info(("Remembering socket for auth_server with id {auth_index}"
                          ).format(auth_index=auth_index))
 
-        print('WOOOHOOO READY')
+        debug_print('WOOOHOOO READY')
         self._requests = protected.ProtectedQueue()
         self._waiting_sync_server_tuples = protected.ProtectedQueue() #(msg.sender, socket)
         self._client_sockets = dict()
@@ -266,7 +265,7 @@ class Server:
             for i in count_up_from(next_available_counter + 1):
                 yield (self._server_id, i)
         except GeneratorExit:
-            print('Cleaning up _knight_id_generator')
+            debug_print('Cleaning up _knight_id_generator')
             return
 
     def _active_servers(self):
@@ -328,7 +327,7 @@ class Server:
         logging.info(("acceptor handling new connections...").format())
         server_acceptor = ServerAcceptor(port)
         for new_socket, new_addr in server_acceptor.generate_incoming_sockets():
-            print('acceptor got', new_socket, new_addr)
+            debug_print('acceptor got', new_socket, new_addr)
             logging.info(("new acceptor connection from {addr}").format(addr=new_addr))
             #TODO handle the case that this new_addr is already associated with something
             babysitter_thread = threading.Thread(
@@ -348,9 +347,9 @@ class Server:
         # for msg in generator:
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
             if msg is MessageError.CRASH:
-                print('newcomer socket died in the cradle :(. Hopefully just a ping. killing incoming reader daemon')
+                debug_print('newcomer socket died in the cradle :(. Hopefully just a ping. killing incoming reader daemon')
                 return
-            print('_handle_socket_incoming yielded', msg)
+            debug_print('_handle_socket_incoming yielded', msg)
             if messaging.is_message_with_header_string(msg, 'C2S_HELLO'):
                 if self._i_should_refuse_clients():
                     messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
@@ -360,7 +359,7 @@ class Server:
                                   loads=self._server_client_load))
                     return
 
-                print('new client!')
+                debug_print('new client!')
                 # yields STOPITERATION on crash???
                 player_id = next(self._knight_id_generator)
                 logging.info(("Generated player/knight ID {player_id} "
@@ -373,33 +372,33 @@ class Server:
                               ).format(spawn_msg=spawn_msg))
                 self._requests.enqueue(spawn_msg)
                 welcome = messaging.M_S2C_WELCOME(self._server_id, player_id)
-                print('welcome', welcome)
+                debug_print('welcome', welcome)
                 messaging.write_msg_to(sock, welcome)
-                print('welcomed it!')
+                debug_print('welcomed it!')
                 self._client_sockets[addr] = sock
                 self._handle_client_incoming(sock, addr, player_id)
                 return
             elif msg.header_matches_string('S2S_HELLO'):
-                print('server is up! synced by someone else server!')
+                debug_print('server is up! synced by someone else server!')
                 self._server_sockets[msg.sender] = sock
                 messaging.write_msg_to(sock, messaging.M_S2S_WELCOME(self._server_id))
                 return
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
                 logging.info(("This is server {s_id} that wants to sync! Killing incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
                 self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
-                print('newcomer handler exiting')
+                debug_print('newcomer handler exiting')
                 return
 
     def _handle_client_incoming(self, sock, addr, player_id):
         #TODO this function gets as param the player's knight ID
         #TODO before submitting it as a request, this handler wi
-        print('client handler!')
+        debug_print('client handler!')
         # for msg in messaging.generate_messages_from(socket, timeout=None):
         while True:
             msg = messaging.read_msg_from(sock, timeout=None)
-            print('client sumthn')
+            debug_print('client sumthn')
             if msg == MessageError.CRASH:
-                print('client crashed!')
+                debug_print('client crashed!')
                 logging.info(("Incoming daemon noticed client at {addr} crashed."
                               "Removing client"
                               ).format(addr=addr))
@@ -409,18 +408,18 @@ class Server:
                 break
             #TODO overwrite the SENDER field. this is needed for logging AND to make sure the request is valid
             msg.sender = player_id # Server annotates this to ensure client doesnt doctor their packets
-            print('client incoming', msg)
+            debug_print('client incoming', msg)
             self._requests.enqueue(msg)
             logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
             pass
-        print('client handler dead :(')
+        debug_print('client handler dead :(')
 
     def main_loop(self):
         logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id()))
-        print('MAIN LOOP :)')
+        debug_print('MAIN LOOP :)')
         while True:
             tick_start = time.time()
-            print('tick', self._tick_id())
+            debug_print('tick', self._tick_id())
 
             '''SWAP BUFFERS'''
             my_req_pool = self._requests.drain_if_probably_something()
@@ -430,7 +429,7 @@ class Server:
 
             current_sync_tuples = self._waiting_sync_server_tuples.drain_if_probably_something()
             if current_sync_tuples:
-                print('---eyyy there are current sync tuples!---', current_sync_tuples)
+                debug_print('---eyyy there are current sync tuples!---', current_sync_tuples)
                 # collect DONES before sending your own
                 logging.info(("servers {set} waiting to sync! LEADER tick."
                               "Suppressing DONE step"
@@ -489,10 +488,10 @@ class Server:
         total_active_loads = filter(lambda x: x is not None, self._server_client_load)
         total_num_servers = len(total_active_loads)
         if total_num_servers == 1:
-            print('there is no other server!')
+            debug_print('there is no other server!')
             return False
         if my_load < max(0, das_game_settings.min_server_client_capacity):
-            print('I can certainly take more')
+            debug_print('I can certainly take more')
             return False
         average_server_load = rough_total_clients / float(total_num_servers)
         return my_load > (average_server_load * das_game_settings.server_overcapacity_ratio)
@@ -540,22 +539,22 @@ class Server:
         active_indices = self._active_server_indices()
         logging.info("reading and waiting for servers {active_indices}".
                      format(active_indices=active_indices))
-        print('other servers:', self._server_sockets)
+        debug_print('other servers:', self._server_sockets)
 
         # Need to lock down the servers I am waiting for. SYNCED servers might join inbetween
         waiting_for = list(self._active_servers())
-        print('waiting for ', waiting_for)
+        debug_print('waiting for ', waiting_for)
         for server_id, sock in waiting_for:
             temp_batch = []
-            print('expecting done from ', server_id)
+            debug_print('expecting done from ', server_id)
             while True:
                 msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
                 if messaging.is_message_with_header_string(msg, 'DONE'):
                     other_tick_id = msg.args[0]
                     self._server_client_load[server_id] = msg.args[1]
-                    print('got a DONE')
+                    debug_print('got a DONE')
                     if other_tick_id != self._tick_id():
-                        print(("___\nme   ({})\t{}\nthem ({})\t{}\n***"
+                        debug_print(("___\nme   ({})\t{}\nthem ({})\t{}\n***"
                               ).format(self._server_id, self._tick_id(), server_id, other_tick_id))
                     # DONE got. accept the batch
                     res.extend(temp_batch)
@@ -571,14 +570,14 @@ class Server:
                         logging.info(("Wait&recv for {server_id} ended in TIMEOUT"
                                       "(might be a deadlock?)"
                                      ).format(server_id=server_id))
-                    print('Lost connection!')
+                    debug_print('Lost connection!')
                     # Clean up, discard temp_batch
                     self._server_sockets[server_id] = None
                     break
 
-        print('server load', self._server_client_load[self._server_id])
+        debug_print('server load', self._server_client_load[self._server_id])
         logging.info("Released from the barrier")
-        print("!!!RELEASED FROM TICK", self._tick_id())
+        debug_print("!!!RELEASED FROM TICK", self._tick_id())
         logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id()))
         return res
 
@@ -596,31 +595,31 @@ class Server:
         for sender_id, socket in sync_tuples:
             if socket is None:
                 continue
-            print('sync tup:', sender_id, socket)
+            debug_print('sync tup:', sender_id, socket)
             if messaging.write_msg_to(socket, update_msg):
                 logging.info(("Sent sync msg {update_msg} to waiting server "
                               "{sender_id}").format(update_msg=update_msg,
                                                     sender_id=sender_id))
             else:
-                print('failed to send sync msg')
+                debug_print('failed to send sync msg')
                 break
                 logging.info(("Failed to send sync msg to waiting server "
                               "{sender_id}").format(sender_id=sender_id))
 
-            print('awaiting SYNC DONE from ',sender_id,'...')
+            debug_print('awaiting SYNC DONE from ',sender_id,'...')
             logging.info(("awaiting SYNC DONE from {sender_id}...  "
                           ).format(sender_id=sender_id))
             sync_done = messaging.read_msg_from(socket, timeout=das_game_settings.max_server_sync_wait)
             if messaging.is_message_with_header_string(sync_done, 'S2S_SYNC_DONE'):
                 logging.info(("Got {msg} from sync server {sender_id}! "
                               ":)").format(msg=sync_done, sender_id=sender_id))
-                print('SYNCED',sender_id,'YA, BUDDY :)')
+                debug_print('SYNCED',sender_id,'YA, BUDDY :)')
                 self._server_sockets[sender_id] = socket
                 logging.info(("Spawned incoming handler for"
                               "newly-synced server {sender_id}"
                              ).format(sender_id=sender_id))
             else:
-                print('either timed out or crashed. either way, disregarding')
+                debug_print('either timed out or crashed. either way, disregarding')
                 logging.info(("Hmm. It seems that {sender_id} has"
                               "crashed before syncing. Oh well :/"
                              ).format(sender_id=sender_id))
@@ -633,11 +632,11 @@ class Server:
                      ).format(tick_id=self._tick_id()))
         logging.info(("Client set for tick {tick_id}: {clients}"
                      ).format(tick_id=self._tick_id(), clients=self._client_sockets.keys()))
-        print('CLIENT SOCKS', self._client_sockets)
+        debug_print('CLIENT SOCKS', self._client_sockets)
         for addr, sock in self._client_sockets.iteritems():
             #TODO investigate why addr is an ip and not (ip,port)
             if messaging.write_msg_to(sock, update_msg):
-                print('updated client', addr)
+                debug_print('updated client', addr)
                 logging.info(("Successfully updated client at addr {addr}"
                               "for tick_id {tick_id}"
                               ).format(addr=addr,

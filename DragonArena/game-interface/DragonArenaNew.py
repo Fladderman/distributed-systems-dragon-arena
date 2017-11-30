@@ -488,7 +488,8 @@ class DragonArena:
                             [(x - 2, y), (x - 1, y), (x + 1, y), (x + 2, y),
                              (x, y - 2), (x, y - 1), (x, y + 1), (x, y + 2)]
                             )
-        return target_loc
+
+        return map(self._loc2id, target_loc)
 
     def heal_candidates(self, knight_id):  # used by bot
         healer_loc = self._id2loc(knight_id)
@@ -496,7 +497,8 @@ class DragonArena:
         y = healer_loc[1]
         coordinates = [(x + i, y) for i in xrange(5, -6)] + \
                       [(x, y + i) for i in xrange(5, -6)]
-        return filter(self._is_occupied_by_knight, coordinates)
+        coords = filter(self._is_occupied_by_knight, coordinates)
+        return  map(self._loc2id, coords)
 
     def get_location(self, identifier):  # used by bot
         return self._id2loc(identifier)
@@ -530,8 +532,8 @@ class DragonArena:
         log_messages = []
 
         for dragon_id in dragon_ids:
-            knight_ids = map(lambda loc: self._loc2id(loc),
-                             self.attack_candidates(dragon_id))
+            knight_ids = self.attack_candidates(dragon_id)
+
             if knight_ids:
                 knight_id = select_target(knight_ids)
                 log_messages.append(self.attack(dragon_id, knight_id))

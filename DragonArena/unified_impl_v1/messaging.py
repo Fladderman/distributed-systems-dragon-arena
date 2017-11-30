@@ -7,6 +7,7 @@ import errno
 import logging
 from StringIO import StringIO
 socket.setdefaulttimeout(1.0)  # todo experiment with this
+from das_game_settings import debug_print
 
 '''
 messages are stored and sent using integers in the header field
@@ -59,7 +60,7 @@ class Message:
             self.sender = sender
             self.args = args
         except:
-            print('MESSAGE INIT FAILED', msg_header, sender, args)
+            debug_print('MESSAGE INIT FAILED', msg_header, sender, args)
             raise 'shit'
 
     def permitted_by_clients(self):
@@ -73,7 +74,7 @@ class Message:
             assert string in header2int
             return header2int[string] == self.msg_header
         except:
-            print 'header_matches_string FAILED'
+            debug_print('header_matches_string FAILED')
             raise 'shit'
 
     def same_header_as(self, other):
@@ -117,7 +118,7 @@ class Message:
             return Message(msg_header, sender, args)
         except:
             logging.info(("failed to deserialize {serialized_msg}").format(serialized_msg=serialized_msg))
-            print ('Msg DESERIALIZE FAILED, INPUT: <', serialized_msg)
+            debug_print ('Msg DESERIALIZE FAILED, INPUT: <', serialized_msg)
             raise 'shit'
 
     def __repr__(self):
@@ -126,7 +127,7 @@ class Message:
             return 'Message::' + int2header[self.msg_header] + ' from ' \
                 + str(self.sender) + ' with args:' + str(self.args)
         except:
-            print 'Msg REPR FAILED'
+            debug_print( 'Msg REPR FAILED')
             raise 'shit'
 
 
@@ -183,24 +184,24 @@ def read_msg_from(sock, timeout=None):
             sock.settimeout(timeout)
             x = sock.recv(1)
             if x == '':
-                print('socket dead!')
+                debug_print('socket dead!')
                 return MessageError.CRASH
                 # connection closed
             unpacker.feed(x)
             for package in unpacker:
                 x = Message.deserialize(package)
-                # print('     ::read msg', x)
+                debug_print('     ::read msg', x)
                 return x
         except socket.timeout as e:
-            print("timeout error")
+            debug_print("timeout error")
             return MessageError.TIMEOUT
         except Exception as e :
-            print("sth else occured: ", e)
+            debug_print("sth else occured: ", e)
             return MessageError.CRASH
 
 
 def generate_messages_from(sock, timeout=True):
-    print('ITSYABOI, GENERATOR')
+    debug_print('ITSYABOI, GENERATOR')
     assert timeout is None or isinstance(timeout, float)
     '''
     Generator object. will read and yield messages from new_socket
@@ -214,7 +215,7 @@ def generate_messages_from(sock, timeout=True):
             try:
                 x = sock.recv(1)
                 if x == '':
-                    print('socket dead!')
+                    debug_print('socket dead!')
                     return
                 unpacker.feed(x)
                 for package in unpacker:
@@ -223,7 +224,10 @@ def generate_messages_from(sock, timeout=True):
                 if timeout:
                     yield MessageError.TIMEOUT
     except GeneratorExit:
-        print('generator dieded')
+        debug_print('generator dieded')
+        return
+    except Exception as e:
+        yield MessageError.CRASH
         return
 
 
@@ -233,9 +237,9 @@ def write_many_msgs_to(socket, msg_iterable):
     try:
         for msg in msg_iterable:
             if not isinstance(msg, Message):
-                print('BAD. attempting to write_msg_to:', msg)
-            # else:
-            #     print('try out --> msg', msg, 'to socket', socket)
+                debug_print('BAD. attempting to write_msg_to:', msg)
+            else:
+                debug_print('try out --> msg', msg, 'to socket', socket)
             my_file = StringIO()
             my_file.write(packer.pack(msg.serialize()))
             my_file = StringIO(my_file.getvalue())
@@ -270,9 +274,9 @@ def read_first_message_matching(socket, func, timeout=True, max_msg_count=-1):
 
 def write_msg_to(socket, msg):
     if not isinstance(msg, Message):
-        print('BAD. attempting to write_msg_to:', msg)
-    # else:
-    #     print('out --> msg', msg, 'to socket', socket)
+        debug_print('BAD. attempting to write_msg_to:', msg)
+    else:
+        debug_print('out --> msg', msg, 'to socket', socket)
     '''
     send the given msg into the socket
     returns True if writing completes
@@ -281,7 +285,7 @@ def write_msg_to(socket, msg):
     packer = msgpack.Packer()
     my_file.write(packer.pack(msg.serialize()))
     my_file = StringIO(my_file.getvalue())
-    # pprint(vars(my_file))
+    debug_print(vars(my_file))
     tot_bytes = len(my_file.buf)
     sent_now = 1
     to_send = tot_bytes

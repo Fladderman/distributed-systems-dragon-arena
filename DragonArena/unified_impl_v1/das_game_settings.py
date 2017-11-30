@@ -11,6 +11,8 @@ server_addresses = [
     ("127.0.0.1", 2005),
 ]
 
+
+debug_printing = True
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 0.5
 
@@ -30,6 +32,9 @@ client_handshake_timeout = 0.5
 
 
 ############### DONT TOUCH BELOW THIS LINE
+def debug_print(*args):
+    if debug_printing:
+        print args
 num_server_addresses = len(server_addresses)
 max_server_sync_wait = S2S_wait_for_welcome_timeout * (num_server_addresses + 1)
 max_done_wait = server_min_tick_time + max_server_sync_wait + 1.0

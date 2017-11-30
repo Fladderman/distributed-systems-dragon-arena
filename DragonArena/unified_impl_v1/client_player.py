@@ -123,6 +123,7 @@ class BotPlayer(Player):
 def _shitty_visualizer(da):
     w = da._map_width
     h = da._map_height
+    print '--------------------------------------'
     for y in range(h):
         ln = ''
         for x in range(w):

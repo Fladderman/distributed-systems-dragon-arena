@@ -24,6 +24,7 @@ int2header = [
     'S2S_SYNC_DONE',
     'PING',
     'C2S_HELLO',
+    'C2S_HELLO_AGAIN',
     'S2C_WELCOME',
     'S2C_REFUSE',
     'SPAWN',
@@ -153,8 +154,9 @@ def M_DONE(s_id, tick_id, num_clients):         return Message(header2int['DONE'
 
 # SERVER-CLIENT SYNCHRONIZATION
 def M_PING():                                   return Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
-def M_C2S_HELLO():                              return Message(header2int['C2S_HELLO'], -1,[])
-def M_S2C_WELCOME(s_id, knight_id):             return Message(header2int['S2C_WELCOME'], s_id,[knight_id])
+def M_C2S_HELLO(salt):                          return Message(header2int['C2S_HELLO'], -1,[salt])
+def M_C2S_HELLO_AGAIN(salt, secret):            return Message(header2int['C2S_HELLO_AGAIN'], -1,[salt, secret])
+def M_S2C_WELCOME(s_id, knight_id, secret):     return Message(header2int['S2C_WELCOME'], s_id,[knight_id, secret])
 def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
 
 def M_SPAWN(s_id, knight_id):                   return Message(header2int['SPAWN'], s_id, [knight_id])

@@ -12,6 +12,7 @@ from messaging import Message, MessageError
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 from das_game_settings import debug_print
+import hashlib
 
 # #####################################
 # SUBPROBLEMS START:
@@ -371,7 +372,8 @@ class Server:
                               "for the new client."
                               ).format(spawn_msg=spawn_msg))
                 self._requests.enqueue(spawn_msg)
-                welcome = messaging.M_S2C_WELCOME(self._server_id, player_id)
+                client_secret = Server._client_secret(addr[0], msg.arg[0])
+                welcome = messaging.M_S2C_WELCOME(self._server_id, player_id, client_secret)
                 debug_print('welcome', welcome)
                 messaging.write_msg_to(sock, welcome)
                 debug_print('welcomed it!')
@@ -413,6 +415,12 @@ class Server:
             logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
             pass
         debug_print('client handler dead :(')
+
+    def _client_secret(ip, client_random_salt):
+        m = hashlib.md5()
+        m.update("Nobody inspects")
+        m.update(" the spammish repetition")
+        return m.hexdigest()
 
     def main_loop(self):
         logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id()))

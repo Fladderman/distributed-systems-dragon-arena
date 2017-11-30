@@ -217,10 +217,10 @@ def generate_messages_from(sock, timeout=True):
                 unpacker.feed(x)
                 for package in unpacker:
                     yield Message.deserialize(package)
-            except:
+            except socket.timeout:
                 if timeout:
                     yield MessageError.TIMEOUT
-    finally:
+    except GeneratorExit:
         print('generator dieded')
         return
 

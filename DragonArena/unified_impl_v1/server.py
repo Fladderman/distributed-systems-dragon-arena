@@ -45,7 +45,8 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
             # git negged, do log
             continue
 
-            # msg sender args
+        # valid = msg.permitted_in_server_application_function() and ``correct sender``
+
 
         if msg.header_matches_string("R_MOVE"):
             print "666"
@@ -53,6 +54,12 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
             print "999"
         elif msg.header_matches_string("R_ATTACK"):
             print "boo"
+
+        # TODO ensure this message is sent from a SERVER (id will be Int). not a CLIENT (id is a tuple
+        # tuple(msg.arg[0]) is the id of the newly-spawned knight.
+        # be sure to create it on the board somewhere deterministically
+        elif msg.header_matches_string("SPAWN"):)
+            print "zoopy"
         else:
             raise "chris fukt up damn"
         # TODO mutate the dragon_arena in response to each message in sequence.
@@ -70,7 +77,7 @@ def count_up_from(start):
         while True:
             yield x
             x += 1
-    finally:
+    except GeneratorExit:
         return
 
 class ServerAcceptor:
@@ -223,7 +230,7 @@ class Server:
             for server_id, sock in enumerate(self._server_sockets):
                 if sock is not None:
                     yield server_id, sock
-        finally:
+        except GeneratorExit:
             return
 
 
@@ -290,6 +297,7 @@ class Server:
     def _handle_socket_incoming(self, socket, addr):
         logging.info(("handling messages from newcomer socket at {addr}"
                      ).format(addr=addr))
+        # TODO I would love to make this a generator. But it seems that it doesnt EXIT like it should
         generator = messaging.generate_messages_from(socket,timeout=None)
         # while True:
             # msg = messaging.read_msg_from(socket, timeout=None)

@@ -359,11 +359,8 @@ class DragonArena:
         assert self._id_exists(id1)
         assert self._id_exists(id2)
 
-        creature1 = self._id2creature[id1]
-        creature2 = self._id2creature[id2]
-
-        name1 = creature1.get_name()
-        name2 = creature2.get_name()
+        name1 = "Dragon" if id1[0] == self._DRAGON else "Knight"
+        name2 = "Dragon" if id2[0] == self._DRAGON else "Knight"
 
         # ensure attack is valid
         assert name1 != name2
@@ -376,9 +373,9 @@ class DragonArena:
                     ).format(name1=name1, id1=DragonArena.format_id(id1),
                              name2=name2, id2=DragonArena.format_id(id2))
 
-        if self.is_dead(id2):
-            return ("{name1} {id1} wants to attack {name2} {id2}, but {name2} "
-                    "{id2} is already dead."
+        if self.is_dead(id1):
+            return ("{name1} {id1} wants to attack {name2} {id2}, but {name1} "
+                    "{id1} is dead."
                     ).format(name1=name1, id1=DragonArena.format_id(id1),
                              name2=name2, id2=DragonArena.format_id(id2))
 
@@ -391,6 +388,9 @@ class DragonArena:
                              name2=name2, id2=DragonArena.format_id(id2))
 
         # ok to attack
+
+        creature1 = self._id2creature[id1]
+        creature2 = self._id2creature[id2]
 
         old_hp = creature2.get_hp()
         creature2.is_attacked_by(creature1)
@@ -436,11 +436,11 @@ class DragonArena:
         assert self._id_exists(id1)
         assert self._id_exists(id2)
 
-        creature1 = self._id2creature[id1]
-        creature2 = self._id2creature[id2]
+        name1 = "Dragon" if id1[0] == self._DRAGON else "Knight"
+        name2 = "Dragon" if id2[0] == self._DRAGON else "Knight"
 
         # ensure heal is valid
-        assert isinstance(creature1, Knight) and isinstance(creature2, Knight)
+        assert name1 == name2 == "Knight"
 
         # check for death
 
@@ -465,6 +465,9 @@ class DragonArena:
                              id2=DragonArena.format_id(id2))
 
         # ok to heal
+
+        creature1 = self._id2creature[id1]
+        creature2 = self._id2creature[id2]
 
         old_hp = creature2.get_hp()
         creature2.is_healed_by(creature1)

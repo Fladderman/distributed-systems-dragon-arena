@@ -417,9 +417,11 @@ class Server:
 
             current_sync_tuples = self._waiting_sync_server_tuples.drain_if_probably_something()
             if current_sync_tuples:
-                print('eyyy there are current sync tuples! ', current_sync_tuples)
+                print('---eyyy there are current sync tuples!---', current_sync_tuples)
                 # collect DONES before sending your own
-                logging.info(("servers {set} waiting to sync! LEADER tick. Suppressing DONE step").format(set=map(lambda x: x[0], current_sync_tuples)))
+                logging.info(("servers {set} waiting to sync! LEADER tick."
+                              "Suppressing DONE step"
+                              ).format(set=map(lambda x: x[0], current_sync_tuples)))
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
@@ -428,14 +430,15 @@ class Server:
                 _apply_and_log_all(self._dragon_arena, req_sequence)
                 '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
                 self._step_sync_servers(current_sync_tuples)
-                logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}").format(tick_id=self._tick_id))
-                '''STEP FLOOD DONE'''
+                logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}"
+                             ).format(tick_id=self._tick_id))
+                '''<<STEP FLOOD DONE>>'''
                 self._step_flood_done(except_server_ids={serv_addr for serv_addr, sock in current_sync_tuples})
 
             else: #NO SERVERS WAITING TO SYNC
                 # send own DONES before collecting those of others
                 logging.info(("No servers waiting to sync. Normal tick").format())
-                '''STEP FLOOD DONE'''
+                '''<<STEP FLOOD DONE>>'''
                 self._step_flood_done(except_server_ids={})
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
@@ -448,6 +451,7 @@ class Server:
             self._step_update_clients()
 
             '''SLEEP STEP'''
+            # TODO put back in later
             # if self._waiting_sync_server_tuples.poll_nonempty():
             #     logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
             #                  ).format(tick_id=self._tick_id))
@@ -462,8 +466,7 @@ class Server:
                 logging.info(("No time for sleep for tick_id {tick_id}"
                              ).format(tick_id=self._tick_id))
 
-            logging.info(("Tick {tick_id} complete").format(tick_id=self._tick_id))
-            self._tick_id += 1
+
 
     def _active_server_indices(self):
         return filter(
@@ -486,7 +489,9 @@ class Server:
     def _step_flood_done(self, except_server_ids):
         # need to specify except_server_ids of newly-synced server. this prevents them from getting an extra DONE
         done_msg = messaging.M_DONE(self._server_id, self._tick_id)
-        logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}").format(tick_id=self._tick_id, servers=self._active_server_indices()))
+        logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}"
+                      ).format(tick_id=self._tick_id,
+                               servers=self._active_server_indices()))
         '''SEND DONE'''
         for server_id in self._active_server_indices():
             if server_id in except_server_ids:
@@ -508,7 +513,10 @@ class Server:
                      format(active_indices=active_indices))
         print('other servers:', self._server_sockets)
 
-        for server_id, sock in self._active_servers():
+        # Need to lock down the servers I am waiting for. SYNCED servers might join inbetween
+        waiting_for = list(self._active_servers())
+        print('waiting for ', waiting_for)
+        for server_id, sock in waiting_for:
             temp_batch = []
             print('expecting done from ', server_id)
             while True:
@@ -517,7 +525,8 @@ class Server:
                     other_tick_id = msg.args[0]
                     print('got a DONE')
                     if other_tick_id != self._tick_id:
-                        print("OH SHIT. SOMETHING IS SCREWY. MY TICKID ", self._tick_id, "theirs:", other_tick_id)
+                        print(("___\nme   ({})\t{}\nthem ({})\t{}\n***"
+                              ).format(self._server_id, self._tick_id, server_id, other_tick_id))
                     # DONE got. accept the batch
                     res.extend(temp_batch)
                     break
@@ -539,13 +548,16 @@ class Server:
 
 
         logging.info("Released from the barrier")
-        print("RELEASED")
+        print("!!!RELEASED FROM TICK", self._tick_id)
+        self._tick_id += 1
+        logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id))
+        # time.sleep(0.3)
         return res
 
     def _step_sync_servers(self, sync_tuples):
-        #synced server has the NEXT tick as the starting tick, as they start with the 'freshly synced' state
+        #synced server has the NEXT tick_d as the starting tick, as they start with the 'freshly synced' state
         #TODO ensure tick IDs are matching up
-        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id + 1,
+        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id,
                                                 self._dragon_arena.serialize())
 
         # TODO clean up. check correctness
@@ -572,32 +584,38 @@ class Server:
                               ":)").format(msg=sync_done, sender_id=sender_id))
                 print('SYNCED',sender_id,'YA, BUDDY :)')
                 self._server_sockets[sender_id] = socket
-                logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
+                logging.info(("Spawned incoming handler for"
+                              "newly-synced server {sender_id}"
+                             ).format(sender_id=sender_id))
             else:
                 print('either timed out or crashed. either way, disregarding')
-                logging.info(("Hmm. It seems that {sender_id} has crashed before syncing. Oh well :/").format(sender_id=sender_id))
-            # print('got response...', sync_done)
-            # if sync_done is MessageError.CRASH or :
-            #     print('GOT NONE WHEN EXPECTED SYNC DONE')
-            #     continue
-            # print('istrue?', sync_done.header_matches_string('S2S_SYNC_DONE'))
-            # if sync_done.header_matches_string('S2S_SYNC_DONE'):
-            #
+                logging.info(("Hmm. It seems that {sender_id} has"
+                              "crashed before syncing. Oh well :/"
+                             ).format(sender_id=sender_id))
 
         logging.info(("Got to end of sync").format())
 
     def _step_update_clients(self):
         # update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, 5) #TODO THIS IS DEBUG. last arg should be a serialized game state
         update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
-        logging.info(("Update msg ready for tick {tick_id}").format(tick_id=self._tick_id))
-        logging.info(("Client set for tick {tick_id}: {clients}").format(tick_id=self._tick_id, clients=self._client_sockets.keys()))
+        logging.info(("Update msg ready for tick {tick_id}"
+                     ).format(tick_id=self._tick_id))
+        logging.info(("Client set for tick {tick_id}: {clients}"
+                     ).format(tick_id=self._tick_id, clients=self._client_sockets.keys()))
         print('CLIENT SOCKS', self._client_sockets)
         for addr, sock in self._client_sockets.iteritems():
             #TODO investigate why addr is an ip and not (ip,port)
             if messaging.write_msg_to(sock, update_msg):
                 print('updated client', addr)
-                logging.info(("Successfully updated client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
+                logging.info(("Successfully updated client at addr {addr}"
+                              "for tick_id {tick_id}"
+                              ).format(addr=addr,
+                                       tick_id=self._tick_id))
             else:
-                logging.info(("Failed to update client at addr {addr} for tick_id {tick_id}").format(addr=addr, tick_id=self._tick_id))
+                logging.info(("Failed to update client at addr {addr}"
+                              "for tick_id {tick_id}"
+                              ).format(addr=addr,
+                                       tick_id=self._tick_id))
                 self._client_sockets.pop(addr)
-        logging.info(("All updates done for tick_id {tick_id}").format(tick_id=self._tick_id))
+        logging.info(("All updates done for tick_id {tick_id}"
+                     ).format(tick_id=self._tick_id))

@@ -82,7 +82,7 @@ class BotPlayer(Player):
         available_improving = filter(lambda z: da.is_not_occupied[0],
                                      improving)
         pick_from = available_improving if available_improving else improving
-        direction = random.sample(pick_from, 1)[0][1]
+        direction = random.choice(pick_from)[1]
 
         yield messaging.M_R_MOVE(direction)
 

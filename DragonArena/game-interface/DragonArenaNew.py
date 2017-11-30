@@ -149,7 +149,11 @@ class DragonArena:
         return self._locations - set(self._get_occupied_locations())
 
     def _get_random_available_location(self):
-        return random.sample(self._get_available_locations(), 1)[0]
+        # this ensures that concurrent servers generate the same
+        # 'random' location
+        seed = self._tick * (self._no_of_living_knights + 1)
+        random.seed(seed)
+        return random.choice(self._get_available_locations())
 
     def _is_occupied_by_knight(self, location):
         return self.is_occupied_location(location) and \

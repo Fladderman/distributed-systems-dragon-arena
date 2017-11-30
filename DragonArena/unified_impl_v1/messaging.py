@@ -143,7 +143,7 @@ maybe simplify? idk
 def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_SYNC_REQ'], s_id, [])
 def M_S2S_SYNC_REPLY(tick_id, serialized_state):return Message(header2int['S2S_SYNC_REPLY'], -1, [tick_id, serialized_state])
 def M_S2S_HELLO(s_id):                          return Message(header2int['S2S_HELLO'],s_id,[])
-def M_S2S_WELCOME():                            return Message(header2int['S2S_WELCOME'],-1,[])
+def M_S2S_WELCOME(s_id):                        return Message(header2int['S2S_WELCOME'],s_id,[])
 def M_S2S_REFUSE():                             return Message(header2int['S2C_REFUSE'],-1,[])
 def M_S2S_SYNC_DONE():                          return Message(header2int['S2S_SYNC_DONE'],-1,[])
 

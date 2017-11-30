@@ -171,7 +171,7 @@ class Server:
 
             hello_msg = messaging.M_S2S_HELLO(self._server_id)
             for server_id, sock in self._active_servers():
-                if messaging.write_msg_to(auth_sock, hello_msg):
+                if messaging.write_msg_to(sock, hello_msg):
                     logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
                                  ).format(server_id=server_id, hello_msg=hello_msg))
                 else:
@@ -180,7 +180,7 @@ class Server:
                     # server must have crashed in the meantime!
                     self._server_sockets[server_id] = None
                     continue
-                welcome_msg = messaging.read_msg_from(auth_sock,timeout=None)
+                welcome_msg = messaging.read_msg_from(sock,timeout=das_game_settings.S2S_wait_for_welcome_timeout)
                 if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):
                     logging.info(("got expected WELCOME reply from {i}").format(i=i))
                 else:
@@ -192,9 +192,10 @@ class Server:
                 logging.info(("Sent {sync_done} to {auth_index}."
                               ).format(sync_done=sync_done, auth_index=auth_index))
             else:
-                logging.info(("Authority server has crashed before"
-                              " I could send {sync_done}"
+                logging.info(("Authority server has crashed OR "
+                              "didn't wait for me before I could send {sync_done}"
                               ).format(sync_done=sync_done))
+                raise RuntimeError('SYNC DONE didn`t succeed')
             self._server_sockets[auth_index] = auth_sock
             logging.info(("Remembering socket for auth_server with id {auth_index}"
                          ).format(auth_index=auth_index))
@@ -300,13 +301,13 @@ class Server:
             babysitter_thread.daemon = True
             babysitter_thread.start()
 
-    def _babysit_newcomer_socket(self, socket, addr):
+    def _babysit_newcomer_socket(self, sock, addr):
         logging.info(("handling messages from newcomer socket at {addr}"
                      ).format(addr=addr))
         # TODO I would love to make this a generator. But it seems that it doesnt EXIT like it should
         # generator = messaging.generate_messages_from(socket,timeout=None)
         while True:
-            msg = messaging.read_msg_from(socket, timeout=None)
+            msg = messaging.read_msg_from(sock, timeout=None)
         # for msg in generator:
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
             if msg is MessageError.CRASH:
@@ -327,21 +328,21 @@ class Server:
                 self._requests.enqueue(spawn_msg)
                 welcome = messaging.M_S2C_WELCOME(self._server_id, player_id)
                 print('welcome', welcome)
-                messaging.write_msg_to(socket, welcome)
+                messaging.write_msg_to(sock, welcome)
                 print('welcomed it!')
                 if True: # TODO if not above client capacity
-                    self._client_sockets[addr] = socket
-                    self._handle_client_incoming(socket, addr, player_id)
+                    self._client_sockets[addr] = sock
+                    self._handle_client_incoming(sock, addr, player_id)
                 return
             elif msg.header_matches_string('S2S_HELLO'):
                 print('server is up! synced by someone else server!')
-                self._server_sockets[msg.sender] = socket
-                messaging.write_msg_to(socket, messaging.M_S2S_WELCOME(self._server_id))
+                self._server_sockets[msg.sender] = sock
+                messaging.write_msg_to(sock, messaging.M_S2S_WELCOME(self._server_id))
                 # self._handle_server_incoming(socket, addr)
                 return
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
                 logging.info(("This is server {s_id} that wants to sync! Killing incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
-                self._waiting_sync_server_tuples.enqueue((msg.sender, socket))
+                self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
                 # print('OK KILLING GENERATOR?')
                 print('newcomer handler exiting')
                 # time.sleep(1000)
@@ -466,7 +467,8 @@ class Server:
                 continue
             sock = self._server_sockets[server_id]
             if messaging.write_msg_to(sock, done_msg):
-                logging.info(("sent {done_msg} to server_id {server_id}").format(done_msg=done_msg, server_id=server_id))
+                logging.info(("sent {done_msg} to server_id {server_id}"
+                             ).format(done_msg=done_msg, server_id=server_id))
 
                 # crash
 
@@ -481,7 +483,7 @@ class Server:
             temp_batch = []
             print('expecting done from ', serv_id)
             while True:
-                msg = messaging.read_msg_from(sock, timeout=None)
+                msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
                 if messaging.is_message_with_header_string(msg, 'DONE'):
                     other_tick_id = msg.args[0]
                     print('got a DONE')
@@ -491,11 +493,18 @@ class Server:
                     res.extend(temp_batch)
                     break
                 elif isinstance(msg, Message):
+                    # some other request message BEFORE a done
                     temp_batch.append(msg)
                 else:
+                    if msgs is MessageError.CRASH:
+                        logging.info(("Wait&recv for {server_id} ended in CRASH"
+                                     ).format(server_id=server_id))
+                    else:
+                        logging.info(("Wait&recv for {server_id} ended in TIMEOUT"
+                                      "(might be a deadlock?)"
+                                     ).format(server_id=server_id))
                     print('Lost connection!')
-                    # Other server has crashed. Clean it up. discard temp_batch
-                    sock.close()
+                    # Clean up, discard temp_batch
                     self._server_sockets[serv_id] = None
                     break
 

@@ -155,7 +155,7 @@ def M_DONE(s_id, tick_id, num_clients):         return Message(header2int['DONE'
 # SERVER-CLIENT SYNCHRONIZATION
 def M_PING():                                   return Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
 def M_C2S_HELLO(salt):                          return Message(header2int['C2S_HELLO'], -1,[salt])
-def M_C2S_HELLO_AGAIN(salt, secret):            return Message(header2int['C2S_HELLO_AGAIN'], -1,[salt, secret])
+def M_C2S_HELLO_AGAIN(salt, knight_id ,secret): return Message(header2int['C2S_HELLO_AGAIN'], -1,[salt, knight_id, secret])
 def M_S2C_WELCOME(s_id, knight_id, secret):     return Message(header2int['S2C_WELCOME'], s_id,[knight_id, secret])
 def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
 

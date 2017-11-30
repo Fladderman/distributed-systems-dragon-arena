@@ -91,7 +91,7 @@ class BotPlayer(Player):
         print('my id', my_id)
         # has self._game_state_copy
         try:
-            while True:  # while game.playing    # Roy: And I'm not dead?
+            while True:  # TODO: while game.playing    # Roy: And I'm not dead?
                 time.sleep(0.5)
                 with protected_dragon_arena as da:
                     choice = BotPlayer._choose_action_return_message(da, my_id)

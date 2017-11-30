@@ -17,7 +17,9 @@ class ProtectedDragonArena:
     '''
     caller can use this object by way of `with` semantics
     eg:
-        with protected_dragon_arena as n:   #`with` block begins. return value of __enter__ bound to `n`. acquired lock
+        # `with` block begins.
+        # return value of __enter__ bound to `n`. acquired lock
+        with protected_dragon_arena as n: 
             n.foo()
             n.bar()
             x = n.get(3)

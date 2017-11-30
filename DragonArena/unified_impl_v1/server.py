@@ -1,15 +1,13 @@
 import threading
 import time
 import socket
-import sys
-import os
 import logging
 import messaging
 import random
 import das_game_settings
 import protected
 from messaging import Message, MessageError
-from DragonArenaNew import Creature, Knight, Dragon, DragonArena
+from DragonArenaNew import DragonArena
 from das_game_settings import debug_print
 import hashlib
 
@@ -627,7 +625,6 @@ class Server:
         debug_print("!!!RELEASED FROM TICK", self._tick_id())
         logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id()))
         return res
-
 
     def _tick_id(self):
         return self._dragon_arena.get_tick()

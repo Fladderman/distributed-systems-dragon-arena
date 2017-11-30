@@ -1,20 +1,17 @@
-import threading
 import msgpack
 import time
-import json
 import socket
-import errno
 import logging
 from StringIO import StringIO
 from das_game_settings import debug_print
 
-'''
+"""
 messages are stored and sent using integers in the header field
 this is for compactness. For readability, the following two
 structures allow mapping back and forth:
     int2header[<int>] ==> <str>
     header2int[<str>] ==> <int>
-'''
+"""
 int2header = [
     'S2S_SYNC_REQ',
     'S2S_SYNC_REPLY',
@@ -36,13 +33,15 @@ int2header = [
 ]
 header2int = {v: k for k, v in enumerate(int2header)}
 
+
 def is_message_with_header_string(msg, header_string):
     if isinstance(msg, Message):
         return header2int[header_string] == msg.msg_header
     elif msg == MessageError.CRASH or msg == MessageError.TIMEOUT:
         return False
     else:
-        raise ValueError('Neither Message nor MessageError instance was given: {}'.format(str(msg)))
+        raise ValueError(("Neither Message nor MessageError "
+                          "instance was given: {}").format(str(msg)))
 
 
 class Message:
@@ -67,7 +66,8 @@ class Message:
         return int2header[self.msg_header] in {'MOVE', 'ATTACK', 'HEAL'}
 
     def permitted_in_server_application_function(self):
-        return self.permitted_by_clients or self.msg_header == header2int['SPAWN']
+        return self.permitted_by_clients or \
+               self.msg_header == header2int['SPAWN']
 
     def header_matches_string(self, string):
         try:
@@ -117,7 +117,8 @@ class Message:
             assert isinstance(args, list)
             return Message(msg_header, sender, args)
         except:
-            logging.info(("failed to deserialize {serialized_msg}").format(serialized_msg=serialized_msg))
+            logging.info("failed to deserialize {serialized_msg}".format(
+                serialized_msg=serialized_msg))
             debug_print ('Msg DESERIALIZE FAILED, INPUT: <', serialized_msg)
             raise 'shit'
 
@@ -127,7 +128,7 @@ class Message:
             return 'Message::' + int2header[self.msg_header] + ' from ' \
                 + str(self.sender) + ' with args:' + str(self.args)
         except:
-            debug_print( 'Msg REPR FAILED')
+            debug_print('Msg REPR FAILED')
             raise 'shit'
 
 
@@ -142,33 +143,88 @@ maybe simplify? idk
 # incomplete functions crashes silently)
 
 # SERVER-SERVER SYNCHRONIZATION
-def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_SYNC_REQ'], s_id, [])
-def M_S2S_SYNC_REPLY(tick_id, serialized_state):return Message(header2int['S2S_SYNC_REPLY'], -1, [tick_id, serialized_state])
-def M_S2S_HELLO(s_id):                          return Message(header2int['S2S_HELLO'],s_id,[])
-def M_S2S_WELCOME(s_id):                        return Message(header2int['S2S_WELCOME'],s_id,[])
-def M_S2S_REFUSE():                             return Message(header2int['S2C_REFUSE'],-1,[])
-def M_S2S_SYNC_DONE():                          return Message(header2int['S2S_SYNC_DONE'],-1,[])
 
-def M_DONE(s_id, tick_id, num_clients):         return Message(header2int['DONE'], s_id, [tick_id, num_clients])
+
+def M_S2S_SYNC_REQ(s_id):
+    return Message(header2int['S2S_SYNC_REQ'], s_id, [])
+
+
+def M_S2S_SYNC_REPLY(tick_id, serialized_state):
+    return Message(header2int['S2S_SYNC_REPLY'], -1,
+                   [tick_id, serialized_state])
+
+
+def M_S2S_HELLO(s_id):
+    return Message(header2int['S2S_HELLO'], s_id, [])
+
+
+def M_S2S_WELCOME(s_id):
+    return Message(header2int['S2S_WELCOME'], s_id, [])
+
+
+def M_S2S_REFUSE():
+    return Message(header2int['S2C_REFUSE'], -1, [])
+
+
+def M_S2S_SYNC_DONE():
+    return Message(header2int['S2S_SYNC_DONE'], -1, [])
+
+
+def M_DONE(s_id, tick_id, num_clients):
+    return Message(header2int['DONE'], s_id, [tick_id, num_clients])
 
 # SERVER-CLIENT SYNCHRONIZATION
-def M_PING():                                   return Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
-def M_C2S_HELLO(salt):                          return Message(header2int['C2S_HELLO'], -1,[salt])
-def M_C2S_HELLO_AGAIN(salt, knight_id ,secret): return Message(header2int['C2S_HELLO_AGAIN'], -1,[salt, knight_id, secret])
-def M_S2C_WELCOME(s_id, knight_id, secret):     return Message(header2int['S2C_WELCOME'], s_id,[knight_id, secret])
-def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
 
-def M_SPAWN(s_id, knight_id):                   return Message(header2int['SPAWN'], s_id, [knight_id])
-def M_DESPAWN(s_id, knight_id):                 return Message(header2int['DESPAWN'], -1, [knight_id])
 
-# GAME REQS
-def M_R_HEAL(healed):                   return Message(header2int['R_HEAL'], -1, [healed])
-def M_R_ATTACK(attacked):             return Message(header2int['R_ATTACK'], -1, [attacked])
-def M_R_MOVE(direction):                 return Message(header2int['R_MOVE'], -1, [direction]) # direction is a char 'u', 'l', 'r', 'd'
+def M_PING():
+    # just nonsense for now. works as long as they are unique
+    return Message(header2int['PING'], -1, [])
+
+
+def M_C2S_HELLO(salt):
+    return Message(header2int['C2S_HELLO'], -1, [salt])
+
+
+def M_C2S_HELLO_AGAIN(salt, knight_id, secret):
+    return Message(header2int['C2S_HELLO_AGAIN'], -1,
+                   [salt, knight_id, secret])
+
+
+def M_S2C_WELCOME(s_id, knight_id, secret):
+    return Message(header2int['S2C_WELCOME'], s_id, [knight_id, secret])
+
+
+def M_UPDATE(s_id, tick_id, serialized_state):
+    return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
+
+
+def M_SPAWN(s_id, knight_id):
+    return Message(header2int['SPAWN'], s_id, [knight_id])
+
+
+def M_DESPAWN(s_id, knight_id):
+    return Message(header2int['DESPAWN'], -1, [knight_id])
+
+# GAME REQUIREMENTS
+
+
+def M_R_HEAL(healed):
+    return Message(header2int['R_HEAL'], -1, [healed])
+
+
+def M_R_ATTACK(attacked):
+    return Message(header2int['R_ATTACK'], -1, [attacked])
+
+
+def M_R_MOVE(direction):
+    # direction is a char 'u', 'l', 'r', 'd'
+    return Message(header2int['R_MOVE'], -1, [direction])
+
 
 class MessageError:
     CRASH = 1
     TIMEOUT = 2
+
 
 def read_msg_from(sock, timeout=None):
     assert timeout is None or isinstance(timeout, float)
@@ -193,11 +249,11 @@ def read_msg_from(sock, timeout=None):
                 x = Message.deserialize(package)
                 debug_print('     ::read msg', x)
                 return x
-        except socket.timeout as e:
+        except socket.timeout:
             debug_print("timeout error")
             return MessageError.TIMEOUT
-        except Exception as e :
-            debug_print("sth else occured: ", e)
+        except Exception as e:
+            debug_print("sth else occurred: ", e)
             return MessageError.CRASH
 
 
@@ -227,7 +283,7 @@ def generate_messages_from(sock, timeout=True):
     except GeneratorExit:
         debug_print('generator dieded')
         return
-    except Exception as e:
+    except Exception:
         yield MessageError.CRASH
         return
 
@@ -255,9 +311,7 @@ def write_many_msgs_to(socket, msg_iterable):
         all_went_perfectly = False
     return all_went_perfectly
 
-
-
-
+"""
 def read_first_message_matching(socket, func, timeout=True, max_msg_count=-1):
     assert isinstance(timeout, bool)
     assert isinstance(max_msg_count, int)
@@ -271,6 +325,7 @@ def read_first_message_matching(socket, func, timeout=True, max_msg_count=-1):
             return msg
         elif msg_count == max_msg_count or time.time() - start_time >= timeout:
             return None
+"""
 
 
 def write_msg_to(socket, msg):

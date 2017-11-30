@@ -53,6 +53,10 @@ class BotPlayer(Player):
         action for the bot to take. formulate this as a Message (request) from
         the set {MOVE, ATTACK, HEAL} and return it as your action
         """
+
+        if da.is_dead(my_id):
+            return None
+
         must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
                            da.heal_candidates(my_id))
         if must_heal:

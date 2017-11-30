@@ -436,11 +436,8 @@ class DragonArena:
         assert self._id_exists(id1)
         assert self._id_exists(id2)
 
-        name1 = "Dragon" if id1[0] == self._DRAGON else "Knight"
-        name2 = "Dragon" if id2[0] == self._DRAGON else "Knight"
-
         # ensure heal is valid
-        assert name1 == name2 == "Knight"
+        assert id1[0] != -1 and id2[0] != -1
 
         # check for death
 

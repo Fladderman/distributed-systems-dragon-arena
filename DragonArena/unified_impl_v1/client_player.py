@@ -77,7 +77,7 @@ class BotPlayer(Player):
                           [(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
         improving = filter(lambda z: min_distance_to_dragon(z) < current_min,
                            adjacent)
-        available_improving = filter(lambda t: da.is_not_occupied(t[0]),
+        available_improving = filter(da.is_not_occupied,
                                      improving)
         pick_from = available_improving if available_improving else improving
         go_to = random.sample(pick_from, 1)[0]

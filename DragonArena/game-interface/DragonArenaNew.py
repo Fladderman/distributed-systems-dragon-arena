@@ -534,6 +534,14 @@ class DragonArena:
 
         return "\n".join(log_messages)
 
+    def is_knight(self, identifier):  # by server
+        return self._id_exists(identifier) and \
+               isinstance(self._id2creature[identifier], Knight)
+
+    def is_dragon(self, identifier):  # by server
+        return self._id_exists(identifier) and \
+               isinstance(self._id2creature[identifier], Dragon)
+
     # Below: serialization for networking
 
     def serialize(self):

@@ -158,9 +158,9 @@ def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDAT
 def M_SPAWN(knight_id):                         return Message(header2int['SPAWN'], -1, [knight_id])
 
 # GAME REQS
-def M_R_HEAL(healer, healed):                   return Message(header2int['R_HEAL'], -1, [healer, healed])
-def M_R_ATTACK(attacker, attacked):             return Message(header2int['R_ATTACK'], -1, [attacker, attacked])
-def M_R_MOVE(knight_id, coord):                 return Message(header2int['R_MOVE'], -1, [knight_id, coord])
+def M_R_HEAL(healed):                   return Message(header2int['R_HEAL'], -1, [healed])
+def M_R_ATTACK(attacked):             return Message(header2int['R_ATTACK'], -1, [attacked])
+def M_R_MOVE(direction):                 return Message(header2int['R_MOVE'], -1, [direction]) # direction is a char 'u', 'l', 'r', 'd'
 
 class MessageError:
     CRASH = 1

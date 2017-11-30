@@ -25,7 +25,7 @@ class TickingPlayer(Player):
             while True:  # while game.playing
                 print('tick')
                 time.sleep(random.random())
-                yield messaging.M_R_HEAL(my_id, my_id)
+                yield messaging.M_R_HEAL(my_id)
         except GeneratorExit:
             # clean up generator
             return
@@ -56,10 +56,10 @@ class BotPlayer(Player):
         must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
                            da.heal_candidates(my_id))
         if must_heal:
-            yield messaging.M_R_HEAL(my_id, must_heal[0])
+            yield messaging.M_R_HEAL(must_heal[0])
         can_attack = da.attack_candidates(my_id)
         if can_attack:
-            yield messaging.M_R_ATTACK(my_id, can_attack[0])
+            yield messaging.M_R_ATTACK(can_attack[0])
         # else get moving
 
         dragon_locations = da.get_dragon_locations()
@@ -74,14 +74,17 @@ class BotPlayer(Player):
         my_loc = x, y = da.get_location(my_id)
         current_min = min_distance_to_dragon(my_loc)
         adjacent = filter(da.is_valid_location,
-                          [(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
-        improving = filter(lambda z: min_distance_to_dragon(z) < current_min,
-                           adjacent)
-        available_improving = filter(da.is_not_occupied,
+                          [((x+1, y), 'd'), ((x-1, y), 'u'),
+                           ((x, y+1), 'r'), ((x, y-1), 'l')])
+        improving = \
+            filter(lambda z: min_distance_to_dragon(z[0]) < current_min,
+                   adjacent)
+        available_improving = filter(lambda z: da.is_not_occupied[0],
                                      improving)
         pick_from = available_improving if available_improving else improving
-        go_to = random.sample(pick_from, 1)[0]
-        yield messaging.M_R_MOVE(my_id, go_to)
+        direction = random.sample(pick_from, 1)[0][1]
+
+        yield messaging.M_R_MOVE(direction)
 
     @staticmethod
     def main_loop(protected_dragon_arena, my_id):

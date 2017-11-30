@@ -44,32 +44,51 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     for msg in message_sequence:
         assert isinstance(msg, messaging.Message)
 
-        if msg.sender != msg.args[0]:
-            # git negged, do log
-            continue
-
         # valid = msg.permitted_in_server_application_function() and ``correct sender``
 
-        if msg.header_matches_string("R_MOVE"):
-            print "666"
-        elif msg.header_matches_string("R_HEAL"):
-            print "999"
-        elif msg.header_matches_string("R_ATTACK"):
-            print "boo"
+        bad = False
+        result = ""
 
-        # TODO ensure this message is sent from a SERVER (id will be Int).
-        # #not a CLIENT (id is a tuple
-        # tuple(msg.arg[0]) is the id of the newly-spawned knight.
-        # be sure to create it on the board somewhere deterministically
+        if msg.header_matches_string("R_MOVE."):
+            if msg.args[0] == 'u':
+                result = dragon_arena.move_up(msg.sender)
+            elif msg.args[0] == 'r':
+                result = dragon_arena.move_right(msg.sender)
+            elif msg.args[0] == 'd':
+                result = dragon_arena.move_down(msg.sender)
+            elif msg.args[0] == 'l':
+                result = dragon_arena.move_left(msg.sender)
+            else:
+                bad = True
+                result = "Bad move request."
+        elif msg.header_matches_string("R_HEAL"):
+            if dragon_arena.is_knight(msg.args[0]):
+                result = dragon_arena.heals(msg.sender, msg.args[0])
+            else:
+                bad = True
+                result = "Bad heal request."
+        elif msg.header_matches_string("R_ATTACK"):
+            if dragon_arena.is_dragon(msg.args[0]):
+                result = dragon_arena.attacks(msg.sender, msg.args[0])
+            else:
+                bad = True
+                result = "Bad attack request."
         elif msg.header_matches_string("SPAWN"):
-            print "zoopy"
+            assert isinstance(msg.sender, int)  # must be server id
+
+            result = dragon_arena.spawn_knight(msg.args[0])
         else:
             raise "chris fukt up damn"
-        # TODO mutate the dragon_arena in response to each message in sequence.
-        # TODO log each outcome with a clear error msg
-        logging.info("Application of {msg} resulted in ...".format(
-            msg=str(msg)))
-    pass
+
+        if bad:
+            logging.info("Message {msg} from {sender} was ignored. "
+                         "Reason: {reason}").format(msg=str(msg),
+                                                    sender=msg.sender,
+                                                    reason=result)
+        else:
+            logging.info("Message {msg} from {sender} was processed"
+                         "successfully. DAS feedback: {result}").format(
+                msg=str(msg), sender=msg.sender, reason=result)
 
 #SUBPROBLEMS END:
 ##############################

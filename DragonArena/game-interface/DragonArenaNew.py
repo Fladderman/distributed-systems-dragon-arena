@@ -37,7 +37,7 @@ class Creature:
 
     def serialize(self):
         return [isinstance(self, Knight),
-                tuple(self._identifier),
+                list(self._identifier),
                 self._max_hp,
                 self._curr_hp,
                 self._ap]
@@ -45,9 +45,9 @@ class Creature:
     @staticmethod
     def deserialize(o):
         if o[0]:  # knight
-            return Knight(list(o[1]), o[2], o[3], o[4])
+            return Knight(tuple(o[1]), o[2], o[3], o[4])
         else:
-            return Dragon(list(o[1]), o[2], o[3], o[4])
+            return Dragon(tuple(o[1]), o[2], o[3], o[4])
 
 
 class Knight(Creature):

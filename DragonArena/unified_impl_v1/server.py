@@ -49,7 +49,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
         bad = False
         result = ""
 
-        if msg.header_matches_string("R_MOVE."):
+        if msg.header_matches_string("R_MOVE"):
             if msg.args[0] == 'u':
                 result = dragon_arena.move_up(msg.sender)
             elif msg.args[0] == 'r':
@@ -252,9 +252,9 @@ class Server:
                       ).format(server_id=self._server_id,
                                next_knight_id=next_available_counter))
         try:
-            for i in count_up_from(largest_taken_id_for_me + 1):
+            for i in count_up_from(next_available_counter + 1):
                 yield (self._server_id, i)
-        finally:
+        except GeneratorExit:
             print('Cleaning up _knight_id_generator')
             return
 
@@ -617,7 +617,6 @@ class Server:
         logging.info(("Got to end of sync").format())
 
     def _step_update_clients(self):
-        # update_msg = messaging.M_UPDATE(self._server_id, self._tick_id(), 5) #TODO THIS IS DEBUG. last arg should be a serialized game state
         update_msg = messaging.M_UPDATE(self._server_id, self._tick_id(), self._dragon_arena.serialize())
         logging.info(("Update msg ready for tick {tick_id}"
                      ).format(tick_id=self._tick_id()))

@@ -153,7 +153,7 @@ class DragonArena:
         # 'random' location
         seed = self._tick * (self._no_of_living_knights + 1)
         random.seed(seed)
-        return random.choice(self._get_available_locations())
+        return random.sample(self._get_available_locations(), 1)[0]
 
     def _is_occupied_by_knight(self, location):
         return self.is_occupied_location(location) and \

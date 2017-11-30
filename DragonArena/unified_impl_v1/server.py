@@ -454,19 +454,18 @@ class Server:
 
             '''SLEEP STEP'''
             # TODO put back in later
-            # if self._waiting_sync_server_tuples.poll_nonempty():
-            #     logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
-            #                  ).format(tick_id=self._tick_id()))
-            # else:
-
-            sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
-            if sleep_time > 0.0:
-                logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
-                             ).format(sleep_time=sleep_time, tick_id=self._tick_id()))
-                time.sleep(sleep_time)
-            else:
-                logging.info(("No time for sleep for tick_id {tick_id}"
+            if self._waiting_sync_server_tuples.poll_nonempty():
+                logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
                              ).format(tick_id=self._tick_id()))
+            else:
+                sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
+                if sleep_time > 0.0:
+                    logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
+                                 ).format(sleep_time=sleep_time, tick_id=self._tick_id()))
+                    time.sleep(sleep_time)
+                else:
+                    logging.info(("No time for sleep for tick_id {tick_id}"
+                                 ).format(tick_id=self._tick_id()))
 
 
     def _i_should_refuse_clients(self):

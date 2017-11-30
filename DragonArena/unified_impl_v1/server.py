@@ -78,14 +78,17 @@ class ServerAcceptor:
         assert type(port) is int and port > 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.bind(("127.0.0.1", port))
-        self._sock.listen(das_game_settings.backlog)
         self._sock.settimeout(None)
+        self._sock.listen(das_game_settings.backlog)
 
     def generate_incoming_sockets(self):
         try:
-            client_socket, addr = self._sock.accept()
-            yield client_socket, addr
-        finally:
+            while True:
+                client_socket, addr = self._sock.accept()
+                yield client_socket, addr
+            # except:
+            #     print('ACCEPTOR HAD A PROBLEM!')
+        except GeneratorExit:
             print('acceptor generator killed')
             return
 
@@ -345,7 +348,7 @@ class Server:
                               ).format(addr=addr))
                 self._client_sockets.pop(addr)
                 #TODO debug why a client cannot REJOIN
-                return
+                break
             #TODO overwrite the SENDER field. this is needed for logging AND to make sure the request is valid
             msg.sender = player_id # Server annotates this to ensure client doesnt doctor their packets
             print('client incoming', msg)

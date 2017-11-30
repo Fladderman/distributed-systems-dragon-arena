@@ -13,7 +13,7 @@ if __name__ == '__main__':
                 return client_player.BotPlayer()
             elif sys.argv[1] == "ticking":
                 print('starting ticking client')
-                return client_player.BotPlayer()
+                return client_player.TickingPlayer()
         raise RuntimeError("Please run with 1 arg from {'bot', 'human', 'ticking'}")
 
     client_0 = client.Client(make_player())

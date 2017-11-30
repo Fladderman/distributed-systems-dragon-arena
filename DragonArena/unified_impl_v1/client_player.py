@@ -20,15 +20,12 @@ class TickingPlayer(Player):
         assert isinstance(protected_dragon_arena,
                           protected.ProtectedDragonArena)
         print('ticking player main loop')
-        # has self._game_state_copy
-        for i in range(20):
-            print('YEEEE')
         try:
             while True:  # while game.playing
                 print('tick')
                 time.sleep(random.random())
                 yield messaging.M_R_HEAL(my_id, my_id)
-        finally:
+        except GeneratorExit:
             # clean up generator
             return
 

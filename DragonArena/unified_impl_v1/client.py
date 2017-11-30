@@ -1,7 +1,6 @@
 import threading, time, json, socket, sys, os, logging
 import messaging, das_game_settings, client_player, protected
 from random import shuffle
-sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import DragonArena
 from messaging import Message, MessageError
 from das_game_settings import debug_print

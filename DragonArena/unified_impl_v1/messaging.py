@@ -6,7 +6,6 @@ import socket
 import errno
 import logging
 from StringIO import StringIO
-socket.setdefaulttimeout(1.0)  # todo experiment with this
 from das_game_settings import debug_print
 
 '''

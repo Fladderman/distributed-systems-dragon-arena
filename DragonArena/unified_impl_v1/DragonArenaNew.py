@@ -2,9 +2,7 @@ import json
 import itertools
 import random
 from sys import maxsize
-
-settings = json.load(open('../settings.json'))
-
+settings = json.load(open('settings.json'))
 
 class Creature:
     def __init__(self, name, identifier, max_hp, curr_hp, ap):

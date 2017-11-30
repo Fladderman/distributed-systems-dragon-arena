@@ -5,7 +5,6 @@ import messaging
 import protected
 import das_game_settings
 import random
-sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 
 

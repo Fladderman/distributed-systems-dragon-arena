@@ -9,7 +9,6 @@ import random
 import das_game_settings
 import protected
 from messaging import Message, MessageError
-sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import Creature, Knight, Dragon, DragonArena
 from das_game_settings import debug_print
 import hashlib

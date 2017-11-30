@@ -1,5 +1,4 @@
 import threading, sys, os
-sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import DragonArena
 
 class ProtectedDragonArena:

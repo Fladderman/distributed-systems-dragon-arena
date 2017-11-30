@@ -256,23 +256,6 @@ def write_many_msgs_to(socket, msg_iterable):
     return all_went_perfectly
 
 
-
-
-def read_first_message_matching(socket, func, timeout=True, max_msg_count=-1):
-    assert isinstance(timeout, bool)
-    assert isinstance(max_msg_count, int)
-    assert callable(func)
-
-    msg_count = 0
-    start_time = time.time()
-    for msg in read_many_msgs_from(socket, timeout=timeout):
-        msg_count += 1
-        if func(msg):
-            return msg
-        elif msg_count == max_msg_count or time.time() - start_time >= timeout:
-            return None
-
-
 def write_msg_to(socket, msg):
     if not isinstance(msg, Message):
         debug_print('BAD. attempting to write_msg_to:', msg)

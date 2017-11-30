@@ -133,6 +133,7 @@ class ServerAcceptor:
 
 class Server:
     def __init__(self, server_id):
+        assert 0 <= server_id < das_game_settings.num_server_addresses
         log_filename = 'server_{s_id}.log'.format(s_id=server_id)
         logging.basicConfig(filename=log_filename, filemode='w', level=logging.INFO)
         logging.info(("==========================\n"

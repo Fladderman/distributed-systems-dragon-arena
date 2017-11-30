@@ -109,17 +109,17 @@ class Server:
                       ).format(server_id=server_id, time=time.time()))
         self._server_id = server_id
         # if I am crashing a lot in setup, do exponential backoff
-        backoff_time = 0.1
+        backoff_time = das_game_settings.max_server_sync_wait
         for try_index in count_up_from(0):
-            time.sleep(backoff_time)
             logging.info("try number {try_index}".format(try_index=try_index))
             # TODO backoff time, try again when this throws exception
             try:
                 self.try_setup()
             except Exception as e:
                 logging.info("  try number {try_index}".format(try_index=try_index))
+                print('try setup exception. backing off', e)
+                time.sleep(backoff_time)
                 backoff_time *= 2
-                print('try setup exception')
                 continue
             self._kick_off_acceptor()
             self.main_loop()
@@ -162,9 +162,9 @@ class Server:
             try:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
                 logging.info(("Got sync'd game state from server! serialized: {serialized_state}").format(serialized_state=sync_reply.args[1]))
-            except:
+            except Exception as e:
                 logging.info(("Couldn't deserialize the given game state: {serialized_state}").format(serialized_state=sync_reply.args[1]))
-                raise RuntimeError('failed to serialize game state')
+                raise RuntimeError('failed to serialize game state...', e)
             self._server_sockets = Server._socket_to_others({auth_index, self._server_id})
 
             hello_msg = messaging.M_S2S_HELLO(self._server_id)
@@ -288,20 +288,20 @@ class Server:
             logging.info(("new acceptor connection from {addr}").format(addr=new_addr))
             #TODO handle the case that this new_addr is already associated with something
             babysitter_thread = threading.Thread(
-                target=Server._handle_socket_incoming,
+                target=Server._babysit_newcomer_socket,
                 args=(self, new_socket, new_addr),
             )
             babysitter_thread.daemon = True
             babysitter_thread.start()
 
-    def _handle_socket_incoming(self, socket, addr):
+    def _babysit_newcomer_socket(self, socket, addr):
         logging.info(("handling messages from newcomer socket at {addr}"
                      ).format(addr=addr))
         # TODO I would love to make this a generator. But it seems that it doesnt EXIT like it should
-        generator = messaging.generate_messages_from(socket,timeout=None)
-        # while True:
-            # msg = messaging.read_msg_from(socket, timeout=None)
-        for msg in generator:
+        # generator = messaging.generate_messages_from(socket,timeout=None)
+        while True:
+            msg = messaging.read_msg_from(socket, timeout=None)
+        # for msg in generator:
             logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
             if msg is MessageError.CRASH:
                 print('newcomer socket died in the cradle :(. Hopefully just a ping. killing incoming reader daemon')
@@ -336,7 +336,8 @@ class Server:
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
                 logging.info(("This is server {s_id} that wants to sync! Killing incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
                 self._waiting_sync_server_tuples.enqueue((msg.sender, socket))
-                print('OK KILLING GENERATOR?')
+                # print('OK KILLING GENERATOR?')
+                print('newcomer handler exiting')
                 # time.sleep(1000)
                 # generator.close()
                 return
@@ -380,6 +381,7 @@ class Server:
 
             current_sync_tuples = self._waiting_sync_server_tuples.drain_if_probably_something()
             if current_sync_tuples:
+                print('eyyy there are current sync tuples! ', current_sync_tuples)
                 # collect DONES before sending your own
                 logging.info(("servers {set} waiting to sync! LEADER tick. Suppressing DONE step").format(set=map(lambda x: x[0], current_sync_tuples)))
                 '''READ REQS AND WAIT'''
@@ -410,19 +412,19 @@ class Server:
             self._step_update_clients()
 
             '''SLEEP STEP'''
-            if self._waiting_sync_server_tuples.poll_nonempty():
-                logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
-                             ).format(tick_id=self._tick_id))
-            else:
+            # if self._waiting_sync_server_tuples.poll_nonempty():
+            #     logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
+            #                  ).format(tick_id=self._tick_id))
+            # else:
 
-                sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
-                if sleep_time > 0.0:
-                    logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
-                                 ).format(sleep_time=sleep_time, tick_id=self._tick_id))
-                    time.sleep(sleep_time)
-                else:
-                    logging.info(("No time for sleep for tick_id {tick_id}"
-                                 ).format(tick_id=self._tick_id))
+            sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
+            if sleep_time > 0.0:
+                logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
+                             ).format(sleep_time=sleep_time, tick_id=self._tick_id))
+                time.sleep(sleep_time)
+            else:
+                logging.info(("No time for sleep for tick_id {tick_id}"
+                             ).format(tick_id=self._tick_id))
 
             logging.info(("Tick {tick_id} complete").format(tick_id=self._tick_id))
             self._tick_id += 1
@@ -502,7 +504,7 @@ class Server:
         update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id + 1,
                                                 self._dragon_arena.serialize())
 
-        # TODO here there are problems !!! wont work for some reason
+        # TODO clean up. check correctness
         for sender_id, socket in sync_tuples:
             if socket is None:
                 continue
@@ -513,28 +515,30 @@ class Server:
                                                     sender_id=sender_id))
             else:
                 print('failed to send sync msg')
+                break
                 logging.info(("Failed to send sync msg to waiting server "
                               "{sender_id}").format(sender_id=sender_id))
 
-        for sender_id, socket in sync_tuples:
-            if socket is None:
-                continue
             print('awaiting SYNC DONE from ',sender_id,'...')
             logging.info(("awaiting SYNC DONE from {sender_id}...  "
                           ).format(sender_id=sender_id))
-            sync_done = messaging.read_msg_from(socket, timeout=None)
-            print('got response...', sync_done)
-            if sync_done is MessageError.CRASH:
-                print('GOT NONE WHEN EXPECTED SYNC DONE')
-                logging.info(("Hmm. It seems that {sender_id} has crashed before syncing. Oh well :/").format(sender_id=sender_id))
-                continue
-            logging.info(("Got {msg} from sync server {sender_id}! "
-                          ":)").format(msg=sync_done, sender_id=sender_id))
-            print('istrue?', sync_done.header_matches_string('S2S_SYNC_DONE'))
-            if sync_done.header_matches_string('S2S_SYNC_DONE'):
-                print('YAHHH')
+            sync_done = messaging.read_msg_from(socket, timeout=das_game_settings.max_server_sync_wait)
+            if messaging.is_message_with_header_string(sync_done, 'S2S_SYNC_DONE'):
+                logging.info(("Got {msg} from sync server {sender_id}! "
+                              ":)").format(msg=sync_done, sender_id=sender_id))
+                print('SYNCED',sender_id,'YA, BUDDY :)')
                 self._server_sockets[sender_id] = socket
                 logging.info(("Spawned incoming handler for newly-synced server {sender_id}").format(sender_id=sender_id))
+            else:
+                print('either timed out or crashed. either way, disregarding')
+                logging.info(("Hmm. It seems that {sender_id} has crashed before syncing. Oh well :/").format(sender_id=sender_id))
+            # print('got response...', sync_done)
+            # if sync_done is MessageError.CRASH or :
+            #     print('GOT NONE WHEN EXPECTED SYNC DONE')
+            #     continue
+            # print('istrue?', sync_done.header_matches_string('S2S_SYNC_DONE'))
+            # if sync_done.header_matches_string('S2S_SYNC_DONE'):
+            #
 
         logging.info(("Got to end of sync").format())
 

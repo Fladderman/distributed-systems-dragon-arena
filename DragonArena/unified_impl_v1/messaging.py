@@ -233,7 +233,7 @@ def write_many_msgs_to(socket, msg_iterable):
             if not isinstance(msg, Message):
                 print('BAD. attempting to write_msg_to:', msg)
             else:
-                print('out --> msg', msg, 'to socket', socket)
+                print('try out --> msg', msg, 'to socket', socket)
             my_file = StringIO()
             my_file.write(packer.pack(msg.serialize()))
             my_file = StringIO(my_file.getvalue())

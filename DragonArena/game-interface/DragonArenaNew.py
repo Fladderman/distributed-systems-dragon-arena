@@ -84,6 +84,8 @@ class DragonArena:
         # allow at least one knight to be spawned
         assert no_of_dragons < map_width * map_height
 
+        self._tick = 0
+
         self._DRAGON = -1
 
         self._no_of_dragons = no_of_dragons
@@ -241,6 +243,8 @@ class DragonArena:
     # cleaned, all knights are removed, and no_of_dragons are randomly put on
     # the map again.
     def new_game(self):
+        self._tick = 0
+
         # Initialize all dragon objects.
         dragons = [Dragon((self._DRAGON, i))
                    for i in xrange(self._no_of_dragons)]
@@ -548,7 +552,8 @@ class DragonArena:
                 self._map_width,
                 self._map_height,
                 serial_creature2loc,
-                dead_creature_ids
+                dead_creature_ids,
+                self._tick
                 )
 
     @staticmethod
@@ -558,6 +563,7 @@ class DragonArena:
         map_height = o[2]
         serial_creature2loc = o[3]
         dead_creature_ids = o[4]
+        tick = o[5]
 
         creature2loc_list = \
             map(lambda l: (Creature.deserialize(l[0]), tuple(l[1])),
@@ -572,12 +578,13 @@ class DragonArena:
             id2creature[tuple(identifier)] = None
 
         arena = DragonArena(no_of_dragons, map_width, map_height)
-        arena.restore(creature2loc, id2creature)
+        arena.restore(creature2loc, id2creature, tick)
 
         return arena
 
     # called exclusively by deserialize in the DragonArena class!
-    def restore(self, creature2loc, id2creature):
+    def restore(self, creature2loc, id2creature, tick):
+        self._tick = tick
         self._creature2loc = creature2loc
         self._id2creature = id2creature
 
@@ -592,3 +599,6 @@ class DragonArena:
                 self._no_of_living_dragons += 1
             else:
                 self._no_of_living_knights += 1
+
+    def get_tick(self):
+        return self._tick

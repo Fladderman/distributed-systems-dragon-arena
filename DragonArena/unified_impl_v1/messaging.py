@@ -40,7 +40,7 @@ def is_message_with_header_string(msg, header_string):
     elif msg == MessageError.CRASH or msg == MessageError.TIMEOUT:
         return False
     else:
-        raise ValueError('Neither Message nor MessageError instance was given', str(msg))
+        raise ValueError('Neither Message nor MessageError instance was given: {}'.format(str(msg)))
 
 
 class Message:
@@ -182,7 +182,7 @@ def read_msg_from(sock, timeout=None):
             x = sock.recv(1)
             if x == '':
                 print('socket dead!')
-                return None
+                return MessageError.CRASH
                 # connection closed
             unpacker.feed(x)
             for package in unpacker:

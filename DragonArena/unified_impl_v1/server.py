@@ -350,6 +350,7 @@ class Server:
                     return
 
                 print('new client!')
+                # yields STOPITERATION on crash???
                 player_id = next(self._knight_id_generator)
                 logging.info(("Generated player/knight ID {player_id} "
                               "for the new client."
@@ -474,7 +475,7 @@ class Server:
                  self._server_client_load[server_id] = None
         my_load = len(self._client_sockets)
         self._server_client_load[self._server_id] = my_load
-        total_active_loads = filter(lambda x: x is not None, self.self._server_client_load)
+        total_active_loads = filter(lambda x: x is not None, self._server_client_load)
         total_num_servers = len(total_active_loads)
         if total_num_servers == 1:
             print('there is no other server!')

@@ -3,6 +3,7 @@ import messaging, das_game_settings, client_player, protected
 from random import shuffle
 sys.path.insert(1, os.path.join(sys.path[0], '../game-interface'))
 from DragonArenaNew import DragonArena
+from messaging import Message, MessageError
 
 class Client:
 
@@ -37,16 +38,17 @@ class Client:
                     messaging.write_msg_to(self._server_socket, m)
                     reply_msg = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
                     print('client got', str(reply_msg), ':)')
-                    if reply_msg.header_matches_string('REFUSE'):
+                    if messaging.is_message_with_header_string(reply_msg, 'S2C_REFUSE'):
                         print('got refused!')
                         continue
-
-                    assert reply_msg.header_matches_string('S2C_WELCOME')
+                    if not messaging.is_message_with_header_string(reply_msg, 'S2C_WELCOME'):
+                        raise RuntimeError('crash or timeout')
                     self._my_id = tuple(reply_msg.args[0])
                     print('so far so good')
                     first_update = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
                     print('client got', str(first_update), ':)')
-                    assert first_update.header_matches_string('UPDATE')
+                    if not messaging.is_message_with_header_string(first_update, 'UPDATE'):
+                        raise RuntimeError('got' + str(first_update) + 'instead of first update')
                     # todo get state from server
                     print('OK will try deserialize')
                     self._protected_game_state = protected.ProtectedDragonArena(
@@ -140,7 +142,7 @@ class Client:
         print('ready?')
         for request in req_generator:
             print('player yielded request', request)
-            assert isinstance(request, messaging.Message)
+            assert isinstance(request, Message)
             print('forwarding', request)
             if not messaging.write_msg_to(self._server_socket, request):
                 print('failed to write outbound requests!')

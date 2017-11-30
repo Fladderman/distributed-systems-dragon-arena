@@ -29,38 +29,43 @@ class Client:
                 try:
                     ip, port = das_game_settings.server_addresses[serv_id]
                     print('Trying server at', ip, port)
+                    '''1. get socket'''
                     self._server_socket = Client.sock_client(ip, port)
                     if self._server_socket is None:
                         continue
                     print('self._server_socket', self._server_socket)
-                    m = messaging.M_C2S_HELLO()
-                    print('about to send msg', str(m))
-                    messaging.write_msg_to(self._server_socket, m)
+                    '''2. send hello'''
+                    hello_msg = messaging.M_C2S_HELLO()
+                    print('about to send msg', str(hello_msg))
+                    messaging.write_msg_to(self._server_socket, hello_msg)
+                    '''2. get reply (expect welcome)'''
                     reply_msg = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
-                    print('client got', str(reply_msg), ':)')
+                    print('expecting welcome. client got', str(reply_msg), ':)')
                     if messaging.is_message_with_header_string(reply_msg, 'S2C_REFUSE'):
                         print('got refused!')
                         continue
                     if not messaging.is_message_with_header_string(reply_msg, 'S2C_WELCOME'):
                         raise RuntimeError('crash or timeout')
+                    '''3. get my knight's ID'''
                     self._my_id = tuple(reply_msg.args[0])
                     print('so far so good')
+                    '''4. wait for 1st game update'''
                     first_update = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
-                    print('client got', str(first_update), ':)')
+                    print('expecting update. client got', str(first_update))
                     if not messaging.is_message_with_header_string(first_update, 'UPDATE'):
                         raise RuntimeError('got' + str(first_update) + 'instead of first update')
-                    # todo get state from server
-                    print('OK will try deserialize')
+
+                    '''5. try deserialize and extract game state'''
                     self._protected_game_state = protected.ProtectedDragonArena(
                         DragonArena.deserialize(first_update.args[1])
                     )
-                    #TODO it seems like
                     print('OK deserialized correctly')
+                    return # exit the loop
                 except Exception as e:
-                    print('CONNECTION WENT AWRY', e)
-
+                    print('CONNECTION WENT AWRY :(', e)
             print('failed to connect to everyone! D:')
             time.sleep(backoff)
+            print('backing off...')
             backoff *= 2
 
     @staticmethod

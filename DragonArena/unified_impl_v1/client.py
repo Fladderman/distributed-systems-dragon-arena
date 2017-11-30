@@ -24,8 +24,8 @@ class Client:
 
 
     def _connect_to_a_server(self):
+        backoff = 0.05
         while True:
-            backoff = 0.01
             for serv_id in self.sorted_server_ids:
                 try:
                     ip, port = das_game_settings.server_addresses[serv_id]
@@ -66,8 +66,8 @@ class Client:
                     debug_print('CONNECTION WENT AWRY :(', e)
             debug_print('failed to connect to everyone! D:')
             time.sleep(backoff)
-            debug_print('backing off...')
-            backoff *= 2
+            debug_print('backing off...', backoff)
+            backoff = sqrt(backoff * 2)
 
     @staticmethod
     def _ordered_server_list():
@@ -132,6 +132,8 @@ class Client:
 
     def main_incoming_loop(self):
         debug_print('main incoming')
+        # while True:
+        #     msg = messaging.read_msg_from(self._server_socket, timeout=None)
         for msg in messaging.generate_messages_from(self._server_socket, timeout=None):
             debug_print(str(msg))
             if msg != MessageError.CRASH:
@@ -141,6 +143,7 @@ class Client:
                     debug_print('replaced arena! :D')
             else:
                 debug_print('Socket dead! incoming handler dying!')
+                # return
 
 
     def main_outgoing_loop(self):
@@ -152,11 +155,13 @@ class Client:
             debug_print('forwarding', request)
             if not messaging.write_msg_to(self._server_socket, request):
                 debug_print('failed to write outbound requests!')
-                self.connect_to_a_server()
+                self._connect_to_a_server()
                 incoming_thread = threading.Thread(
                     target=self.main_incoming_loop,
                     args=(),
                 )
+                incoming_thread.daemon = True
+                incoming_thread.start()
                 print('Recovered :D')
 
 

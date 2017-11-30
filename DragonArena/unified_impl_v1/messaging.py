@@ -147,7 +147,7 @@ def M_S2S_WELCOME(s_id):                        return Message(header2int['S2S_W
 def M_S2S_REFUSE():                             return Message(header2int['S2C_REFUSE'],-1,[])
 def M_S2S_SYNC_DONE():                          return Message(header2int['S2S_SYNC_DONE'],-1,[])
 
-def M_DONE(s_id, tick_id):                      return Message(header2int['DONE'], s_id, [tick_id])
+def M_DONE(s_id, tick_id, num_clients):         return Message(header2int['DONE'], s_id, [tick_id, num_clients])
 
 # SERVER-CLIENT SYNCHRONIZATION
 def M_PING():                                   return Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique

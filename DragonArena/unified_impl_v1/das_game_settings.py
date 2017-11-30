@@ -1,3 +1,6 @@
+
+#INPUTS:
+
 backlog = 5
 server_addresses = [
     # server with id==0 implicitly is connected to server_addresses[0]
@@ -7,13 +10,15 @@ server_addresses = [
     ("127.0.0.1", 2004),
     ("127.0.0.1", 2005),
 ]
-num_server_addresses = len(server_addresses)
 
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 4.0
 
-max_server_sync_wait = S2S_wait_for_welcome_timeout * (num_server_addresses + 1)
-max_done_wait = server_min_tick_time + max_server_sync_wait + 1.0
+# A server will certainly not refuse a new client if the server has < min_server_client_capacity clients
+min_server_client_capacity = 3
+
+# A server will consider itself 'over capacity' if it has server_overcapacity_ratio times the average server load
+server_overcapacity_ratio = 1.3
 
 dragon_arena_init_settings = {'no_of_dragons': 10,
                               'map_width': 25,
@@ -21,3 +26,10 @@ dragon_arena_init_settings = {'no_of_dragons': 10,
                               }
 
 client_ping_max_time = 0.3
+client_handshake_timeout = 0.5
+
+
+############### DONT TOUCH BELOW THIS LINE
+num_server_addresses = len(server_addresses)
+max_server_sync_wait = S2S_wait_for_welcome_timeout * (num_server_addresses + 1)
+max_done_wait = server_min_tick_time + max_server_sync_wait + 1.0

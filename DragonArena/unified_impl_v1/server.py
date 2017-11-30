@@ -140,7 +140,7 @@ class Server:
             print('I AM THE FIRST SERVER:', auth_index)
             logging.info("I am the first server!".format())
             self._dragon_arena = Server.create_fresh_arena()
-            self._tick_id = 0
+            # self._tick_id() = 0
             self._server_sockets = \
                 [None for _ in xrange(0, das_game_settings.
                                       num_server_addresses)]
@@ -163,7 +163,7 @@ class Server:
                 logging.info("Expected S2S_SYNC_REPLY, got {msg}".format(
                     msg=sync_reply))
                 raise RuntimeError('expected sync reply! got ' + str(msg))
-            self._tick_id = sync_reply.args[0]
+            # self._tick_id() = sync_reply.args[0]
             try:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
                 logging.info(("Got sync'd game state from server! serialized: {serialized_state}"
@@ -215,26 +215,23 @@ class Server:
         self._waiting_sync_server_tuples = protected.ProtectedQueue() #(msg.sender, socket)
         self._client_sockets = dict()
         self._knight_id_generator = self._knight_id_generator_func()
+        self._server_client_load = [None for _ in range(das_game_settings.num_server_addresses)]
 
 
     def _knight_id_generator_func(self):
-        largest_taken_id_for_me =\
-            max(# largest index of my knights
-                map(# counter of my knights
-                    lambda x: x[1],
-                    filter(# MY KNIGHTS
-                        lambda x: x[0]==self._server_id,
-                        list(
-                            self._dragon_arena.get_knights(), # ALL KNIGHTS
-                        ) + [(self._server_id, -1)] #default
-                    ),
-                )
-            )
+        my_knight_ids = filter(
+            lambda x: x[0]==self._server_id,
+            list(self._dragon_arena.get_knights())
+        )
+        my_knight_counters = map(lambda x: x[1], my_knight_ids)
+        next_available_counter = (max(my_knight_counters) + 1
+                                  if my_knight_counters
+                                  else 0)
 
         logging.info(("Prepared knight ID generator."
                       "Will count up from ({server_id},{next_knight_id})"
                       ).format(server_id=self._server_id,
-                               next_knight_id=largest_taken_id_for_me+1))
+                               next_knight_id=next_available_counter))
         try:
             for i in count_up_from(largest_taken_id_for_me + 1):
                 yield (self._server_id, i)
@@ -325,6 +322,14 @@ class Server:
                 return
             print('_handle_socket_incoming yielded', msg)
             if messaging.is_message_with_header_string(msg, 'C2S_HELLO'):
+                if self._i_should_refuse_clients():
+                    messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
+                    logging.info(("Refused a client at {addr} "
+                                  "Server loads are currently approx. {loads}."
+                                  ).format(addr=addr,
+                                  loads=self._server_client_load))
+                    return
+
                 print('new client!')
                 player_id = next(self._knight_id_generator)
                 logging.info(("Generated player/knight ID {player_id} "
@@ -340,23 +345,18 @@ class Server:
                 print('welcome', welcome)
                 messaging.write_msg_to(sock, welcome)
                 print('welcomed it!')
-                if True: # TODO if not above client capacity
-                    self._client_sockets[addr] = sock
-                    self._handle_client_incoming(sock, addr, player_id)
+                self._client_sockets[addr] = sock
+                self._handle_client_incoming(sock, addr, player_id)
                 return
             elif msg.header_matches_string('S2S_HELLO'):
                 print('server is up! synced by someone else server!')
                 self._server_sockets[msg.sender] = sock
                 messaging.write_msg_to(sock, messaging.M_S2S_WELCOME(self._server_id))
-                # self._handle_server_incoming(socket, addr)
                 return
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
                 logging.info(("This is server {s_id} that wants to sync! Killing incoming handler. wouldn't want to interfere with main thread").format(s_id=msg.sender))
                 self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
-                # print('OK KILLING GENERATOR?')
                 print('newcomer handler exiting')
-                # time.sleep(1000)
-                # generator.close()
                 return
 
     def _handle_client_incoming(self, sock, addr, player_id):
@@ -384,15 +384,15 @@ class Server:
         print('client handler dead :(')
 
     def main_loop(self):
-        logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id))
+        logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id()))
         print('MAIN LOOP :)')
         while True:
             tick_start = time.time()
-            print('tick', self._tick_id)
+            print('tick', self._tick_id())
 
             '''SWAP BUFFERS'''
             my_req_pool = self._requests.drain_if_probably_something()
-            logging.info(("drained ({num_reqs}) requests in tick {tick_id}").format(num_reqs=len(my_req_pool), tick_id=self._tick_id))
+            logging.info(("drained ({num_reqs}) requests in tick {tick_id}").format(num_reqs=len(my_req_pool), tick_id=self._tick_id()))
             '''FLOOD REQS'''
             self._step_flood_reqs(my_req_pool)
 
@@ -406,15 +406,16 @@ class Server:
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
-                req_sequence = ordering_func(my_req_pool, self._tick_id)
+                req_sequence = ordering_func(my_req_pool, self._tick_id())
                 '''APPLY AND LOG'''
                 _apply_and_log_all(self._dragon_arena, req_sequence)
                 '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
                 self._step_sync_servers(current_sync_tuples)
                 logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}"
-                             ).format(tick_id=self._tick_id))
+                             ).format(tick_id=self._tick_id()))
                 '''<<STEP FLOOD DONE>>'''
-                self._step_flood_done(except_server_ids={serv_addr for serv_addr, sock in current_sync_tuples})
+                self._step_flood_done(except_server_ids={serv_addr for serv_addr, sock in current_sync_tuples},
+                                        tick_count_modifier=-1)
 
             else: #NO SERVERS WAITING TO SYNC
                 # send own DONES before collecting those of others
@@ -424,7 +425,7 @@ class Server:
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
-                req_sequence = ordering_func(my_req_pool, self._tick_id)
+                req_sequence = ordering_func(my_req_pool, self._tick_id())
                 '''APPLY AND LOG'''
                 _apply_and_log_all(self._dragon_arena, req_sequence)
 
@@ -435,19 +436,35 @@ class Server:
             # TODO put back in later
             # if self._waiting_sync_server_tuples.poll_nonempty():
             #     logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
-            #                  ).format(tick_id=self._tick_id))
+            #                  ).format(tick_id=self._tick_id()))
             # else:
 
             sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
             if sleep_time > 0.0:
                 logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
-                             ).format(sleep_time=sleep_time, tick_id=self._tick_id))
+                             ).format(sleep_time=sleep_time, tick_id=self._tick_id()))
                 time.sleep(sleep_time)
             else:
                 logging.info(("No time for sleep for tick_id {tick_id}"
-                             ).format(tick_id=self._tick_id))
+                             ).format(tick_id=self._tick_id()))
 
 
+    def _i_should_refuse_clients(self):
+        for server_id, sock in enumerate(self._server_sockets):
+            if sock is None:
+                 self._server_client_load[server_id] = None
+        my_load = len(self._client_sockets)
+        self._server_client_load[self._server_id] = my_load
+        total_active_loads = filter(lambda x: x is not None, self.self._server_client_load)
+        total_num_servers = len(total_active_loads)
+        if total_num_servers == 1:
+            print('there is no other server!')
+            return False
+        if my_load < max(0, das_game_settings.min_server_client_capacity):
+            print('I can certainly take more')
+            return False
+        average_server_load = rough_total_clients / float(total_num_servers)
+        return my_load > (average_server_load * das_game_settings.server_overcapacity_ratio)
 
     def _active_server_indices(self):
         return filter(
@@ -467,11 +484,11 @@ class Server:
             except:
                  logging.info(("Flooding reqs to serv_id {serv_id} crashed!").format(serv_id=serv_id))
 
-    def _step_flood_done(self, except_server_ids):
+    def _step_flood_done(self, except_server_ids, tick_count_modifier=0):
         # need to specify except_server_ids of newly-synced server. this prevents them from getting an extra DONE
-        done_msg = messaging.M_DONE(self._server_id, self._tick_id)
+        done_msg = messaging.M_DONE(self._server_id, self._tick_id() + tick_count_modifier, len(self._client_sockets))
         logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}"
-                      ).format(tick_id=self._tick_id,
+                      ).format(tick_id=self._tick_id(),
                                servers=self._active_server_indices()))
         '''SEND DONE'''
         for server_id in self._active_server_indices():
@@ -504,10 +521,11 @@ class Server:
                 msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
                 if messaging.is_message_with_header_string(msg, 'DONE'):
                     other_tick_id = msg.args[0]
+                    self._server_client_load[server_id] = msg.args[1]
                     print('got a DONE')
-                    if other_tick_id != self._tick_id:
+                    if other_tick_id != self._tick_id():
                         print(("___\nme   ({})\t{}\nthem ({})\t{}\n***"
-                              ).format(self._server_id, self._tick_id, server_id, other_tick_id))
+                              ).format(self._server_id, self._tick_id(), server_id, other_tick_id))
                     # DONE got. accept the batch
                     res.extend(temp_batch)
                     break
@@ -527,18 +545,20 @@ class Server:
                     self._server_sockets[server_id] = None
                     break
 
-
+        print('server load', self._server_client_load[self._server_id])
         logging.info("Released from the barrier")
-        print("!!!RELEASED FROM TICK", self._tick_id)
-        self._tick_id += 1
-        logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id))
-        # time.sleep(0.3)
+        print("!!!RELEASED FROM TICK", self._tick_id())
+        logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id()))
         return res
+
+
+    def _tick_id(self):
+        return self._dragon_arena.get_tick()
 
     def _step_sync_servers(self, sync_tuples):
         #synced server has the NEXT tick_d as the starting tick, as they start with the 'freshly synced' state
         #TODO ensure tick IDs are matching up
-        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id,
+        update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id(),
                                                 self._dragon_arena.serialize())
 
         # TODO clean up. check correctness
@@ -577,12 +597,12 @@ class Server:
         logging.info(("Got to end of sync").format())
 
     def _step_update_clients(self):
-        # update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, 5) #TODO THIS IS DEBUG. last arg should be a serialized game state
-        update_msg = messaging.M_UPDATE(self._server_id, self._tick_id, self._dragon_arena.serialize())
+        # update_msg = messaging.M_UPDATE(self._server_id, self._tick_id(), 5) #TODO THIS IS DEBUG. last arg should be a serialized game state
+        update_msg = messaging.M_UPDATE(self._server_id, self._tick_id(), self._dragon_arena.serialize())
         logging.info(("Update msg ready for tick {tick_id}"
-                     ).format(tick_id=self._tick_id))
+                     ).format(tick_id=self._tick_id()))
         logging.info(("Client set for tick {tick_id}: {clients}"
-                     ).format(tick_id=self._tick_id, clients=self._client_sockets.keys()))
+                     ).format(tick_id=self._tick_id(), clients=self._client_sockets.keys()))
         print('CLIENT SOCKS', self._client_sockets)
         for addr, sock in self._client_sockets.iteritems():
             #TODO investigate why addr is an ip and not (ip,port)
@@ -591,12 +611,12 @@ class Server:
                 logging.info(("Successfully updated client at addr {addr}"
                               "for tick_id {tick_id}"
                               ).format(addr=addr,
-                                       tick_id=self._tick_id))
+                                       tick_id=self._tick_id()))
             else:
                 logging.info(("Failed to update client at addr {addr}"
                               "for tick_id {tick_id}"
                               ).format(addr=addr,
-                                       tick_id=self._tick_id))
+                                       tick_id=self._tick_id()))
                 self._client_sockets.pop(addr)
         logging.info(("All updates done for tick_id {tick_id}"
-                     ).format(tick_id=self._tick_id))
+                     ).format(tick_id=self._tick_id()))

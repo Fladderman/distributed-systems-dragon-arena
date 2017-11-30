@@ -602,3 +602,6 @@ class DragonArena:
 
     def get_tick(self):
         return self._tick
+
+    def increment_tick(self):
+        self._tick += 1

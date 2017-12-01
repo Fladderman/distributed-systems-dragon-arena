@@ -1,6 +1,7 @@
 import itertools
 import random
 import das_game_settings as dgs
+from hashlib import sha1
 from sys import maxsize
 
 
@@ -642,9 +643,13 @@ class DragonArena:
         self._tick += 1
 
     def get_winner(self):
-        assert self.game_over # precondition
+        assert self.game_over  # precondition
 
         if self._no_of_living_dragons == 0:
             return "knights"
         else:
             return "dragons"
+
+    # https: // cyan4973.github.io / xxHash /
+    def get_hash(self):
+        return sha1(str(self.serialize())).hexdigest()[:8]

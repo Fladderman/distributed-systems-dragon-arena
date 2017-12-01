@@ -81,11 +81,15 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
         elif msg.header_matches_string("DESPAWN"):
             assert isinstance(msg.sender, int)  # must be server id
             k = tuple(msg.args[0])
-            if dragon_arena._is_alive(k):
-                logging.info(("Suppressing DESPAWN for knight {k}. "
-                              "Knight is already dead."
-                              ).format(k=k))
-                result = dragon_arena.kill_knight(k)
+            if dragon_arena._id_exists(k):
+                if dragon_arena._is_alive(k):
+                    logging.info(("Suppressing DESPAWN for knight {k}. "
+                                  "Knight is already dead."
+                                  ).format(k=k))
+                    result = dragon_arena.kill_knight(k)
+            else:
+                bad = True
+                result = "Id doesn't exist!"
         else:
             raise "chris fukt up damn"
 
@@ -393,10 +397,10 @@ class Server:
                           "for the new client."
                           ).format(player_id=player_id))
             spawn_msg = messaging.M_SPAWN(self._server_id, player_id)
+            self._requests.enqueue(spawn_msg)
             logging.info(("Enqueued spawn request {spawn_msg} "
                           "for the new client."
                           ).format(spawn_msg=spawn_msg))
-            self._requests.enqueue(spawn_msg)
             derived_secret = Server._client_secret(addr[0], tuple(player_id), msg.args[0], self._dragon_arena.key)
         else:
             # Reconnecting client

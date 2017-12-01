@@ -51,7 +51,7 @@ class BotPlayer(Player):
         the set {MOVE, ATTACK, HEAL} and return it as your action
         """
 
-        if da.is_dead(my_id):
+        if not da._id_exists(my_id) or da.is_dead(my_id):
             return None
 
         must_heal = filter(lambda k: k.get_hp() / float(k.max_hp()) < 0.5,
@@ -108,7 +108,11 @@ class BotPlayer(Player):
                 time.sleep(das_game_settings.server_min_tick_time)
                 with protected_dragon_arena as da:
                     _shitty_visualizer(da)
-                    choice = BotPlayer._choose_action_return_message(da, my_id)
+                    try:
+                        choice = BotPlayer._choose_action_return_message(da, my_id)
+                    except Exception as e:
+                        choice = None
+                        debug_print("BOT CRASHED WHEN DECIDING", e)
                 # `with` expired. dragon arena unlocked
                 if choice is not None:
                     yield choice
@@ -117,6 +121,7 @@ class BotPlayer(Player):
             return
 
 def _shitty_visualizer(da):
+    print('tick', da.get_tick())
     w = da._map_width
     h = da._map_height
     print '--------------------------------------'

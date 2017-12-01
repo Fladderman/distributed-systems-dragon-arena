@@ -35,7 +35,6 @@ dragon_arena_init_settings = {'no_of_dragons': 10,
                               'map_height': 25
                               }
 client_ping_max_time = 0.06
-client_handshake_timeout = 0.5
 dragon_attack_period = 1.0
 
 
@@ -49,4 +48,6 @@ ticks_per_dragon_attack = int(round(dragon_attack_period/server_min_tick_time))
 num_server_addresses = len(server_addresses)
 max_server_sync_wait = S2S_wait_for_welcome_timeout * \
                        (num_server_addresses + 1)
+
+client_handshake_timeout = max_server_sync_wait + 0.5
 max_done_wait = server_min_tick_time + max_server_sync_wait + 1.0

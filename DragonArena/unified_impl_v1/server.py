@@ -41,9 +41,12 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     dragon_arena.increment_tick()
 
     for msg in message_sequence:
-        assert isinstance(msg, messaging.Message)
-
-        # valid = msg.permitted_in_server_application_function() and ``correct sender``
+        if (not isinstance(msg, messaging.Message)
+            or not msg.permitted_in_server_application_function()):
+            logging.info(("Received and dropped message, "
+                          "deemed inappropriate as a game request: {msg}"
+                          ).format(msg=str(msg)))
+            continue
 
         bad = False
         result = ""

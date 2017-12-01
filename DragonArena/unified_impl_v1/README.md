@@ -36,5 +36,19 @@ To try out the system:
 
 
 # Features
-lockstep multiservers
-servers resync when a 
+servers tick in lockstep.
+a newcomer server will:
+    stop lockstep,
+    handshake with all servers,
+    receive the latest version,
+    join and resume lockstep.
+if a server crashes:
+    other servers continue without them,
+    their clients will:
+        rejoin the game with another server,
+        keep their knight.
+if a client crashes:
+    their server de-spawns their knight.
+if a server somehow falls behind:
+    it will lazily request an update from someone else,
+    and it will accept the fresher state when it comes.

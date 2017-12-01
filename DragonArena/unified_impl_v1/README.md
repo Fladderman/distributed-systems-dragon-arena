@@ -35,25 +35,6 @@ To try out the system:
         2. drain player update requests and forward them to the server
 
 
-# whats in
-pop-up thread server
-servers start, connect to each other (kinda)
-`Message` class with data fields
-Message functions for serialization / deserialization
-'transparent' API for reading/writing messages to socket (only used by Server, Client classes)
-protected queue datastructure with threadsafe functions for `push, pop, drain, push_all`
-`Player` abstract class with subclasses: {`BotPlayer`, `HumanPlayer`}
-server object that will accept new clients and listen for Messages
-clients attempting to circularly connect to a server, moving on to the next when one fails
-
-
-
-# whats not in yet
-servers synchronizing the starting game state
-Axel/Roy's Game State object in all its glory
-proper message protocol
-clients using PING time to sort their list of servers in descending 'goodness'
-servers keeping track of client capacity and disabling new client joins
-100% complete server-server joins
-server-server state synchro
-translation function from Message to action on game state (and back)
+# Features
+lockstep multiservers
+servers resync when a 

@@ -402,7 +402,7 @@ class Server:
                     logging.info(("Refused a client`s reconnection. Secret was {secret} but should have been {secret_should_be}."
                                   ).format(secret_should_be=secret_should_be,
                                            secret=secret))
-                    messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
+                    messaging.write_msg_to(sock, messaging.M_REFUSE())
                 else:
 
                     logging.info(("Client successfully reconnected with secret {secret}."
@@ -593,35 +593,75 @@ class Server:
         waiting_for = list(self._active_servers())
         debug_print('waiting for ', waiting_for)
         for server_id, sock in waiting_for:
-            temp_batch = []
-            debug_print('expecting done from ', server_id)
-            while True:
-                msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
-                if messaging.is_message_with_header_string(msg, 'DONE'):
-                    other_tick_id = msg.args[0]
-                    self._server_client_load[server_id] = msg.args[1]
-                    debug_print('got a DONE')
-                    if other_tick_id != self._tick_id():
-                        debug_print(("___\nme   ({})\t{}\nthem ({})\t{}\n***"
-                              ).format(self._server_id, self._tick_id(), server_id, other_tick_id))
-                    # DONE got. accept the batch
-                    res.extend(temp_batch)
-                    break
-                elif isinstance(msg, Message):
-                    # some other request message BEFORE a done
-                    temp_batch.append(msg)
-                else:
-                    if msg is MessageError.CRASH:
-                        logging.info(("Wait&recv for {server_id} ended in CRASH"
-                                     ).format(server_id=server_id))
-                    else:
-                        logging.info(("Wait&recv for {server_id} ended in TIMEOUT"
-                                      "(might be a deadlock?)"
-                                     ).format(server_id=server_id))
-                    debug_print('Lost connection!')
-                    # Clean up, discard temp_batch
-                    self._server_sockets[server_id] = None
-                    break
+            res.extend(self._read_and_wait_for(server_id, sock))
+            # temp_batch = []
+            # debug_print('expecting done from ', server_id)
+            # while True:
+            #     msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
+            #     if not isinstance(msg, Message):
+            #         if msg is MessageError.CRASH:
+            #             logging.info(("Wait&recv for {server_id} ended in CRASH"
+            #                          ).format(server_id=server_id))
+            #         else:
+            #             logging.info(("Wait&recv for {server_id} ended in TIMEOUT"
+            #                           "(might be a deadlock?)"
+            #                          ).format(server_id=server_id))
+            #         debug_print('Lost connection!')
+            #         # Clean up, discard temp_batch
+            #         self._server_sockets[server_id] = None
+            #         break
+            #     if messaging.header_matches_string('DONE'):
+            #         other_tick_id = msg.args[0]
+            #         self._server_client_load[server_id] = msg.args[1]
+            #         debug_print('got a DONE')
+            #         if other_tick_id > self._tick_id():
+            #             # I somehow fell behind! Lazily request the newer state they supposedly have
+            #             debug_print('I am behind! sending UPDATE_ME to', server_id)
+            #             messaging.write_msg_to(sock, messaging.M_UPDATE_ME):
+            #             logging.info(("This server is in tick {theirs}! I am behind, in tick {mine}. "
+            #                           "Sent UPDATE_ME."
+            #                          ).format(theirs=other_tick_id,
+            #                                   mine=self._tick_id()))
+            #         # DONE got. accept the batch
+            #         res.extend(temp_batch)
+            #         break
+            #     elif messaging.header_matches_string('S2S_UPDATE_ME'):
+            #         # Other server wants me to update them!
+            #         update_msg = messaging.M_UPDATE(self._server_id,
+            #                                         self._tick_id(),
+            #                                         self._dragon_arena.serialize(),
+            #                                         )
+            #         messaging.write_msg_to(sock, update_msg)
+            #     elif messaging.header_matches_string('UPDATE'):
+            #         # Other server sent me an update! Lets see if I can benefit...
+            #         try:
+            #             other_tick_id = msg.args[0]
+            #             other_state = protected.ProtectedDragonArena(
+            #                 DragonArena.deserialize(first_update.args[1])
+            #             )
+            #             if other_tick_id > self._tick_id():
+            #                 logging.info(("Got an UPDATE_ME for tick_id {theirs} "
+            #                               "from server {server_id}. "
+            #                               "Mine was {my_tick_id}, so I'll use it!"
+            #                              ).format(theirs=other_tick_id,
+            #                                       server_id=server_id,
+            #                                       my_tick_id=self._tick_id()))
+            #                 self._dragon_arena = other_state
+            #             else:
+            #                 logging.info(("Got an UPDATE_ME for tick_id {theirs} "
+            #                               "from server {server_id}. "
+            #                               "Mine was {my_tick_id}, so I'll discard it."
+            #                              ).format(theirs=other_tick_id,
+            #                                       server_id=server_id,
+            #                                       my_tick_id=self._tick_id()))
+            #         except Exception as e:
+            #             logging.info(("Failed to make sense of UPDATE_ME "
+            #                           "from {server_id}. Discarding."
+            #                          ).format(server_id=server_id))
+            #
+            #     else:
+            #         # some request message. Store and keep going
+            #         temp_batch.append(msg)
 
         debug_print('server load', self._server_client_load[self._server_id])
         logging.info("Released from the barrier")
@@ -629,6 +669,76 @@ class Server:
         logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id()))
         return res
 
+    def _read_and_wait_for(self, server_id, sock):
+        temp_batch = []
+        debug_print('expecting done from ', server_id)
+        while True:
+            msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
+            if not isinstance(msg, Message):
+                if msg is MessageError.CRASH:
+                    logging.info(("Wait&recv for {server_id} ended in CRASH"
+                                 ).format(server_id=server_id))
+                else:
+                    logging.info(("Wait&recv for {server_id} ended in TIMEOUT"
+                                  "(might be a deadlock?)"
+                                 ).format(server_id=server_id))
+                debug_print('Lost connection!')
+                # Clean up, discard temp_batch
+                self._server_sockets[server_id] = None
+                return []
+            if msg.header_matches_string('DONE'):
+                other_tick_id = msg.args[0]
+                self._server_client_load[server_id] = msg.args[1]
+                debug_print('got a DONE')
+                if other_tick_id > self._tick_id():
+                    # I somehow fell behind! Lazily request the newer state they supposedly have
+                    debug_print('I am behind! sending UPDATE_ME to', server_id)
+                    messaging.write_msg_to(sock, messaging.M_UPDATE_ME)
+                    logging.info(("This server is in tick {theirs}! I am behind, in tick {mine}. "
+                                  "Sent UPDATE_ME."
+                                 ).format(theirs=other_tick_id,
+                                          mine=self._tick_id()))
+                # DONE got. accept the batch
+                return temp_batch
+            elif msg.header_matches_string('S2S_UPDATE_ME'):
+                # Other server wants me to update them!
+                update_msg = messaging.M_UPDATE(self._server_id,
+                                                self._tick_id(),
+                                                self._dragon_arena.serialize(),
+                                                )
+                messaging.write_msg_to(sock, update_msg)
+            elif messaging.header_matches_string('UPDATE'):
+                self._handle_S2S_update(msg, other_server_id)
+            else:
+                # some request message. Store and keep going
+                temp_batch.append(msg)
+
+    def _handle_S2S_update(self, msg, other_server_id):
+        # Other server sent me an update! Lets see if I can benefit...
+        try:
+            other_tick_id = msg.args[0]
+            other_state = protected.ProtectedDragonArena(
+                DragonArena.deserialize(first_update.args[1])
+            )
+            if other_tick_id > self._tick_id():
+                logging.info(("Got an UPDATE_ME for tick_id {theirs} "
+                              "from server {other_server_id}. "
+                              "Mine was {my_tick_id}, so I'll use it!"
+                             ).format(theirs=other_tick_id,
+                                      other_server_id=other_server_id,
+                                      my_tick_id=self._tick_id()))
+                self._dragon_arena = other_state
+            else:
+                logging.info(("Got an UPDATE_ME for tick_id {theirs} "
+                              "from server {other_server_id}. "
+                              "Mine was {my_tick_id}, so I'll discard it."
+                             ).format(theirs=other_tick_id,
+                                      other_server_id=other_server_id,
+                                      my_tick_id=self._tick_id()))
+        except Exception as e:
+            logging.info(("Failed to make sense of UPDATE_ME "
+                          "from {other_server_id}. Discarding."
+                         ).format(other_server_id=other_server_id))
 
     def _tick_id(self):
         return self._dragon_arena.get_tick()

@@ -25,7 +25,7 @@ int2header = [
     'C2S_HELLO',
     'C2S_HELLO_AGAIN',
     'S2C_WELCOME',
-    'S2C_REFUSE',
+    'REFUSE',
     'SPAWN',
     'DESPAWN',
     'DONE',
@@ -33,6 +33,7 @@ int2header = [
     'R_HEAL',
     'R_ATTACK',
     'R_MOVE',
+    'S2S_UPDATE_ME',
 ]
 header2int = {v: k for k, v in enumerate(int2header)}
 
@@ -67,7 +68,9 @@ class Message:
         return int2header[self.msg_header] in {'MOVE', 'ATTACK', 'HEAL'}
 
     def permitted_in_server_application_function(self):
-        return self.permitted_by_clients or self.msg_header == header2int['SPAWN']
+        return (self.permitted_by_clients
+                or self.msg_header == header2int['SPAWN']
+                or self.msg_header == header2int['DESPAWN'])
 
     def header_matches_string(self, string):
         try:
@@ -146,10 +149,11 @@ def M_S2S_SYNC_REQ(s_id):                       return Message(header2int['S2S_S
 def M_S2S_SYNC_REPLY(tick_id, serialized_state):return Message(header2int['S2S_SYNC_REPLY'], -1, [tick_id, serialized_state])
 def M_S2S_HELLO(s_id):                          return Message(header2int['S2S_HELLO'],s_id,[])
 def M_S2S_WELCOME(s_id):                        return Message(header2int['S2S_WELCOME'],s_id,[])
-def M_S2S_REFUSE():                             return Message(header2int['S2C_REFUSE'],-1,[])
 def M_S2S_SYNC_DONE():                          return Message(header2int['S2S_SYNC_DONE'],-1,[])
+def M_S2S_UPDATE_ME():                          return Message(header2int['S2S_UPDATE_ME'],-1,[])
 
 def M_DONE(s_id, tick_id, num_clients):         return Message(header2int['DONE'], s_id, [tick_id, num_clients])
+def M_REFUSE():                                 return Message(header2int['REFUSE'],-1,[])
 
 # SERVER-CLIENT SYNCHRONIZATION
 def M_PING():                                   return Message(header2int['PING'],-1,[]) # just nonsense for now. works as long as they are unique
@@ -158,13 +162,13 @@ def M_C2S_HELLO_AGAIN(salt, knight_id ,secret): return Message(header2int['C2S_H
 def M_S2C_WELCOME(s_id, knight_id, secret):     return Message(header2int['S2C_WELCOME'], s_id,[knight_id, secret])
 def M_UPDATE(s_id, tick_id, serialized_state):  return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
 
-def M_SPAWN(s_id, knight_id):                   return Message(header2int['SPAWN'], s_id, [knight_id])
-def M_DESPAWN(s_id, knight_id):                 return Message(header2int['DESPAWN'], -1, [knight_id])
 
 # GAME REQS
 def M_R_HEAL(healed):                   return Message(header2int['R_HEAL'], -1, [healed])
 def M_R_ATTACK(attacked):             return Message(header2int['R_ATTACK'], -1, [attacked])
 def M_R_MOVE(direction):                 return Message(header2int['R_MOVE'], -1, [direction]) # direction is a char 'u', 'l', 'r', 'd'
+def M_SPAWN(s_id, knight_id):                   return Message(header2int['SPAWN'], s_id, [knight_id])
+def M_DESPAWN(s_id, knight_id):                 return Message(header2int['DESPAWN'], -1, [knight_id])
 
 class MessageError:
     CRASH = 1

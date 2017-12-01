@@ -10,6 +10,7 @@ from messaging import Message, MessageError
 from DragonArenaNew import DragonArena
 from das_game_settings import debug_print
 import hashlib
+from math import pow
 
 # #####################################
 # SUBPROBLEMS START:
@@ -106,7 +107,6 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     result = dragon_arena.let_dragons_attack()
     logging.info(("Player actions successfully processed for tick {tick_id}"
                  ).format(tick_id=dragon_arena.get_tick()))
-    logging.info(result)
 #SUBPROBLEMS END:
 ##############################
 
@@ -144,17 +144,27 @@ class ServerAcceptor:
             return
 
 class Server:
-    def __init__(self, server_id):
-        assert 0 <= server_id < das_game_settings.num_server_addresses
-        log_filename = 'server_{s_id}.log'.format(s_id=server_id)
-        logging.basicConfig(filename=log_filename, filemode='w', level=logging.INFO)
-        logging.info(("==========================\n"
-                      "Server {server_id} started logging at {time}\n"
-                      "=========================="
-                      ).format(server_id=server_id, time=time.time()))
+    @staticmethod
+    def _my_logging_icon(server_id):
+        c = '"*/->$~."!+^c:xo'[server_id]
+        return c + c + c
+
+    def __init__(self, server_id, secret, is_starter):
         self._server_id = server_id
+        self._secret = secret
+        self._is_starter = is_starter
+        assert 0 <= server_id < das_game_settings.num_server_addresses
+        assert isinstance(is_starter, bool)
+        log_filename = 'server_{s_id}.log'.format(s_id=server_id)
+        logging.basicConfig(filename=log_filename,
+                            filemode='w',
+                            level=logging.INFO,
+                            format='%(asctime)s.%(msecs)03d srv '+str(server_id)+'\t ' + Server._my_logging_icon(server_id) + ' %(message)s',
+                            datefmt='%a %H:%M:%S')
+        logging.info(("Server {server_id} started logging! :D"
+                     ).format(server_id=server_id))
         # if I am crashing a lot in setup, do exponential backoff
-        backoff_time = das_game_settings.max_server_sync_wait
+        backoff_time = 0.01
         for try_index in count_up_from(0):
             logging.info("try number {try_index}".format(try_index=try_index))
             # TODO backoff time, try again when this throws exception
@@ -164,35 +174,38 @@ class Server:
                 logging.info("  try number {try_index}".format(try_index=try_index))
                 debug_print('try setup exception. backing off', e)
                 time.sleep(backoff_time)
-                backoff_time *= 2
+                backoff_time = pow(backoff_time * 1.4, 0.8)
                 continue
             self._kick_off_acceptor()
             self.main_loop()
             return
 
-    def _i_am_the_syncher(self):
-        all_s_ids = {s_id for s_id, sock in self._active_servers()}
-        all_s_ids.add(self._server_id)
-        return min(all_s_ids) == self._server_id
+    def _active_server_ids(self):
+        return [s_id for s_id, sock in self._active_servers()]
+
+    def _lowest_id_connected_server(self):
+        return min([self._server_id] + self._active_server_ids())
 
     def try_setup(self):
         '''Will throw exceptions upwards if things fail'''
         debug_print('OK')
-        auth_sock, auth_index = self._connect_to_first_other_server()
-        debug_print(auth_sock, auth_index)
-        logging.info("authority socket_index: {index}".format(
-            index=auth_index))
-        if auth_sock is None:
-            # I am first! :D
-            debug_print('I AM THE FIRST SERVER:', auth_index)
-            logging.info("I am the first server!".format())
+        print('self._is_starter:', self._is_starter)
+        if self._is_starter:
+            debug_print('I am the starter:')
+            logging.info("I am the starter!")
             self._dragon_arena = Server.create_fresh_arena()
             # self._tick_id() = 0
             self._server_sockets = \
                 [None for _ in xrange(0, das_game_settings.
                                       num_server_addresses)]
         else:
-            # I'm not first :[
+            auth_sock, auth_index = self._connect_to_first_other_server()
+            if auth_sock is None:
+                raise RuntimeError('I am not the starter! I need to wait for a starter')
+            logging.info("I am NOT the starter!".format())
+            debug_print(auth_sock, auth_index)
+            logging.info(("authority socket_index: {index}"
+                         ).format(index=auth_index))
             debug_print('AUTHORITY SERVER:', auth_index)
             '''1. SYNC REQ ===> '''
             sync_req = messaging.M_S2S_SYNC_REQ(self._server_id)
@@ -280,7 +293,7 @@ class Server:
                       ).format(server_id=self._server_id,
                                next_knight_id=next_available_counter))
         try:
-            for i in count_up_from(next_available_counter + 1):
+            for i in count_up_from(next_available_counter):
                 yield (self._server_id, i)
         except GeneratorExit:
             debug_print('Cleaning up _knight_id_generator')
@@ -488,14 +501,21 @@ class Server:
             # this variable is of the form (server_id, socket)
             print('to sync:', self._waiting_sync_server_tuples._q )
             synchee_tuple = self._waiting_sync_server_tuples.dequeue(timeout=0.3)
-            if synchee_tuple is not None and not self._i_am_the_syncher():
+            logging.info(("lowest id {lowest}. ").format(lowest=self._lowest_id_connected_server()))
+            if synchee_tuple is not None and self._server_id != self._lowest_id_connected_server():
                 # some server has entered the ring with a lower ID!
                 # They are the syncher, not me
                 # Remove and kill all connected waiting synchees.
                 # they will find the new syncher when they retry
+                sync_drained = self._waiting_sync_server_tuples.drain()
+                logging.info(("Wanted to sync, but {lowest} ID is responsible!. "
+                              "Drained and killed stored sync sockets for ids: {sync_set}."
+                              "Suppressing DONE step"
+                              ).format(sync_set={x[0] for x in sync_drained} | {synchee_tuple[0]},
+                                       lowest=self._lowest_id_connected_server()))
                 synchee_tuple[1].close()
                 synchee_tuple = None
-                for tup in self._waiting_sync_server_tuples.drain():
+                for tup in sync_drained:
                     tup[1].close()
             print('synchee_tuple', synchee_tuple)
             if synchee_tuple is not None:
@@ -647,7 +667,7 @@ class Server:
                 if other_tick_id > self._tick_id():
                     # I somehow fell behind! Lazily request the newer state they supposedly have
                     debug_print('I am behind! sending UPDATE_ME to', server_id)
-                    messaging.write_msg_to(sock, messaging.M_UPDATE_ME)
+                    messaging.write_msg_to(sock, messaging.M_S2S_UPDATE_ME())
                     logging.info(("This server is in tick {theirs}! I am behind, in tick {mine}. "
                                   "Sent UPDATE_ME."
                                  ).format(theirs=other_tick_id,

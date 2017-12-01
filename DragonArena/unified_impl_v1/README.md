@@ -61,21 +61,86 @@ Suppose we have:
 
 EVENTS THAT DISTURB STABILITY
 
-== 1. A client joins
+== 1. A client (re)joins
 
+Either the client is new, or the client rejoins after a server crash.
 
+The client is new:
 
+- The client pings all existing servers, and sorts the servers by latency.
+- The client requests the first server in this order whether it can join. It
+  includes a client-local secret/salt in the request.
+  Two cases:
+    1. The client is accepted by the server.
+       The server responds with:
+         - A _provably_ non-colliding identifier ID.
+         - A hash generated using the client's IP, the client's secret and
+           its assigned ID. (For rejoining, discussed later.)
+         - The game state, which the client stores locally. The player will
+           have been randomly* spawned on this game state.
+    2. The client is rejected by the server.
+       There can be two reasons:
+         - The game is full. The client can manually retry later.
+           (The bots will use exponential back-off.)
+         - The game is not full, but the server's workload is high relative
+           to that of other servers. The client retries the procedure with
+           the next server in the sequence. At some point it will succeed,
+           since not all servers can have relatively high workload.
 
+The client rejoins _after a server crash_:
+
+The client's token will still be on the board. The protocol is similar to
+above, except that now the client also sends the hash and its ID. The server
+can verify that the token belongs to that player, and it accepts the client
+by linking the ID to its IP.
 
 == 2. A client crashes
 
+Once a server fails to communicate with a client, it treats it like a crash.
+Its knight will be killed off and and its IP forgotten. When the client
+rejoins, it is treated like a new player.
+
+A possible future improvement would be to implement a grace period.
 
 
 == 3. A server joins
 
+Any server that joins must be synchronized with the lockstep.
 
+- Suppose Server S wants to join. Its id will be the max of all existing server
+  ids plus one. (When?)
+- S asks the server with the lowest id T to integrate it in the lockstep.
+- T will integrate S as follows:
+    - In the request exchange phase, T will send its requests, but will not
+      send any DONEs. This ensures that all other servers are waiting at the
+      barrier.
+    - Once T has received DONEs from all other servers, it computes the new
+      game state, and sends it to S. It then waits for an ack from S.
+    - Upon receiving the game state (or before?), S will establish communication with all
+      other servers. When it has done so, it sends the ack to T.
+    - T sends a DONE to all waiting servers (also S?), releasing them from the barrier.
+    - The servers now proceed in lockstep.
+
+T handles only one server join per tick, so that it is ensures that the servers
+at all times form a completely connected graph.
 
 == 4. A server crashes
+
+We assume server-server links do not fail. So if a server S loses communication
+with another server T, T has crashed. S will discard any requests from T that
+have not been followed by a DONE, and it will no longer consider T to be part
+of the lockstep.
+
+Inconsistency may result if some servers have result a DONE, while others have
+not. This corner case is dealt with as follows:
+  - Every n ticks, servers hash their game state, and exchange it with other
+    servers. If hashes differ, there is an inconsistency. The owner of
+    the largest hash will be considered the owner of the consistent game state,
+    and servers will request it.
+  - If hashes collide, it is not a big issue. Most likely the inconsistency
+    will be detected in the next cycle.
+This protocol will also correct many edge cases that have not been found in the
+analysis.
 
 
 
@@ -92,13 +157,13 @@ EVENTS THAT DISTURB STABILITY
 # Features
 ## Consistency: 
 	quite strong consistency
-	players can never get an incorrect state (only stale)
+	players can hardly ever get an incorrect state (only stale)
 	clients do not make any predictions* (no dead-reckoning)*
 	servers do not permit clients until they are certain they are up-to-date
 	servers wait for each other before proceeding
 	= servers hash their game state every n ticks, share small prefix of hash.
 	  if there is inconsistency, servers take over the game state that generated
-	  largest hash prefix (to implement). FOR CORNER CASES TO BE DISCUSSED
+	  largest hash prefix (to implement).
 
 ## Replication & Fault-tolerance:
 	if every server but one crashes, the game can continue

@@ -170,6 +170,11 @@ class Server:
             self.main_loop()
             return
 
+    def _i_am_the_syncher(self):
+        all_s_ids = {s_id for s_id, sock in self._active_servers()}
+        all_s_ids.add(self._server_id)
+        return min(all_s_ids) == self._server_id
+
     def try_setup(self):
         '''Will throw exceptions upwards if things fail'''
         debug_print('OK')
@@ -473,7 +478,9 @@ class Server:
 
             '''SWAP BUFFERS'''
             my_req_pool = self._requests.drain_if_probably_something()
-            logging.info(("drained ({num_reqs}) requests in tick {tick_id}").format(num_reqs=len(my_req_pool), tick_id=self._tick_id()))
+            logging.info(("drained ({num_reqs}) requests in tick {tick_id}"
+                         ).format(num_reqs=len(my_req_pool),
+                                  tick_id=self._tick_id()))
             '''FLOOD REQS'''
             self._step_flood_reqs(my_req_pool)
 
@@ -481,6 +488,15 @@ class Server:
             # this variable is of the form (server_id, socket)
             print('to sync:', self._waiting_sync_server_tuples._q )
             synchee_tuple = self._waiting_sync_server_tuples.dequeue(timeout=0.3)
+            if synchee_tuple is not None and not self._i_am_the_syncher():
+                # some server has entered the ring with a lower ID!
+                # They are the syncher, not me
+                # Remove and kill all connected waiting synchees.
+                # they will find the new syncher when they retry
+                synchee_tuple[1].close()
+                synchee_tuple = None
+                for tup in self._waiting_sync_server_tuples.drain():
+                    tup[1].close()
             print('synchee_tuple', synchee_tuple)
             if synchee_tuple is not None:
                 debug_print(('---eyyy Server {x} wants to sync!---'

@@ -1,11 +1,9 @@
 import time
-import sys
-import os
 import messaging
 import protected
 import das_game_settings
 import random
-from DragonArenaNew import Creature, Knight, Dragon, DragonArena
+from DragonArenaNew import Knight, Dragon
 
 
 class Player:
@@ -46,7 +44,6 @@ class HumanPlayer(Player):
 
 
 class BotPlayer(Player):
-
     @staticmethod
     def _choose_action_return_message(da, my_id):
         """ given the dragon arena 'da', make a decision on the next
@@ -90,8 +87,8 @@ class BotPlayer(Player):
             filter(lambda z: min_distance_to_dragon(z[0]) < current_min,
                    adjacent)
         # print('improving', improving)
-        available_improving = filter(lambda z: not da.is_occupied_location(z[0]),
-                                     improving)
+        available_improving =\
+            filter(lambda z: not da.is_occupied_location(z[0]), improving)
         pick_from = available_improving if available_improving else improving
         if not pick_from:
             return None
@@ -127,11 +124,11 @@ def _shitty_visualizer(da):
         ln = ''
         for x in range(w):
             try:
-                c = da._loc2creature[(x,y)]
+                c = da._loc2creature[(x, y)]
                 if isinstance(c, Dragon):
                     ln += ' ' + str(c.get_identifier()[1])
                 elif isinstance(c, Knight):
-                    ln +=' k'
+                    ln += ' k'
             except:
                 ln += ' .'
         print(ln)

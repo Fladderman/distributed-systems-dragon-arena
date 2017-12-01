@@ -1,15 +1,13 @@
 import threading
 import time
 import socket
-import sys
-import os
 import logging
 import messaging
 import random
 import das_game_settings
 import protected
 from messaging import Message, MessageError
-from DragonArenaNew import Creature, Knight, Dragon, DragonArena
+from DragonArenaNew import DragonArena
 from das_game_settings import debug_print
 import hashlib
 

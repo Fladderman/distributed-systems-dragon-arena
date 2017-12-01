@@ -1,5 +1,10 @@
-import threading, time, json, socket, sys, os, logging
-import messaging, das_game_settings, client_player, protected
+import threading
+import time
+import socket
+import messaging
+import das_game_settings
+import client_player
+import protected
 from random import shuffle
 from DragonArenaNew import DragonArena
 from messaging import Message, MessageError
@@ -7,19 +12,18 @@ from das_game_settings import debug_print
 from math import sqrt
 import random
 
-class Client:
 
+class Client:
     def __init__(self, player):
-        #TODO player reconnect after crash
-        #TODO handle S2C_REFUSE
+        # TODO player reconnect after crash
+        # TODO handle S2C_REFUSE
 
         assert isinstance(player, client_player.Player)
         self._player = player
-        self.sorted_server_ids = Client._ordered_server_list() #in order of descending 'quality
+        # in order of descending 'quality
+        self.sorted_server_ids = Client._ordered_server_list()
         debug_print('self.sorted_server_ids', self.sorted_server_ids)
         self._connect_to_a_server()
-
-
 
     def _connect_to_a_server(self, reconnect=False):
         backoff = 0.05
@@ -38,27 +42,40 @@ class Client:
                         self._random_salt = random.randint(0, 999999)
                         hello_msg = messaging.M_C2S_HELLO(self._random_salt)
                     else:
-                        hello_msg = messaging.M_C2S_HELLO_AGAIN(self._random_salt, self._my_id, self._secret)
+                        hello_msg = messaging.M_C2S_HELLO_AGAIN(
+                            self._random_salt, self._my_id, self._secret)
 
                     debug_print('about to send msg', str(hello_msg))
                     messaging.write_msg_to(self._server_socket, hello_msg)
                     '''2. get reply (expect welcome)'''
-                    reply_msg = messaging.read_msg_from(self._server_socket, timeout=das_game_settings.client_handshake_timeout)
-                    debug_print('expecting welcome. client got', str(reply_msg), ':)')
-                    if messaging.is_message_with_header_string(reply_msg, 'S2C_REFUSE'):
+                    reply_msg = messaging.read_msg_from(
+                        self._server_socket,
+                        timeout=das_game_settings.client_handshake_timeout)
+                    debug_print('expecting welcome. client got',
+                                str(reply_msg), ':)')
+                    if messaging.is_message_with_header_string(reply_msg,
+                                                               'S2C_REFUSE'):
                         debug_print('got refused!')
                         continue
-                    if not messaging.is_message_with_header_string(reply_msg, 'S2C_WELCOME'):
+                    if not messaging.is_message_with_header_string(reply_msg,
+                                                                   'S2C_WELCOME'):
                         raise RuntimeError('crash or timeout')
                     '''3. get my knight's ID'''
                     self._my_id = tuple(reply_msg.args[0])
                     self._secret = reply_msg.args[1]
                     debug_print('so far so good')
                     '''4. wait for 1st game update'''
-                    first_update = messaging.read_msg_from(self._server_socket, timeout=max(das_game_settings.max_done_wait, das_game_settings.client_handshake_timeout))
-                    debug_print('expecting update. client got', str(first_update))
-                    if not messaging.is_message_with_header_string(first_update, 'UPDATE'):
-                        raise RuntimeError('got' + str(first_update) + 'instead of first update')
+                    first_update =\
+                        messaging.read_msg_from(
+                            self._server_socket,
+                            timeout=max(das_game_settings.max_done_wait,
+                                        das_game_settings.client_handshake_timeout))
+                    debug_print('expecting update. client got',
+                                str(first_update))
+                    if not messaging.is_message_with_header_string(
+                            first_update, 'UPDATE'):
+                        raise RuntimeError('got' + str(first_update) +
+                                           'instead of first update')
 
                     '''5. try deserialize and extract game state'''
                     self._protected_game_state = protected.ProtectedDragonArena(
@@ -75,13 +92,14 @@ class Client:
 
     @staticmethod
     def _ordered_server_list():
-        server_addresses = das_game_settings.server_addresses # long name
+        server_addresses = das_game_settings.server_addresses  # long name
         rtts = [
             Client.measure_rtt_to(*addr)
             for addr in server_addresses
         ]
         # sort server addresses according to rtts
-        ordered = [i for _,i in sorted(zip(rtts, range(len(server_addresses))))]
+        ordered = [i for _, i in sorted(zip(rtts,
+                                            range(len(server_addresses))))]
         debug_print('rtts', rtts)
         debug_print('ordered', ordered)
 
@@ -94,10 +112,11 @@ class Client:
     def measure_rtt_to(ip, port):
         debug_print('rtt to...', ip, port, 'is...')
         start_time = time.time()
-        result = Client.sock_client(ip, port, timeout=das_game_settings.client_ping_max_time)
+        result = Client.sock_client(
+            ip, port, timeout=das_game_settings.client_ping_max_time)
         rtt = (time.time() - start_time
-              if result is not None
-              else das_game_settings.client_ping_max_time)
+               if result is not None
+               else das_game_settings.client_ping_max_time)
         if result is not None:
             result.close()
         debug_print('rtt', rtt)
@@ -136,7 +155,8 @@ class Client:
         debug_print('main incoming')
         # while True:
         #     msg = messaging.read_msg_from(self._server_socket, timeout=None)
-        for msg in messaging.generate_messages_from(self._server_socket, timeout=None):
+        for msg in messaging.generate_messages_from(self._server_socket,
+                                                    timeout=None):
             debug_print(str(msg))
             if msg != MessageError.CRASH:
                 if msg.header_matches_string('UPDATE'):
@@ -149,7 +169,8 @@ class Client:
 
 
     def main_outgoing_loop(self):
-        req_generator = self._player.main_loop(self._protected_game_state, self._my_id)
+        req_generator = self._player.main_loop(self._protected_game_state,
+                                               self._my_id)
         debug_print('ready?')
         for request in req_generator:
             debug_print('player yielded request', request)

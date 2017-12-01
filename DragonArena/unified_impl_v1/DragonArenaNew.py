@@ -1,6 +1,7 @@
 import itertools
 import random
 import das_game_settings as dgs
+from hashlib import sha1
 from sys import maxsize
 
 
@@ -648,3 +649,7 @@ class DragonArena:
             return "knights"
         else:
             return "dragons"
+
+    # https: // cyan4973.github.io / xxHash /
+    def get_hash(self):
+        return sha1(str(self.serialize())).hexdigest()[:8]

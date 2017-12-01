@@ -1,5 +1,4 @@
 # How to use
-
 To try out the system:
     as the server, run:
     ```
@@ -12,8 +11,6 @@ To try out the system:
     $ python2 ./client $1
     ```
     where `$1` is in {'bot', 'human', 'ticking'}
-
-
 
 # Overview
 servers tick in lockstep.
@@ -34,7 +31,7 @@ if a server somehow falls behind:
     and it will accept the fresher state when it comes.
 
 # Features
-## Consistency:
+## Consistency: 
 	quite strong consistency
 	players can never get an incorrect state (only stale)
 	clients do not make any predictions* (no dead-reckoning)*

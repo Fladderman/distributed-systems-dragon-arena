@@ -643,7 +643,7 @@ class DragonArena:
         self._tick += 1
 
     def get_winner(self):
-        assert self.game_over # precondition
+        assert self.game_over  # precondition
 
         if self._no_of_living_dragons == 0:
             return "knights"

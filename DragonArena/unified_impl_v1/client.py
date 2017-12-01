@@ -11,6 +11,7 @@ from messaging import Message, MessageError
 from das_game_settings import debug_print
 from math import sqrt
 import random
+import os
 
 
 class Client:
@@ -163,6 +164,11 @@ class Client:
                     new_state = DragonArena.deserialize(msg.args[1])
                     self._protected_game_state.replace_arena(new_state)
                     debug_print('replaced arena! :D')
+                    if new_state.game_over:
+                        time.sleep(2.0)
+                        print(('GAME OVER! {winners} win!'
+                              ).format(winners=new_state.get_winner()))
+                        os._exit(0)
             else:
                 debug_print('Socket dead! incoming handler dying!')
                 # return

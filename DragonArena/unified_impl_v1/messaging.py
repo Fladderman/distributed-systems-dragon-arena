@@ -22,7 +22,7 @@ int2header = [
     'C2S_HELLO',
     'C2S_HELLO_AGAIN',
     'S2C_WELCOME',
-    'REFUSE',
+    'S2C_REFUSE',
     'SPAWN',
     'DESPAWN',
     'DONE',

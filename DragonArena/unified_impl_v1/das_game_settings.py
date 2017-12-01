@@ -13,8 +13,15 @@ S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 1.5
 dragon_ap_bounds = [5, 20]
 dragon_hp_bounds = [50, 100]
+knight_ap_bounds = [2, 10]
+knight_hp_bounds = [50, 100]
+'''
+# Here are the default values in case we change them:
+dragon_ap_bounds = [5, 20]
+dragon_hp_bounds = [50, 100]
 knight_ap_bounds = [1, 10]
 knight_hp_bounds = [10, 20]
+'''
 
 # A server will certainly not refuse a new client if the server
 # has < min_server_client_capacity clients
@@ -37,7 +44,6 @@ dragon_attack_period = 1.0
 def debug_print(*args):
     if debug_printing:
         print args
-
 
 ticks_per_dragon_attack = int(round(dragon_attack_period/server_min_tick_time))
 num_server_addresses = len(server_addresses)

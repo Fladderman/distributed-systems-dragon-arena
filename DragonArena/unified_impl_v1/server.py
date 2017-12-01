@@ -124,7 +124,7 @@ class ServerAcceptor:
         self._sock.listen(das_game_settings.backlog)
 
     def shutdown(self):
-        self.__sock.close()
+        self._sock.close()
         debug_print('Acceptor shutting down!')
 
     def generate_incoming_sockets(self):
@@ -134,6 +134,9 @@ class ServerAcceptor:
                 yield client_socket, addr
         except GeneratorExit:
             debug_print('acceptor generator killed')
+            return
+        except Exception as e:
+            debug_print('Acceptor listening socket closed.')
             return
 
 class Server:
@@ -744,7 +747,7 @@ class Server:
                 self._client_sockets.pop(addr)
         logging.info(("All updates done for tick_id {tick_id}"
                      ).format(tick_id=self._tick_id()))
-        if self._dragon_arena._game_over:
+        if self._dragon_arena.game_over:
             debug_print('GAME OVER!')
             self._server_acceptor.shutdown()
             logging.info(("GAME OVER! {winners} win! Acceptor shutdown. "

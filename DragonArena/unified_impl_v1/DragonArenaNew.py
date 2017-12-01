@@ -80,6 +80,8 @@ class DragonArena:
         # allow at least one knight to be spawned
         assert no_of_dragons < map_width * map_height
 
+        self.game_over = False
+
         self.key = random.randint(0, 100000)
 
         self._tick = 1
@@ -247,6 +249,8 @@ class DragonArena:
     def new_game(self):
         self._tick = 0
 
+        self.game_over = False
+
         self.key = random.randint(0, 10000)
 
         # Initialize all dragon objects.
@@ -336,6 +340,7 @@ class DragonArena:
         end_game_msg = ""
 
         if self._all_knights_are_dead():
+            self.game_over = True
             end_game_msg = ("\n=== GAME OVER\n"
                             "All knights are dead. The dragons win!")
 
@@ -418,12 +423,14 @@ class DragonArena:
                 self._no_of_living_knights -= 1
 
                 if self._all_knights_are_dead():
+                    self.game_over = True
                     end_game_msg = ("\n=== GAME OVER\n"
                                     "All knights are dead. The dragons win!")
             else:
                 self._no_of_living_dragons -= 1
 
                 if self._all_dragons_are_dead():
+                    self.game_over = True
                     end_game_msg = ("\n=== GAME OVER\n"
                                     "All dragons are dead. The knights win!")
 
@@ -576,7 +583,8 @@ class DragonArena:
                 serial_creature2loc,
                 dead_creature_ids,
                 self._tick,
-                self.key
+                self.key,
+                self.game_over
                 )
 
     @staticmethod
@@ -588,6 +596,7 @@ class DragonArena:
         dead_creature_ids = o[4]
         tick = o[5]
         key = o[6]
+        game_over = o[7]
 
         creature2loc_list = \
             map(lambda l: (Creature.deserialize(l[0]), tuple(l[1])),
@@ -602,14 +611,15 @@ class DragonArena:
             id2creature[tuple(identifier)] = None
 
         arena = DragonArena(no_of_dragons, map_width, map_height)
-        arena.restore(creature2loc, id2creature, tick, key)
+        arena.restore(creature2loc, id2creature, tick, key, game_over)
 
         return arena
 
     # called exclusively by deserialize in the DragonArena class!
-    def restore(self, creature2loc, id2creature, tick, key):
+    def restore(self, creature2loc, id2creature, tick, key, game_over):
         self._tick = tick
         self.key = key
+        self.game_over = game_over
         self._creature2loc = creature2loc
         self._id2creature = id2creature
 
@@ -630,3 +640,11 @@ class DragonArena:
 
     def increment_tick(self):
         self._tick += 1
+
+    def get_winner(self):
+        assert self.game_over # precondition
+
+        if self._no_of_living_dragons == 0:
+            return "knights"
+        else:
+            return "dragons"

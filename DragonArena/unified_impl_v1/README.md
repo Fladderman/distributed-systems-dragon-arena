@@ -11,31 +11,11 @@ To try out the system:
     ```
     $ python2 ./client $1
     ```
-    where `$1` is in {'bot', 'human'}
+    where `$1` is in {'bot', 'human', 'ticking'}
 
 
-# Views:
-    Players:
-        main loop. has access only to two objects:
-        1. protected game state
-        2. protected outgoing request queue
-        players loop, check the values of (1), and push requests to (2)
-        updates come in and change (1) as if by magic, wow
 
-    Clients:
-        will first try to connect to a server
-        once connected, will synchronize and get a game state
-        client protects game state with a ProtectedGameState wrapper
-        will spawn a thread which start the PLAYER up
-        clients and players run autonomously, and are connected by:
-        1. protected request queue (player produces, client consumes)
-        2. protected game state (player views, client modifies)
-        client splits and enters 2 loops:
-        1. get updates from server, apply to game state
-        2. drain player update requests and forward them to the server
-
-
-# Features
+# Overview
 servers tick in lockstep.
 a newcomer server will:
     stop lockstep,
@@ -52,3 +32,28 @@ if a client crashes:
 if a server somehow falls behind:
     it will lazily request an update from someone else,
     and it will accept the fresher state when it comes.
+
+# Features
+## Consistency:
+	quite strong consistency
+	players can never get an incorrect state (only stale)
+	clients do not make any predictions* (no dead-reckoning)*
+	servers do not permit clients until they are certain they are up-to-date
+	servers wait for each other before proceeding
+
+## Replication & Fault-tolerance:
+	if every server but one crashes, the game can continue
+	with a speedy connection, no player may even notice
+	Every server logs every message in, and every significant connection event
+
+## Robustness & Security:
+	Client expressiveness is minimized
+		("I attack Bob" instead of "I, as player X attack Bob for 5 damage)
+
+	Clients can send incorrect/ messages. Servers discard incorrect messages
+	game can function correctly with dynamic number of servers
+		caveat: you have to set an upper-bound ahead of time.
+		a higher bound imposes a tiny performance cost at server start-up
+
+## Transparency
+	Clients rejoin automatically if their server crashes. they may not even notice

@@ -19,7 +19,7 @@ class ProtectedDragonArena:
     eg:
         # `with` block begins.
         # return value of __enter__ bound to `n`. acquired lock
-        with protected_dragon_arena as n: 
+        with protected_dragon_arena as n:
             n.foo()
             n.bar()
             x = n.get(3)
@@ -42,8 +42,8 @@ class ProtectedQueue:
 
     def dequeue(self, timeout=1.0):
         with self._cv:
-            self._cv.wait(timeout=self.timeout)
-            try: x = self._q.pop()
+            self._cv.wait(timeout=timeout)
+            try: return self._q.pop()
             except: return None
 
     def enqueue(self, x):

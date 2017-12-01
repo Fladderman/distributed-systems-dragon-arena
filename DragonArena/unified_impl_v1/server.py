@@ -360,70 +360,10 @@ class Server:
                 debug_print('newcomer socket died in the cradle :(. Hopefully just a ping. killing incoming reader daemon')
                 return
             debug_print('_handle_socket_incoming yielded', msg)
-            if messaging.is_message_with_header_string(msg, 'C2S_HELLO'):
-                if self._i_should_refuse_clients():
-                    messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
-                    logging.info(("Refused a client at {addr} "
-                                  "Server loads are currently approx. {loads}."
-                                  ).format(addr=addr,
-                                  loads=self._server_client_load))
-                    return
-
-                debug_print('new client!')
-                # yields STOPITERATION on crash???
-                player_id = next(self._knight_id_generator)
-                logging.info(("Generated player/knight ID {player_id} "
-                              "for the new client."
-                              ).format(player_id=player_id))
-
-                spawn_msg = messaging.M_SPAWN(self._server_id, player_id)
-                logging.info(("Enqueued spawn request {spawn_msg} "
-                              "for the new client."
-                              ).format(spawn_msg=spawn_msg))
-                self._requests.enqueue(spawn_msg)
-                client_secret = Server._client_secret(addr[0], tuple(player_id), msg.args[0], self._dragon_arena.key)
-                welcome = messaging.M_S2C_WELCOME(self._server_id, player_id, client_secret)
-                logging.info(("Derived client secret {client_secret}."
-                              ).format(client_secret=client_secret))
-                debug_print('welcome', welcome)
-                messaging.write_msg_to(sock, welcome)
-                debug_print('welcomed it!')
-                self._client_sockets[addr] = sock
-                self._handle_client_incoming(sock, addr, player_id)
-                return
-            elif messaging.is_message_with_header_string(msg,'C2S_HELLO_AGAIN'):
-                if self._i_should_refuse_clients():
-                    messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
-                    logging.info(("Refused a client at {addr} "
-                                  "Server loads are currently approx. {loads}."
-                                  ).format(addr=addr,
-                                           loads=self._server_client_load))
-                    return
-                debug_print('returning client!')
-                salt = msg.args[0]
-                knight_id = msg.args[1]
-                secret = msg.args[2]
-                #ip, player_id, client_random_salt
-                secret_should_be = Server._client_secret(addr[0], tuple(knight_id), salt, self._dragon_arena.key)
-                if secret != secret_should_be:
-                    debug_print('secret mismatch!')
-                    logging.info(("Refused a client`s reconnection. Secret was {secret} but should have been {secret_should_be}."
-                                  ).format(secret_should_be=secret_should_be,
-                                           secret=secret))
-                    messaging.write_msg_to(sock, messaging.M_REFUSE())
-                else:
-
-                    logging.info(("Client successfully reconnected with secret {secret}."
-                                  ).format(secret=secret))
-                    welcome = messaging.M_S2C_WELCOME(self._server_id, knight_id, secret)
-                    logging.info(("Derived client secret {client_secret}."
-                                  ).format(client_secret=secret))
-                    debug_print('welcome', welcome)
-                    messaging.write_msg_to(sock, welcome)
-                    debug_print('welcomed it back!')
-                    self._client_sockets[addr] = sock
-                    self._handle_client_incoming(sock, addr, player_id)
-                return
+            if msg.header_matches_string("C2S_HELLO"):
+                self._handle_client_join(msg, sock, addr, hello_again=False)
+            elif msg.header_matches_string("C2S_HELLO_AGAIN"):
+                self._handle_client_join(msg, sock, addr, hello_again=True)
             elif msg.header_matches_string('S2S_HELLO'):
                 debug_print('server is up! synced by someone else server!')
                 self._server_sockets[msg.sender] = sock
@@ -434,6 +374,56 @@ class Server:
                 self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
                 debug_print('newcomer handler exiting')
                 return
+
+    def _handle_client_join(self, msg, sock, addr, hello_again):
+        # NOTE knight_id analagous to player_id
+        if self._i_should_refuse_clients():
+            messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
+            logging.info(("Refused a client at {addr} "
+                          "Server loads are currently approx. {loads}."
+                          "Client wanted to rejoin: {rejoin}"
+                          ).format(addr=addr,
+                                   loads=self._server_client_load,
+                                   rejoin=hello_again))
+            return
+        if not hello_again:
+            # New client! generate new knight
+            player_id = next(self._knight_id_generator)
+            logging.info(("Generated player/knight ID {player_id} "
+                          "for the new client."
+                          ).format(player_id=player_id))
+            spawn_msg = messaging.M_SPAWN(self._server_id, player_id)
+            logging.info(("Enqueued spawn request {spawn_msg} "
+                          "for the new client."
+                          ).format(spawn_msg=spawn_msg))
+            self._requests.enqueue(spawn_msg)
+            derived_secret = Server._client_secret(addr[0], tuple(player_id), msg.args[0], self._dragon_arena.key)
+        else:
+            # Reconnecting client
+            debug_print('returning client!')
+            salt = msg.args[0]
+            player_id = msg.args[1]
+            received_secret = msg.args[2]
+            derived_secret = Server._client_secret(addr[0], tuple(player_id), salt, self._dragon_arena.key)
+            if received_secret != derived_secret:
+                debug_print('secret mismatch!')
+                logging.info(("Refused a client`s reconnection. Received sescret {received_secret}, "
+                              "but should have been {derived_secret}."
+                              ).format(derived_secret=derived_secret,
+                                       received_secret=received_secret))
+                messaging.write_msg_to(sock, messaging.M_REFUSE())
+                return
+            logging.info(("Client successfully reconnected with secret {received_secret}."
+                          ).format(received_secret=received_secret))
+
+        # reconnecting or not...
+        welcome = messaging.M_S2C_WELCOME(self._server_id, player_id, derived_secret)
+        messaging.write_msg_to(sock, welcome)
+        debug_print(('welcomed client/knight {player_id} to the game'
+                    ).format(player_id=player_id))
+        self._client_sockets[addr] = sock
+        self._handle_client_incoming(sock, addr, player_id)
+        return
 
     def _handle_client_incoming(self, sock, addr, player_id):
         #TODO this function gets as param the player's knight ID
@@ -483,13 +473,18 @@ class Server:
             '''FLOOD REQS'''
             self._step_flood_reqs(my_req_pool)
 
-            current_sync_tuples = self._waiting_sync_server_tuples.drain_if_probably_something()
-            if current_sync_tuples:
-                debug_print('---eyyy there are current sync tuples!---', current_sync_tuples)
+            # synchee_tuple is server getting synched
+            # this variable is of the form (server_id, socket)
+            print('to sync:', self._waiting_sync_server_tuples._q )
+            synchee_tuple = self._waiting_sync_server_tuples.dequeue(timeout=0.3)
+            print('synchee_tuple', synchee_tuple)
+            if synchee_tuple is not None:
+                debug_print(('---eyyy Server {x} wants to sync!---'
+                            ).format(x=synchee_tuple[0]))
                 # collect DONES before sending your own
-                logging.info(("servers {set} waiting to sync! LEADER tick."
+                logging.info(("server {server_id} waiting to sync! LEADER tick."
                               "Suppressing DONE step"
-                              ).format(set=map(lambda x: x[0], current_sync_tuples)))
+                              ).format(server_id=synchee_tuple[0]))
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
@@ -497,18 +492,18 @@ class Server:
                 '''APPLY AND LOG'''
                 _apply_and_log_all(self._dragon_arena, req_sequence)
                 '''### SPECIAL SYNC STEP ###''' # returns when sync is complete
-                self._step_sync_servers(current_sync_tuples)
+                self._step_sync_server(*synchee_tuple)
                 logging.info(("Sync finished. Releasing DONE flood for tick {tick_id}"
                              ).format(tick_id=self._tick_id()))
                 '''<<STEP FLOOD DONE>>'''
-                self._step_flood_done(except_server_ids={serv_addr for serv_addr, sock in current_sync_tuples},
+                self._step_flood_done(except_server_id=synchee_tuple,
                                         tick_count_modifier=-1)
 
             else: #NO SERVERS WAITING TO SYNC
                 # send own DONES before collecting those of others
                 logging.info(("No servers waiting to sync. Normal tick").format())
                 '''<<STEP FLOOD DONE>>'''
-                self._step_flood_done(except_server_ids={})
+                self._step_flood_done(except_server_id=None)
                 '''READ REQS AND WAIT'''
                 my_req_pool.extend(self._step_read_reqs_and_wait())
                 '''SORT REQ SEQUENCE'''
@@ -570,7 +565,7 @@ class Server:
             except:
                  logging.info(("Flooding reqs to serv_id {serv_id} crashed!").format(serv_id=serv_id))
 
-    def _step_flood_done(self, except_server_ids, tick_count_modifier=0):
+    def _step_flood_done(self, except_server_id=None, tick_count_modifier=0):
         # need to specify except_server_ids of newly-synced server. this prevents them from getting an extra DONE
         done_msg = messaging.M_DONE(self._server_id, self._tick_id() + tick_count_modifier, len(self._client_sockets))
         logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}"
@@ -578,7 +573,7 @@ class Server:
                                servers=self._active_server_indices()))
         '''SEND DONE'''
         for server_id in self._active_server_indices():
-            if server_id in except_server_ids:
+            if server_id is except_server_id:
                 logging.info(("Suppressing {server_id}'s DONE message."
                               "It was newly synced and wasn't part of the barrier."
                               ).format(server_id=server_id))
@@ -587,8 +582,7 @@ class Server:
             if messaging.write_msg_to(sock, done_msg):
                 logging.info(("sent {done_msg} to server_id {server_id}"
                              ).format(done_msg=done_msg, server_id=server_id))
-
-                # crash
+         #Note. crash in this loop leads other servers to arrive at inconsistent state
 
     def _step_read_reqs_and_wait(self):
         res = []
@@ -683,46 +677,38 @@ class Server:
     def _tick_id(self):
         return self._dragon_arena.get_tick()
 
-    def _step_sync_servers(self, sync_tuples):
-        #synced server has the NEXT tick_d as the starting tick, as they start with the 'freshly synced' state
-        #TODO ensure tick IDs are matching up
+    def _step_sync_server(self, synchee_id, socket):
         update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id(),
                                                 self._dragon_arena.serialize())
+        if socket is None:
+            return
+        debug_print('syncing:', synchee_id, socket)
+        if not messaging.write_msg_to(socket, update_msg):
+            debug_print('failed to send sync msg')
+            logging.info(("Failed to send sync msg to waiting server "
+                          "{synchee_id}").format(synchee_id=synchee_id))
+            return
 
-        # TODO clean up. check correctness
-        for sender_id, socket in sync_tuples:
-            if socket is None:
-                continue
-            debug_print('sync tup:', sender_id, socket)
-            if messaging.write_msg_to(socket, update_msg):
-                logging.info(("Sent sync msg {update_msg} to waiting server "
-                              "{sender_id}").format(update_msg=update_msg,
-                                                    sender_id=sender_id))
-            else:
-                debug_print('failed to send sync msg')
-                break
-                logging.info(("Failed to send sync msg to waiting server "
-                              "{sender_id}").format(sender_id=sender_id))
-
-            debug_print('awaiting SYNC DONE from ',sender_id,'...')
-            logging.info(("awaiting SYNC DONE from {sender_id}...  "
-                          ).format(sender_id=sender_id))
-            sync_done = messaging.read_msg_from(socket, timeout=das_game_settings.max_server_sync_wait)
-            if messaging.is_message_with_header_string(sync_done, 'S2S_SYNC_DONE'):
-                logging.info(("Got {msg} from sync server {sender_id}! "
-                              ":)").format(msg=sync_done, sender_id=sender_id))
-                debug_print('SYNCED',sender_id,'YA, BUDDY :)')
-                self._server_sockets[sender_id] = socket
-                logging.info(("Spawned incoming handler for"
-                              "newly-synced server {sender_id}"
-                             ).format(sender_id=sender_id))
-            else:
-                debug_print('either timed out or crashed. either way, disregarding')
-                logging.info(("Hmm. It seems that {sender_id} has"
-                              "crashed before syncing. Oh well :/"
-                             ).format(sender_id=sender_id))
-
-        logging.info(("Got to end of sync").format())
+        logging.info(("Sent sync msg {update_msg} to waiting server "
+                      "{synchee_id}").format(update_msg=update_msg,
+                                            synchee_id=synchee_id))
+        debug_print('awaiting SYNC DONE from ',synchee_id,'...')
+        logging.info(("awaiting SYNC DONE from {synchee_id}...  "
+                      ).format(synchee_id=synchee_id))
+        sync_done = messaging.read_msg_from(socket, timeout=das_game_settings.max_server_sync_wait)
+        if messaging.is_message_with_header_string(sync_done, 'S2S_SYNC_DONE'):
+            logging.info(("Got {msg} from sync server {synchee_id}! "
+                          ":)").format(msg=sync_done, synchee_id=synchee_id))
+            debug_print('SYNCED',synchee_id,'YA, BUDDY :)')
+            self._server_sockets[synchee_id] = socket
+            logging.info(("Spawned incoming handler for"
+                          "newly-synced server {synchee_id}"
+                         ).format(synchee_id=synchee_id))
+        else:
+            debug_print('either timed out or crashed. either way, disregarding')
+            logging.info(("Hmm. It seems that {synchee_id} has"
+                          "crashed before syncing. Oh well :/"
+                         ).format(synchee_id=synchee_id))
 
     def _step_update_clients(self):
         update_msg = messaging.M_UPDATE(self._server_id, self._tick_id(), self._dragon_arena.serialize())

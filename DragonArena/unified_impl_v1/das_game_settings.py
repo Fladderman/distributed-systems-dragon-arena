@@ -29,7 +29,7 @@ min_server_client_capacity = 3
 
 # A server will consider itself 'over capacity' if it has server
 # overcapacity_ratio times the average server load
-server_overcapacity_ratio = 1.3
+server_overcapacity_ratio = 4
 dragon_arena_init_settings = {'no_of_dragons': 10,
                               'map_width': 25,
                               'map_height': 25

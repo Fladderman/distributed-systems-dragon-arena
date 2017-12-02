@@ -28,7 +28,7 @@ int2header = [
     'DONE',
     'DONE_HASHED',
     'UPDATE',
-    'S2S_UPDATE'
+    'S2S_UPDATE',
     'R_HEAL',
     'R_ATTACK',
     'R_MOVE',
@@ -201,6 +201,10 @@ def M_S2C_WELCOME(s_id, knight_id, secret):
 
 def M_UPDATE(s_id, tick_id, serialized_state):
     return Message(header2int['UPDATE'], s_id, [tick_id, serialized_state])
+
+
+def M_S2S_UPDATE(s_id, tick_id, serialized_state, previous_hash):
+    return Message(header2int['S2S_UPDATE'], s_id, [tick_id, serialized_state, previous_hash])
 
 
 def M_SPAWN(s_id, knight_id):

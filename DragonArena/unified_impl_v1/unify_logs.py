@@ -1,5 +1,5 @@
 import glob, os, heapq
-out_file = 'server_logs_unified.log'
+out_file = 'logs_unified.log'
 use_files = list(glob.glob("*.log"))
 if out_file in use_files:
     use_files.remove(out_file)

@@ -159,7 +159,7 @@ class Server:
         assert isinstance(is_starter, bool)
         log_filename = 'server_{s_id}.log'.format(s_id=server_id)
         logging.basicConfig(filename=log_filename,
-                            filemode='w',
+                            filemode='a',
                             level=logging.INFO,
                             format='%(asctime)s.%(msecs)03d srv '+ '{: <3d}'.format(server_id) + Server._my_logging_icon(server_id) + ' %(message)s',
                             datefmt='%a %H:%M:%S')
@@ -415,10 +415,10 @@ class Server:
                 derived_secret = Server._server_secret(msg.sender)
                 if received_secret == derived_secret:
                     logging.info(("This is server {s_id} that wants to sync! "
-                                  "Killing incoming handler. wouldn't want to "
-                                  "interfere with main thread. "
-                                  "Setting FLAG for tick thread"
-                                  ).format(s_id=msg.sender))
+                                  "Secrets matched with {received_secret}. "
+                                  "Killing incoming handler. Setting FLAG for tick thread."
+                                  ).format(s_id=msg.sender,
+                                           received_secret=received_secret))
                     self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
                     debug_print('newcomer handler exiting')
                 else:
@@ -426,8 +426,8 @@ class Server:
                                   "their secret {received_secret} mismatches "
                                   "mine {derived_secret}"
                                   ).format(s_id=msg.sender))
-                    self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
                     debug_print('newcomer handler exiting')
+                    messaging.write_msg_to(sock, messaging.M_REFUSE())
                 return
 
     def _handle_client_join(self, msg, sock, addr, hello_again):

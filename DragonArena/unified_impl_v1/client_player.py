@@ -4,6 +4,8 @@ import protected
 import das_game_settings
 import random
 from DragonArenaNew import Knight, Dragon
+from drawing import ascii_draw
+from DragonArenaNew import Direction
 
 
 class Player:
@@ -28,6 +30,37 @@ class TickingPlayer(Player):
             # clean up generator
             return
 
+class FuzzerPlayer(Player):
+    """ main_loop() is a generator that `yield`s request messages.
+        (client outgoing thread is calling and will forward yielded messages)
+    the game is over then the generator returns
+    """
+
+    @staticmethod
+    def main_loop(protected_dragon_arena, my_id):
+        assert isinstance(protected_dragon_arena,
+                          protected.ProtectedDragonArena)
+        print('fuzzer player main loop')
+        print('my id', my_id)
+        # has self._game_state_copy
+        try:
+            while True:  # TODO: while game.playing    # Roy: And I'm not dead?
+                time.sleep(random.uniform(0.0001, das_game_settings.server_min_tick_time))
+                with protected_dragon_arena as da:
+                    try:
+                        x = random.choice(range(4))
+                        if x == 0:
+                            choice = messaging.M_R_ATTACK()
+
+                    except Exception as e:
+                        choice = None
+                        debug_print("FUZZER CRASHED WHEN DECIDING", e)
+                # `with` expired. dragon arena unlocked
+                if choice is not None:
+                    yield choice
+        except GeneratorExit:
+            # clean up generator
+            return
 
 class HumanPlayer(Player):
     """ main_loop() is a generator that `yield`s request messages.
@@ -79,8 +112,8 @@ class BotPlayer(Player):
         current_min = min_distance_to_dragon(my_loc)
         # print('current_min', current_min)
         adjacent = filter(lambda z: da.is_valid_location(z[0]),
-                          [((x+1, y), 'd'), ((x-1, y), 'u'),
-                           ((x, y+1), 'r'), ((x, y-1), 'l')])
+                          [((x+1, y), Direction.DOWN), ((x-1, y), Direction.UP),
+                           ((x, y+1), Direction.RIGHT), ((x, y-1), Direction.LEFT)])
         # print('adjacent' , adjacent)
         #MUST be non-empty
         improving = \
@@ -103,11 +136,12 @@ class BotPlayer(Player):
         print('bot player main loop')
         print('my id', my_id)
         # has self._game_state_copy
+        st = das_game_settings.server_min_tick_time
         try:
             while True:  # TODO: while game.playing    # Roy: And I'm not dead?
-                time.sleep(das_game_settings.server_min_tick_time)
+                time.sleep(random.uniform(st*0.8, st/0.8))
                 with protected_dragon_arena as da:
-                    _shitty_visualizer(da)
+                    ascii_draw(da, me=my_id)
                     try:
                         choice = BotPlayer._choose_action_return_message(da, my_id)
                     except Exception as e:
@@ -119,21 +153,3 @@ class BotPlayer(Player):
         except GeneratorExit:
             # clean up generator
             return
-
-def _shitty_visualizer(da):
-    print('tick', da.get_tick())
-    w = da._map_width
-    h = da._map_height
-    print '--------------------------------------'
-    for y in range(h):
-        ln = ''
-        for x in range(w):
-            try:
-                c = da._loc2creature[(x, y)]
-                if isinstance(c, Dragon):
-                    ln += ' ' + str(c.get_identifier()[1])
-                elif isinstance(c, Knight):
-                    ln += ' k'
-            except:
-                ln += ' .'
-        print(ln)

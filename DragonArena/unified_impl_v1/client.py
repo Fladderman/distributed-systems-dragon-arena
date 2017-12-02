@@ -42,7 +42,7 @@ class Client:
 
     def _connect_to_a_server(self, reconnect=False):
         logging.info("Connecting to server...")
-        backoff = 0.05
+        backoff = 0.01
         while True:
             for serv_id in self.sorted_server_ids:
                 try:
@@ -114,7 +114,7 @@ class Client:
             logging.info(('Backing off. Sleeping {sec}'
                         ).format(sec=backoff))
             debug_print('backing off...', backoff)
-            backoff = sqrt(backoff * 2)
+            backoff = sqrt(backoff * 1.7)
 
     @staticmethod
     def _ordered_server_list():

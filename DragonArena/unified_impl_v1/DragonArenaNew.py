@@ -4,6 +4,11 @@ import das_game_settings as dgs
 import hashlib
 from sys import maxsize
 
+class Direction:
+    RIGHT = 0
+    UP = 1
+    LEFT = 2
+    DOWN = 3
 
 class Creature:
     def __init__(self, name, identifier, max_hp, curr_hp, ap):

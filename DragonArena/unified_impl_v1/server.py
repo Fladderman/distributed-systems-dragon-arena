@@ -7,10 +7,11 @@ import random
 import das_game_settings
 import protected
 from messaging import Message, MessageError
-from DragonArenaNew import DragonArena
+from DragonArenaNew import DragonArena, Direction
 from das_game_settings import debug_print
 import hashlib
 from math import pow
+from drawing import ascii_draw
 
 # #####################################
 # SUBPROBLEMS START:
@@ -53,13 +54,13 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
         result = ""
 
         if msg.header_matches_string("R_MOVE"):
-            if msg.args[0] == 'u':
+            if msg.args[0] == Direction.UP:
                 result = dragon_arena.move_up(msg.sender)
-            elif msg.args[0] == 'r':
+            elif msg.args[0] == Direction.RIGHT:
                 result = dragon_arena.move_right(msg.sender)
-            elif msg.args[0] == 'd':
+            elif msg.args[0] == Direction.DOWN:
                 result = dragon_arena.move_down(msg.sender)
-            elif msg.args[0] == 'l':
+            elif msg.args[0] == Direction.LEFT:
                 result = dragon_arena.move_left(msg.sender)
             else:
                 bad = True
@@ -191,7 +192,7 @@ class Server:
     def try_setup(self):
         '''Will throw exceptions upwards if things fail'''
         debug_print('OK')
-        print('self._is_starter:', self._is_starter)
+        debug_print('self._is_starter:', self._is_starter)
         if self._is_starter:
             debug_print('I am the starter:')
             logging.info("I am the starter!")
@@ -539,7 +540,7 @@ class Server:
 
             # synchee_tuple is server getting synched
             # this variable is of the form (server_id, socket)
-            print('to sync:', self._waiting_sync_server_tuples._q )
+            debug_print('to sync:', self._waiting_sync_server_tuples._q )
             synchee_tuple = self._waiting_sync_server_tuples.dequeue(timeout=0.3)
             logging.info(("lowest id {lowest}. ").format(lowest=self._lowest_id_connected_server()))
             if synchee_tuple is not None and self._server_id != self._lowest_id_connected_server():
@@ -557,7 +558,7 @@ class Server:
                 synchee_tuple = None
                 for tup in sync_drained:
                     tup[1].close()
-            print('synchee_tuple', synchee_tuple)
+            debug_print('synchee_tuple', synchee_tuple)
             if synchee_tuple is not None:
                 debug_print(('---eyyy Server {x} wants to sync!---'
                             ).format(x=synchee_tuple[0]))
@@ -619,6 +620,9 @@ class Server:
                     messaging.write_msg_to(self._server_sockets[server_id], s2s_update_msg)
             self._servers_that_need_updating.clear()
 
+            if debug_print:
+                ascii_draw(self._dragon_arena)
+
             '''SLEEP STEP'''
             # TODO put back in later
             if self._waiting_sync_server_tuples.poll_nonempty():
@@ -651,7 +655,7 @@ class Server:
         if my_load < max(0, das_game_settings.min_server_client_capacity):
             debug_print('I can certainly take more')
             return False
-        average_server_load = rough_total_clients / float(total_num_servers)
+        average_server_load = sum(total_active_loads) / float(total_num_servers)
         return my_load > (average_server_load * das_game_settings.server_overcapacity_ratio)
 
     def _active_server_indices(self):

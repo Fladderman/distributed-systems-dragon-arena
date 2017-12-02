@@ -55,14 +55,19 @@ class Message:
         try:
             assert isinstance(msg_header, int) and \
                    msg_header in range(0, len(int2header))
-            assert isinstance(sender, int)
+            assert isinstance(sender, int) or isinstance(sender, list) or isinstance(sender, tuple)
             assert isinstance(args, list)
             self.msg_header = msg_header
+            if not isinstance(sender, int):
+                sender = tuple(sender)
+                if not len(sender)==2 and isinstance(sender[0], int) and isinstance(sender[1], int):
+                    raise RuntimeError("BAD SENDER FIELD")
             self.sender = sender
             self.args = args
-        except:
+        except Exception as e:
+            print('MESSAGE INIT FAILED!')
             debug_print('MESSAGE INIT FAILED', msg_header, sender, args)
-            raise 'shit'
+            raise e
 
     def permitted_by_clients(self):
         return int2header[self.msg_header] in {'MOVE', 'ATTACK', 'HEAL'}
@@ -115,15 +120,12 @@ class Message:
             msg_header = serialized_msg[0]
             sender = serialized_msg[1]
             args = serialized_msg[2]
-            assert isinstance(msg_header, int)
-            assert isinstance(sender, int)
-            assert isinstance(args, list)
             return Message(msg_header, sender, args)
-        except:
+        except Exception as e:
             logging.info("failed to deserialize {serialized_msg}".format(
                 serialized_msg=serialized_msg))
-            debug_print ('Msg DESERIALIZE FAILED, INPUT: <', serialized_msg)
-            raise 'shit'
+            print ('Msg DESERIALIZE FAILED, INPUT: <', serialized_msg, e)
+            raise e
 
     def __repr__(self):
         try:

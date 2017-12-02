@@ -8,16 +8,16 @@ server_addresses = [
     ("127.0.0.1", 2004),
     ("127.0.0.1", 2005),
 ]
-debug_printing = True
+debug_printing = False
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 2.0
-ticks_per_game_hash = 1
+ticks_per_game_hash = 7
 server_secret_salt = 'e4f421af'
 
 dragon_ap_bounds = [5, 20]
 dragon_hp_bounds = [50, 100]
-knight_ap_bounds = [2, 10]
-knight_hp_bounds = [50, 100]
+knight_ap_bounds = [5, 10]
+knight_hp_bounds = [70, 120]
 '''
 # Here are the default values in case we change them:
 dragon_ap_bounds = [5, 20]
@@ -32,13 +32,15 @@ min_server_client_capacity = 3
 
 # A server will consider itself 'over capacity' if it has server
 # overcapacity_ratio times the average server load
-server_overcapacity_ratio = 4
+server_overcapacity_ratio = 1.5
 dragon_arena_init_settings = {'no_of_dragons': 10,
                               'map_width': 25,
                               'map_height': 25
                               }
 client_ping_max_time = 0.06
-dragon_attack_period = 1.0
+
+# average ticks per attack
+dragon_attack_period = 2.0
 
 
 # ############ DON'T TOUCH BELOW THIS LINE
@@ -52,5 +54,5 @@ num_server_addresses = len(server_addresses)
 max_server_sync_wait = S2S_wait_for_welcome_timeout * \
                        (num_server_addresses + 1)
 
-client_handshake_timeout = max_server_sync_wait + 0.5
+client_handshake_timeout = server_min_tick_time * 1.3 + 0.2
 max_done_wait = server_min_tick_time + max_server_sync_wait + 1.0

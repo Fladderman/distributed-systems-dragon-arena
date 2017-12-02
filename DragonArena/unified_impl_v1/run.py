@@ -18,14 +18,14 @@ def new_process(args):
     p.start()
     processes.append(p)
 
-def kill_all_processes():
+def join_all(kill=False):
+    if kill:
+        for p in processes:
+            p.terminate()
     for p in processes:
-        p.terminate()
         p.join()
     print('killed')
 
-def unify_clear_logs():
-    import unify_logs
 
 def server_start_args(server_id, starter=False):
     assert 0 <= server_id <= das_game_settings.num_server_addresses
@@ -40,8 +40,13 @@ def client_start_args(player_type_arg='bot'):
 
 if __name__ == '__main__':
     new_process(server_start_args(0, starter=True))
-    # new_process(server_start_args(1))
+    new_process(server_start_args(1))
+    new_process(server_start_args(2))
     new_process(client_start_args())
-    time.sleep(5.0)
-    kill_all_processes()
-    # unify_clear_logs()
+    new_process(client_start_args())
+    new_process(client_start_args())
+    new_process(client_start_args())
+    new_process(client_start_args())
+    new_process(client_start_args())
+    new_process(client_start_args())
+    join_all()

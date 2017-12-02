@@ -1,7 +1,6 @@
 import itertools
 import random
 import das_game_settings as dgs
-from hashlib import sha1
 import hashlib
 from sys import maxsize
 
@@ -647,7 +646,6 @@ class DragonArena:
         self._tick += 1
 
     def get_winner(self):
-        return None
         if self._no_of_living_dragons == 0:
             return "knights"
         else:
@@ -655,12 +653,12 @@ class DragonArena:
 
     # https: // cyan4973.github.io / xxHash /
     def get_hash(self):
-        # TODO Roy ensure there can be no collisions.
-        #   eg: not sure if _no_of_living_dragons etc encodes unique info
         h = hashlib.md5()
-        for key in sorted(self._loc2creature.keys()):
-            h.update(str(key))
-            h.update(str(self._loc2creature[key].serialize()))
+        for identifier in sorted(self._id2creature.keys()):
+            h.update(str(identifier))
+            if self._is_alive(identifier):
+                h.update(str(self._id2creature[identifier].serialize()))
+                h.update(str(self._id2loc(identifier)))
         h.update(str(self._tick))
         h.update(str(self.game_over))
         h.update(str(self.key))

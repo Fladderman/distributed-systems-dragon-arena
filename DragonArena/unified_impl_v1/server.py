@@ -636,6 +636,8 @@ class Server:
 
 
     def _i_should_refuse_clients(self):
+        if self._dragon_arena.game_is_full():
+            return True
         for server_id, sock in enumerate(self._server_sockets):
             if sock is None:
                  self._server_client_load[server_id] = None

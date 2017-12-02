@@ -547,7 +547,7 @@ class DragonArena:
         for dragon_id in dragon_ids:
             k = dgs.ticks_per_dragon_attack
 
-            if (self._tick + dragon_id) % k == 0:
+            if (self._tick + dragon_id[1]) % k == 0:
                 knight_ids = self.attack_candidates(dragon_id)
 
                 if knight_ids:

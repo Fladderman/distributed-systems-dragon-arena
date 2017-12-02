@@ -143,10 +143,11 @@ class ServerAcceptor:
             debug_print('Acceptor listening socket closed.')
             return
 
+server_logging_chars = '"/:->$~."!+^cx*o'
 class Server:
     @staticmethod
     def _my_logging_icon(server_id):
-        c = '"*/->$~."!+^c:xo'[server_id]
+        c = server_logging_chars[server_id % len(server_logging_chars)]
         return c + c + c
 
     def __init__(self, server_id, secret, is_starter):
@@ -216,8 +217,6 @@ class Server:
             messaging.write_msg_to(auth_sock, sync_req)
             '''2. <=== SYNC REPLY '''
             sync_reply = messaging.read_msg_from(auth_sock, timeout=None)
-            logging.info("Got sync reply: {reply}".format(
-                reply=str(sync_reply)))
             if messaging.is_message_with_header_string(sync_reply, 'S2S_SYNC_REPLY'):
                 logging.info("Got expected S2S_SYNC_REPLY :)")
             else:
@@ -227,8 +226,7 @@ class Server:
             # self._tick_id() = sync_reply.args[0]
             try:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
-                logging.info(("Got sync'd game state from server! serialized: {serialized_state}"
-                             ).format(serialized_state=sync_reply.args[1]))
+                logging.info("Got sync'd game state from server! serialized")
             except Exception as e:
                 logging.info(("Couldn't deserialize the given game state: {serialized_state}"
                              ).format(serialized_state=sync_reply.args[1]))
@@ -611,7 +609,7 @@ class Server:
         done_msg = (messaging.M_DONE_HASHED(self._server_id,
                                             self._tick_id() + tick_count_modifier,
                                             len(self._client_sockets),
-                                            maybe_hash)
+                                            self._dragon_arena.get_hash())
                     if self._tick_id() % das_game_settings.ticks_per_game_hash == 0
                     else messaging.M_DONE(self._server_id,
                                           self._tick_id() + tick_count_modifier,
@@ -630,8 +628,10 @@ class Server:
                 continue
             sock = self._server_sockets[server_id]
             if messaging.write_msg_to(sock, done_msg):
-                logging.info(("sent {done_msg} to server_id {server_id}"
-                             ).format(done_msg=done_msg, server_id=server_id))
+                logging.info(("sent DONE {done_msg} for tick_id {tick_id} to server_id {server_id}"
+                             ).format(done_msg=done_msg,
+                                      tick_id=self._tick_id(),
+                                      server_id=server_id))
          #Note. crash in this loop leads other servers to arrive at inconsistent state
 
     def _step_read_reqs_and_wait(self,update_enabled=True):
@@ -688,9 +688,9 @@ class Server:
                     messaging.write_msg_to(sock, update_msg)
                 # DONE got. accept the batch
                 return temp_batch
-            elif messaging.header_matches_string('UPDATE'):
+            elif msg.header_matches_string('UPDATE'):
                 # sender thinks I need this update!
-                self._handle_S2S_update(msg, other_server_id)
+                self._handle_S2S_update(msg, server_id)
             else:
                 # some request message. Store and keep going
                 temp_batch.append(msg)
@@ -710,6 +710,12 @@ class Server:
             return True
         if other_tick_id > t:
             #They are ahead! I need an update! I hope they notice
+            logging.info(("Noticed server {other_server_id} is ahead in "
+                          "tick {other_tick_id} while I am in {my_tick_id}. "
+                          "Hope they notice!"
+                          ).format(other_server_id=other_server_id,
+                                  other_tick_id=other_tick_id,
+                                  my_tick_id=t))
             return False
         other_hash = done_msg.args[2]
         my_hash = self._dragon_arena.get_hash()
@@ -722,6 +728,11 @@ class Server:
                                   my_hash=my_hash,
                                   my_tick_id=t))
             return True
+
+        logging.info(("Noticed nothing unusual about the DONE_HASHED from "
+                      "{other_server_id} and tick {my_tick_id}"
+                      ).format(other_server_id=other_server_id,
+                               my_tick_id=t))
         return False
 
 
@@ -780,9 +791,8 @@ class Server:
                           "{synchee_id}").format(synchee_id=synchee_id))
             return
 
-        logging.info(("Sent sync msg {update_msg} to waiting server "
-                      "{synchee_id}").format(update_msg=update_msg,
-                                            synchee_id=synchee_id))
+        logging.info(("Sent sync msg to waiting server "
+                      "{synchee_id}").format(synchee_id=synchee_id))
         debug_print('awaiting SYNC DONE from ',synchee_id,'...')
         logging.info(("awaiting SYNC DONE from {synchee_id}...  "
                       ).format(synchee_id=synchee_id))
@@ -792,7 +802,7 @@ class Server:
                           ":)").format(msg=sync_done, synchee_id=synchee_id))
             debug_print('SYNCED',synchee_id,'YA, BUDDY :)')
             self._server_sockets[synchee_id] = socket
-            logging.info(("Spawned incoming handler for"
+            logging.info(("Spawned incoming handler for "
                           "newly-synced server {synchee_id}"
                          ).format(synchee_id=synchee_id))
         else:

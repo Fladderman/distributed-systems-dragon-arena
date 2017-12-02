@@ -10,7 +10,7 @@ server_addresses = [
 ]
 debug_printing = True
 S2S_wait_for_welcome_timeout = 0.2
-server_min_tick_time = 5.0
+server_min_tick_time = 2.0
 ticks_per_game_hash = 4
 
 dragon_ap_bounds = [5, 20]
@@ -46,7 +46,7 @@ def debug_print(*args):
     if debug_printing:
         print args
 
-ticks_per_dragon_attack = int(round(dragon_attack_period/server_min_tick_time))
+ticks_per_dragon_attack = max(1, int(round(dragon_attack_period / server_min_tick_time)))
 num_server_addresses = len(server_addresses)
 max_server_sync_wait = S2S_wait_for_welcome_timeout * \
                        (num_server_addresses + 1)

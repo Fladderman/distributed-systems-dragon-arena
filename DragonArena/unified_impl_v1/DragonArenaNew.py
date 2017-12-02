@@ -545,11 +545,14 @@ class DragonArena:
         log_messages = []
 
         for dragon_id in dragon_ids:
-            knight_ids = self.attack_candidates(dragon_id)
+            k = dgs.ticks_per_dragon_attack
 
-            if knight_ids:
-                knight_id = select_target(knight_ids)
-                log_messages.append(self.attack(dragon_id, knight_id))
+            if (self._tick + dragon_id) % k == 0:
+                knight_ids = self.attack_candidates(dragon_id)
+
+                if knight_ids:
+                    knight_id = select_target(knight_ids)
+                    log_messages.append(self.attack(dragon_id, knight_id))
 
         return "\n".join(log_messages)
 

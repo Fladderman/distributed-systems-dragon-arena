@@ -153,6 +153,7 @@ class Server:
         self._server_id = server_id
         self._secret = secret
         self._is_starter = is_starter
+        self._lagging_behind_serv_id = None
         assert 0 <= server_id < das_game_settings.num_server_addresses
         assert isinstance(is_starter, bool)
         log_filename = 'server_{s_id}.log'.format(s_id=server_id)
@@ -526,7 +527,7 @@ class Server:
                               "Suppressing DONE step"
                               ).format(server_id=synchee_tuple[0]))
                 '''READ REQS AND WAIT'''
-                my_req_pool.extend(self._step_read_reqs_and_wait())
+                my_req_pool.extend(self._step_read_reqs_and_wait(update_enabled=False))
                 '''SORT REQ SEQUENCE'''
                 req_sequence = ordering_func(my_req_pool, self._tick_id())
                 '''APPLY AND LOG'''
@@ -545,7 +546,7 @@ class Server:
                 '''<<STEP FLOOD DONE>>'''
                 self._step_flood_done(except_server_id=None)
                 '''READ REQS AND WAIT'''
-                my_req_pool.extend(self._step_read_reqs_and_wait())
+                my_req_pool.extend(self._step_read_reqs_and_wait(update_enabled=True))
                 '''SORT REQ SEQUENCE'''
                 req_sequence = ordering_func(my_req_pool, self._tick_id())
                 '''APPLY AND LOG'''
@@ -607,7 +608,16 @@ class Server:
 
     def _step_flood_done(self, except_server_id=None, tick_count_modifier=0):
         # need to specify except_server_ids of newly-synced server. this prevents them from getting an extra DONE
-        done_msg = messaging.M_DONE(self._server_id, self._tick_id() + tick_count_modifier, len(self._client_sockets))
+        done_msg = (messaging.M_DONE_HASHED(self._server_id,
+                                            self._tick_id() + tick_count_modifier,
+                                            len(self._client_sockets),
+                                            maybe_hash)
+                    if self._tick_id() % das_game_settings.ticks_per_game_hash == 0
+                    else messaging.M_DONE(self._server_id,
+                                          self._tick_id() + tick_count_modifier,
+                                          len(self._client_sockets)))
+
+
         logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}"
                       ).format(tick_id=self._tick_id(),
                                servers=self._active_server_indices()))
@@ -624,7 +634,7 @@ class Server:
                              ).format(done_msg=done_msg, server_id=server_id))
          #Note. crash in this loop leads other servers to arrive at inconsistent state
 
-    def _step_read_reqs_and_wait(self):
+    def _step_read_reqs_and_wait(self,update_enabled=True):
         res = []
         active_indices = self._active_server_indices()
         logging.info("reading and waiting for servers {active_indices}".
@@ -635,7 +645,7 @@ class Server:
         waiting_for = list(self._active_servers())
         debug_print('waiting for ', waiting_for)
         for server_id, sock in waiting_for:
-            res.extend(self._read_and_wait_for(server_id, sock))
+            res.extend(self._read_and_wait_for(server_id, sock,update_enabled=update_enabled))
 
         debug_print('server load', self._server_client_load[self._server_id])
         logging.info("Released from the barrier")
@@ -643,9 +653,10 @@ class Server:
         logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id()))
         return res
 
-    def _read_and_wait_for(self, server_id, sock):
+    def _read_and_wait_for(self, server_id, sock, update_enabled=True):
         temp_batch = []
         debug_print('expecting done from ', server_id)
+        update_msg = None
         while True:
             msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
             if not isinstance(msg, Message):
@@ -661,54 +672,94 @@ class Server:
                 self._server_sockets[server_id] = None
                 return []
             if msg.header_matches_string('DONE'):
+                debug_print('got a DONE')
+                # DONE got. accept the batch. No hash here.
+                return temp_batch
+            elif msg.header_matches_string('DONE_HASHED'):
                 other_tick_id = msg.args[0]
                 self._server_client_load[server_id] = msg.args[1]
-                debug_print('got a DONE')
-                if other_tick_id > self._tick_id():
-                    # I somehow fell behind! Lazily request the newer state they supposedly have
-                    debug_print('I am behind! sending UPDATE_ME to', server_id)
-                    messaging.write_msg_to(sock, messaging.M_S2S_UPDATE_ME())
-                    logging.info(("This server is in tick {theirs}! I am behind, in tick {mine}. "
-                                  "Sent UPDATE_ME."
-                                 ).format(theirs=other_tick_id,
-                                          mine=self._tick_id()))
+                debug_print('got a DONE_HASHED')
+                if update_enabled and self._sender_needs_update(msg, server_id):
+                    # sender needs me to update them!
+                    if update_msg is None:
+                        update_msg = messaging.M_UPDATE(self._server_id,
+                                                        self._tick_id(),
+                                                        self._dragon_arena.serialize())
+                    messaging.write_msg_to(sock, update_msg)
                 # DONE got. accept the batch
                 return temp_batch
-            elif msg.header_matches_string('S2S_UPDATE_ME'):
-                # Other server wants me to update them!
-                update_msg = messaging.M_UPDATE(self._server_id,
-                                                self._tick_id(),
-                                                self._dragon_arena.serialize(),
-                                                )
-                messaging.write_msg_to(sock, update_msg)
             elif messaging.header_matches_string('UPDATE'):
+                # sender thinks I need this update!
                 self._handle_S2S_update(msg, other_server_id)
             else:
                 # some request message. Store and keep going
                 temp_batch.append(msg)
 
+
+
+    def _sender_needs_update(self, done_msg, other_server_id):
+        other_tick_id = done_msg.args[0]
+        t = self._tick_id()
+        if other_tick_id < t:
+            #They are behind!
+            logging.info(("Noticed {other_server_id} is in tick "
+                          "{other_tick_id} and I am in {my_tick_id}"
+                         ).format(other_server_id=other_server_id,
+                                  other_tick_id=other_tick_id,
+                                  my_tick_id=t))
+            return True
+        if other_tick_id > t:
+            #They are ahead! I need an update! I hope they notice
+            return False
+        other_hash = done_msg.args[2]
+        my_hash = self._dragon_arena.get_hash()
+        if other_hash < my_hash:
+            logging.info(("Noticed {other_server_id} has game hash "
+                          "{other_hash}, while I have {my_hash} "
+                          "in tick {my_tick_id}."
+                          ).format(other_server_id=other_server_id,
+                                  other_hash=other_hash,
+                                  my_hash=my_hash,
+                                  my_tick_id=t))
+            return True
+        return False
+
+
     def _handle_S2S_update(self, msg, other_server_id):
         # Other server sent me an update! Lets see if I can benefit...
         try:
             other_tick_id = msg.args[0]
+            if other_tick_id < self._tick_id:
+                logging.info(("I got an UPDATE from server {other_server_id} "
+                              "with tick ID {other_tick_id}. But I am in "
+                              "tick {tick_id}, so I'll discard it."
+                             ).format(other_server_id=other_server_id,
+                                      other_tick_id=other_tick_id,
+                                      tick_id=self._tick_id()))
+                return
             other_state = protected.ProtectedDragonArena(
                 DragonArena.deserialize(first_update.args[1])
             )
-            if other_tick_id > self._tick_id():
-                logging.info(("Got an UPDATE_ME for tick_id {theirs} "
-                              "from server {other_server_id}. "
-                              "Mine was {my_tick_id}, so I'll use it!"
-                             ).format(theirs=other_tick_id,
-                                      other_server_id=other_server_id,
-                                      my_tick_id=self._tick_id()))
+            if other_tick_id > self._tick_id:
+                logging.info(("I got an UPDATE from server {other_server_id} "
+                              "with tick ID {other_tick_id}. I am in "
+                              "tick {tick_id}, so I'll accept it."
+                             ).format(other_server_id=other_server_id,
+                                      other_tick_id=other_tick_id,
+                                      tick_id=self._tick_id()))
                 self._dragon_arena = other_state
-            else:
-                logging.info(("Got an UPDATE_ME for tick_id {theirs} "
-                              "from server {other_server_id}. "
-                              "Mine was {my_tick_id}, so I'll discard it."
-                             ).format(theirs=other_tick_id,
-                                      other_server_id=other_server_id,
-                                      my_tick_id=self._tick_id()))
+                return
+            their_hash = other_state.get_hash()
+            my_hash = self._dragon_arena.get_hash()
+            if their_hash > my_hash:
+                logging.info(("I got an UPDATE from server {other_server_id} "
+                              "with tick ID {other_tick_id} (same as me). "
+                              "Their hash {their_hash} > {my_hash}, so I'll accept it."
+                             ).format(other_server_id=other_server_id,
+                                      other_tick_id=other_tick_id,
+                                      their_hash=their_hash,
+                                      my_hash=my_hash))
+                self._dragon_arena = other_state
         except Exception as e:
             logging.info(("Failed to make sense of UPDATE_ME "
                           "from {other_server_id}. Discarding."

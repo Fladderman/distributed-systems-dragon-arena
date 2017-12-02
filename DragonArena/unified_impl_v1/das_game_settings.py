@@ -11,6 +11,8 @@ server_addresses = [
 debug_printing = True
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 5.0
+ticks_per_game_hash = 4
+
 dragon_ap_bounds = [5, 20]
 dragon_hp_bounds = [50, 100]
 knight_ap_bounds = [2, 10]

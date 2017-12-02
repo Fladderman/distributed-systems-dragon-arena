@@ -26,11 +26,12 @@ int2header = [
     'SPAWN',
     'DESPAWN',
     'DONE',
+    'DONE_HASHED',
     'UPDATE',
+    'S2S_UPDATE'
     'R_HEAL',
     'R_ATTACK',
     'R_MOVE',
-    'S2S_UPDATE_ME',
 ]
 header2int = {v: k for k, v in enumerate(int2header)}
 
@@ -171,13 +172,11 @@ def M_REFUSE():
 def M_S2S_SYNC_DONE():
     return Message(header2int['S2S_SYNC_DONE'], -1, [])
 
+def M_DONE_HASHED(s_id, tick_id, num_clients, maybe_hash):
+    return Message(header2int['DONE_HASHED'], s_id, [tick_id, num_clients, maybe_hash])
 
 def M_DONE(s_id, tick_id, num_clients):
     return Message(header2int['DONE'], s_id, [tick_id, num_clients])
-
-
-def M_S2S_UPDATE_ME():
-    return Message(header2int['S2S_UPDATE_ME'], -1, [])
 
 # SERVER-CLIENT SYNCHRONIZATION
 

@@ -151,9 +151,8 @@ class Server:
         c = server_logging_chars[server_id % len(server_logging_chars)]
         return c + c + c
 
-    def __init__(self, server_id, secret, is_starter):
+    def __init__(self, server_id, is_starter):
         self._server_id = server_id
-        self._secret = secret
         self._is_starter = is_starter
         self._lagging_behind_serv_id = None
         assert 0 <= server_id < das_game_settings.num_server_addresses
@@ -211,7 +210,7 @@ class Server:
                          ).format(index=auth_index))
             debug_print('AUTHORITY SERVER:', auth_index)
             '''1. SYNC REQ ===> '''
-            sync_req = messaging.M_S2S_SYNC_REQ(self._server_id)
+            sync_req = messaging.M_S2S_SYNC_REQ(self._server_id, Server._server_secret(self._server_id))
             logging.info(("I am NOT the first server!. "
                           "Will sync with {auth_index}. "
                           "sending msg {sync_req}"
@@ -236,7 +235,7 @@ class Server:
                 raise RuntimeError('failed to serialize game state...', e)
             self._server_sockets = Server._socket_to_others({auth_index, self._server_id})
 
-            hello_msg = messaging.M_S2S_HELLO(self._server_id)
+            hello_msg = messaging.M_S2S_HELLO(self._server_id, Server._server_secret(self._server_id))
             for server_id, sock in self._active_servers():
                 if messaging.write_msg_to(sock, hello_msg):
                     logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
@@ -392,24 +391,49 @@ class Server:
             elif msg.header_matches_string("C2S_HELLO_AGAIN"):
                 self._handle_client_join(msg, sock, addr, hello_again=True)
             elif msg.header_matches_string('S2S_HELLO'):
-                debug_print('server is up! synced by someone else server!')
-                self._server_sockets[msg.sender] = sock
-                messaging.write_msg_to(sock, messaging.M_S2S_WELCOME(self._server_id))
+                received_secret = msg.args[0]
+                derived_secret = Server._server_secret(msg.sender)
+                if received_secret == derived_secret:
+                    logging.info(("Got a good HELLO handshake from {server_id} "
+                                  "and secret {derived_secret}. Adding socket"
+                                  ).format(server_id=msg.sender,
+                                           derived_secret=derived_secret))
+                    debug_print('server is up! synced by someone else server!')
+                    self._server_sockets[msg.sender] = sock
+                    messaging.write_msg_to(sock, messaging.M_S2S_WELCOME(self._server_id))
+                else:
+                    logging.info(("Got a HELLO handshake from {server_id} "
+                                  "but their secret {received_secret} mismatched "
+                                  "mine {derived_secret}. Refusing"
+                                  ).format(server_id=msg.sender,
+                                           received_secret=received_secret,
+                                           derived_secret=derived_secret))
+                    messaging.write_msg_to(sock, messaging.M_REFUSE())
                 return
             elif msg.msg_header == messaging.header2int['S2S_SYNC_REQ']:
-                logging.info(("This is server {s_id} that wants to sync! "
-                              "Killing incoming handler. wouldn't want to "
-                              "interfere with main thread. "
-                              "Setting FLAG for tick thread"
-                              ).format(s_id=msg.sender))
-                self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
-                debug_print('newcomer handler exiting')
+                received_secret = msg.args[0]
+                derived_secret = Server._server_secret(msg.sender)
+                if received_secret == derived_secret:
+                    logging.info(("This is server {s_id} that wants to sync! "
+                                  "Killing incoming handler. wouldn't want to "
+                                  "interfere with main thread. "
+                                  "Setting FLAG for tick thread"
+                                  ).format(s_id=msg.sender))
+                    self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
+                    debug_print('newcomer handler exiting')
+                else:
+                    logging.info(("SYNC message got from `{s_id}`. However, "
+                                  "their secret {received_secret} mismatches "
+                                  "mine {derived_secret}"
+                                  ).format(s_id=msg.sender))
+                    self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
+                    debug_print('newcomer handler exiting')
                 return
 
     def _handle_client_join(self, msg, sock, addr, hello_again):
         # NOTE knight_id analagous to player_id
         if self._i_should_refuse_clients():
-            messaging.write_msg_to(sock, messaging.M_S2S_REFUSE())
+            messaging.write_msg_to(sock, messaging.M_REFUSE())
             logging.info(("Refused a client at {addr} "
                           "Server loads are currently approx. {loads}."
                           "Client wanted to rejoin: {rejoin}"
@@ -482,14 +506,19 @@ class Server:
         debug_print('client handler dead :(')
 
     @staticmethod
+    def _server_secret(server_id):
+        m = hashlib.md5(str(server_id))
+        m = hashlib.md5(das_game_settings.server_secret_salt)
+        return m.hexdigest()[:12]
+
+    @staticmethod
     def _client_secret(ip, player_id, client_random_salt, dragon_arena_key):
-        logging.info("GEN SECRET {} {} {} {}".format(ip, player_id, client_random_salt, dragon_arena_key))
         m = hashlib.md5()
         m.update(str(ip))
         m.update(str(player_id))
         m.update(str(client_random_salt))
         m.update(str(dragon_arena_key))
-        return m.hexdigest()
+        return m.hexdigest()[:10]
 
     def main_loop(self):
         logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id()))

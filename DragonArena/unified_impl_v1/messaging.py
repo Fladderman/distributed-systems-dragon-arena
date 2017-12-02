@@ -148,7 +148,7 @@ maybe simplify? idk
 # SERVER-SERVER SYNCHRONIZATION
 
 
-def M_S2S_SYNC_REQ(s_id):
+def M_S2S_SYNC_REQ(s_id, hashed_serv_secret):
     return Message(header2int['S2S_SYNC_REQ'], s_id, [])
 
 
@@ -157,8 +157,8 @@ def M_S2S_SYNC_REPLY(tick_id, serialized_state):
                    [tick_id, serialized_state])
 
 
-def M_S2S_HELLO(s_id):
-    return Message(header2int['S2S_HELLO'], s_id, [])
+def M_S2S_HELLO(s_id, hashed_serv_secret):
+    return Message(header2int['S2S_HELLO'], s_id, [hashed_serv_secret])
 
 
 def M_S2S_WELCOME(s_id):

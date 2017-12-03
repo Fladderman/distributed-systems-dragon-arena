@@ -45,7 +45,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     for msg in message_sequence:
         if (not isinstance(msg, messaging.Message)
             or not msg.permitted_in_server_application_function()):
-            logging.info(("Received and dropped message, "
+            logging.error(("Received and dropped message, "
                           "deemed inappropriate as a game request: {msg}"
                           ).format(msg=str(msg)))
             continue
@@ -85,7 +85,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
             k = tuple(msg.args[0])
             if dragon_arena._id_exists(k):
                 if dragon_arena._is_alive(k):
-                    logging.info(("Suppressing DESPAWN for knight {k}. "
+                    logging.error(("Suppressing DESPAWN for knight {k}. "
                                   "Knight is already dead."
                                   ).format(k=k))
                     result = dragon_arena.kill_knight(k)
@@ -96,12 +96,12 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
             raise "chris fukt up damn"
 
         if bad:
-            logging.info(("Message {msg} from {sender} was ignored. "
+            logging.error(("Message {msg} from {sender} was ignored. "
                           "Reason: {reason}").format(msg=str(msg),
                                                      sender=msg.sender,
                                                      reason=result))
         else:
-            logging.info(("Message {msg} from {sender} was processed "
+            logging.error(("Message {msg} from {sender} was processed "
                           "successfully. DAS feedback: {reason}").format(
                 msg=str(msg), sender=msg.sender, reason=result))
     #TODO LOG
@@ -161,7 +161,7 @@ class Server:
         log_filename = 'server_{s_id}.log'.format(s_id=server_id)
         logging.basicConfig(filename=log_filename,
                             filemode='a',
-                            level=logging.INFO,
+                            level=das_game_settings.logging_level,
                             format='%(asctime)s.%(msecs)03d srv '+ '{: <3d}'.format(server_id) + Server._my_logging_icon(server_id) + ' %(message)s',
                             datefmt='%a %H:%M:%S')
         logging.info(("Server {server_id} started logging! :D"
@@ -169,12 +169,12 @@ class Server:
         # if I am crashing a lot in setup, do exponential backoff
         backoff_time = 0.01
         for try_index in count_up_from(0):
-            logging.info("try number {try_index}".format(try_index=try_index))
+            logging.debug("try number {try_index}".format(try_index=try_index))
             # TODO backoff time, try again when this throws exception
             try:
                 self.try_setup()
             except Exception as e:
-                logging.info("  try number {try_index}".format(try_index=try_index))
+                logging.debug("  try number {try_index}".format(try_index=try_index))
                 debug_print('try setup exception. backing off', e)
                 time.sleep(backoff_time)
                 backoff_time = pow(backoff_time * 1.4, 0.8)
@@ -223,7 +223,7 @@ class Server:
             if messaging.is_message_with_header_string(sync_reply, 'S2S_SYNC_REPLY'):
                 logging.info("Got expected S2S_SYNC_REPLY :)")
             else:
-                logging.info("Expected S2S_SYNC_REPLY, got {msg}".format(
+                logging.warning("Expected S2S_SYNC_REPLY, got {msg}".format(
                     msg=sync_reply))
                 raise RuntimeError('expected sync reply! got ' + str(msg))
             # self._tick_id() = sync_reply.args[0]
@@ -231,7 +231,7 @@ class Server:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
                 logging.info("Got sync'd game state from server! hash: {h}".format(h=self._dragon_arena.get_hash()))
             except Exception as e:
-                logging.info(("Couldn't deserialize the given game state: {serialized_state}"
+                logging.warning(("Couldn't deserialize the given game state: {serialized_state}"
                              ).format(serialized_state=sync_reply.args[1]))
                 raise RuntimeError('failed to serialize game state...', e)
             self._server_sockets = Server._socket_to_others({auth_index, self._server_id})
@@ -243,7 +243,7 @@ class Server:
                                  ).format(server_id=server_id,
                                           hello_msg=hello_msg))
                 else:
-                    logging.info(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
+                    logging.warning(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
                                  ).format(server_id=server_id,
                                           hello_msg=hello_msg))
                     # server must have crashed in the meantime!
@@ -261,15 +261,15 @@ class Server:
                     self._server_sockets[server_id] = None
             sync_done = messaging.M_S2S_SYNC_DONE()
             if messaging.write_msg_to(auth_sock, sync_done):
-                logging.info(("Sent {sync_done} to {auth_index}."
+                logging.debug(("Sent {sync_done} to {auth_index}."
                               ).format(sync_done=sync_done, auth_index=auth_index))
             else:
-                logging.info(("Authority server has crashed OR "
+                logging.warning(("Authority server has crashed OR "
                               "didn't wait for me before I could send {sync_done}"
                               ).format(sync_done=sync_done))
                 raise RuntimeError('SYNC DONE didn`t succeed')
             self._server_sockets[auth_index] = auth_sock
-            logging.info(("Remembering socket for auth_server with id {auth_index}"
+            logging.debug(("Remembering socket for auth_server with id {auth_index}"
                          ).format(auth_index=auth_index))
 
         debug_print('WOOOHOOO READY')
@@ -292,7 +292,7 @@ class Server:
                                   if my_knight_counters
                                   else 0)
 
-        logging.info(("Prepared knight ID generator."
+        logging.debug(("Prepared knight ID generator."
                       "Will count up from ({server_id},{next_knight_id})"
                       ).format(server_id=self._server_id,
                                next_knight_id=next_available_counter))
@@ -336,7 +336,7 @@ class Server:
             logging.info(("Successfully socketed to {addr}").format(addr=addr))
             return sock
         except:
-            logging.info(("Failed to socket to {addr}").format(addr=addr))
+            logging.warning(("Failed to socket to {addr}").format(addr=addr))
             return None
 
     @staticmethod
@@ -351,7 +351,7 @@ class Server:
         return d
 
     def _kick_off_acceptor(self):
-        logging.info(("acceptor started").format())
+        logging.debug(("acceptor started").format())
         my_port = das_game_settings.server_addresses[self._server_id][1]
         acceptor_handle = threading.Thread(
             target=Server._handle_new_connections,
@@ -375,14 +375,14 @@ class Server:
             babysitter_thread.start()
 
     def _babysit_newcomer_socket(self, sock, addr):
-        logging.info(("handling messages from newcomer socket at {addr}"
+        logging.debug(("handling messages from newcomer socket at {addr}"
                      ).format(addr=addr))
         # TODO I would love to make this a generator. But it seems that it doesnt EXIT like it should
         # generator = messaging.generate_messages_from(socket,timeout=None)
         while True:
             msg = messaging.read_msg_from(sock, timeout=None)
         # for msg in generator:
-            logging.info(("newcomer socket sent {msg}").format(msg=str(msg)))
+            logging.debug(("newcomer socket sent {msg}").format(msg=str(msg)))
             if msg is MessageError.CRASH:
                 debug_print('newcomer socket died in the cradle :(. Hopefully just a ping. killing incoming reader daemon')
                 return
@@ -403,7 +403,7 @@ class Server:
                     self._server_sockets[msg.sender] = sock
                     messaging.write_msg_to(sock, messaging.M_S2S_WELCOME(self._server_id))
                 else:
-                    logging.info(("Got a HELLO handshake from {server_id} "
+                    logging.warning(("Got a HELLO handshake from {server_id} "
                                   "but their secret {received_secret} mismatched "
                                   "mine {derived_secret}. Refusing"
                                   ).format(server_id=msg.sender,
@@ -423,7 +423,7 @@ class Server:
                     self._waiting_sync_server_tuples.enqueue((msg.sender, sock))
                     debug_print('newcomer handler exiting')
                 else:
-                    logging.info(("SYNC message got from `{s_id}`. However, "
+                    logging.warning(("SYNC message got from `{s_id}`. However, "
                                   "their secret {received_secret} mismatches "
                                   "mine {derived_secret}"
                                   ).format(s_id=msg.sender))
@@ -435,7 +435,7 @@ class Server:
         # NOTE knight_id analagous to player_id
         if self._i_should_refuse_clients():
             messaging.write_msg_to(sock, messaging.M_REFUSE())
-            logging.info(("Refused a client at {addr} "
+            logging.warning(("Refused a client at {addr} "
                           "Server loads are currently approx. {loads}."
                           "Client wanted to rejoin: {rejoin}"
                           ).format(addr=addr,
@@ -463,7 +463,7 @@ class Server:
             derived_secret = Server._client_secret(addr[0], tuple(player_id), salt, self._dragon_arena.key)
             if received_secret != derived_secret:
                 debug_print('secret mismatch!')
-                logging.info(("Refused a client`s reconnection. Received sescret {received_secret}, "
+                logging.warning(("Refused a client`s reconnection. Received sescret {received_secret}, "
                               "but should have been {derived_secret}."
                               ).format(derived_secret=derived_secret,
                                        received_secret=received_secret))
@@ -491,7 +491,7 @@ class Server:
             debug_print('client sumthn')
             if msg == MessageError.CRASH:
                 debug_print('client crashed!')
-                logging.info(("Incoming daemon noticed client at {addr} crashed."
+                logging.warning(("Incoming daemon noticed client at {addr} crashed."
                               "Removing client"
                               ).format(addr=addr))
                 self._requests.enqueue(messaging.M_DESPAWN(self._server_id, player_id))
@@ -502,7 +502,7 @@ class Server:
             msg.sender = player_id # Server annotates this to ensure client doesnt doctor their packets
             debug_print('client incoming', msg)
             self._requests.enqueue(msg)
-            logging.info(("Got client incoming {msg}!").format(msg=str(msg)))
+            logging.debug(("Got client incoming {msg}!").format(msg=str(msg)))
             pass
         debug_print('client handler dead :(')
 
@@ -527,12 +527,12 @@ class Server:
         while True:
             tick_start = time.time()
             debug_print('tick', self._tick_id())
-            logging.info(("At loop start, DA hashes to {h}"
+            logging.debug(("At loop start, DA hashes to {h}"
                          ).format(h=self._dragon_arena.get_hash()))
 
             '''SWAP BUFFERS'''
             my_req_pool = self._requests.drain_if_probably_something()
-            logging.info(("drained ({num_reqs}) requests in tick {tick_id}"
+            logging.debug(("drained ({num_reqs}) requests in tick {tick_id}"
                          ).format(num_reqs=len(my_req_pool),
                                   tick_id=self._tick_id()))
             '''FLOOD REQS'''
@@ -542,7 +542,7 @@ class Server:
             # this variable is of the form (server_id, socket)
             debug_print('to sync:', self._waiting_sync_server_tuples._q )
             synchee_tuple = self._waiting_sync_server_tuples.dequeue(timeout=0.3)
-            logging.info(("lowest id {lowest}. ").format(lowest=self._lowest_id_connected_server()))
+            logging.debug(("lowest id {lowest}. ").format(lowest=self._lowest_id_connected_server()))
             if synchee_tuple is not None and self._server_id != self._lowest_id_connected_server():
                 # some server has entered the ring with a lower ID!
                 # They are the syncher, not me
@@ -571,7 +571,7 @@ class Server:
                 '''SORT REQ SEQUENCE'''
                 req_sequence = ordering_func(my_req_pool, self._tick_id())
                 self._previous_hash = self._dragon_arena.get_hash() # Need for updatin <#>2/4
-                logging.info(("Storing hash {h} before I transition into next "
+                logging.debug(("Storing hash {h} before I transition into next "
                               "tick. This is now the `previous hash`"
                               ).format(h=self._previous_hash))
                 '''APPLY AND LOG'''
@@ -586,7 +586,7 @@ class Server:
 
             else: #NO SERVERS WAITING TO SYNC
                 # send own DONES before collecting those of others
-                logging.info(("No servers waiting to sync. Normal tick").format())
+                logging.info(("No servers waiting to sync. Normal tick. Flooding done.").format())
                 '''<<STEP FLOOD DONE>>'''
                 self._step_flood_done(except_server_id=None)
                 '''READ REQS AND WAIT'''
@@ -595,13 +595,13 @@ class Server:
                 req_sequence = ordering_func(my_req_pool, self._tick_id())
                 '''APPLY AND LOG'''
                 self._previous_hash = self._dragon_arena.get_hash() # Need for updating # <#>2/4
-                logging.info(("Storing hash {h} before I transition into next "
+                logging.debug(("Storing hash {h} before I transition into next "
                               "tick. This is now the `previous hash`"
                               ).format(h=self._previous_hash))
                 _apply_and_log_all(self._dragon_arena, req_sequence)
 
 
-            logging.info(("Before updating, DA hashes to {h}"
+            logging.debug(("Before updating, DA hashes to {h}"
                          ).format(h=self._dragon_arena.get_hash()))
             '''UPDATE CLIENTS'''
             self._step_update_clients()
@@ -620,7 +620,7 @@ class Server:
                     messaging.write_msg_to(self._server_sockets[server_id], s2s_update_msg)
             self._servers_that_need_updating.clear()
 
-            if debug_print:
+            if das_game_settings.server_visualizer:
                 ascii_draw(self._dragon_arena)
 
             '''SLEEP STEP'''
@@ -667,22 +667,24 @@ class Server:
     def _step_flood_reqs(self, my_req_pool):
         for serv_id, sock in enumerate(self._server_sockets):
             if sock is None:
-                #TODO put back in
-                #logging.info(("Skipping req flood to server_id {serv_id} (No socket)").format(serv_id=serv_id))
+                logging.debug(("Skipping req flood to server_id {serv_id} (No socket)"
+                              ).format(serv_id=serv_id))
                 continue
             try:
                 messaging.write_many_msgs_to(sock, my_req_pool)
-                logging.info(("Finished flooding reqs to serv_id {serv_id}").format(serv_id=serv_id))
+                logging.debug(("Finished flooding reqs to serv_id {serv_id}"
+                               ).format(serv_id=serv_id))
             except:
-                 logging.info(("Flooding reqs to serv_id {serv_id} crashed!").format(serv_id=serv_id))
+                 logging.warning(("Flooding reqs to serv_id {serv_id} crashed!"
+                               ).format(serv_id=serv_id))
 
     def _step_flood_done(self, except_server_id=None, tick_count_modifier=0):
-        logging.info(("DONE flood. actual tick {tick_id}. but DONES will say its {modified}"
+        logging.warning(("DONE flood. actual tick {tick_id}. but DONES will say its {modified}"
                      ).format(tick_id=self._tick_id(),
                               modified=self._tick_id() + tick_count_modifier))
         # need to specify except_server_ids of newly-synced server. this prevents them from getting an extra DONE
         if self._tick_id() % das_game_settings.ticks_per_game_hash == 0:
-            logging.info("This is a hashing tick!!")
+            logging.warning("This is a hashing tick!!")
             done_msg = messaging.M_DONE_HASHED(self._server_id,
                                                 self._tick_id() + tick_count_modifier,
                                                 len(self._client_sockets),
@@ -691,11 +693,6 @@ class Server:
             done_msg = messaging.M_DONE(self._server_id,
                              self._tick_id() + tick_count_modifier,
                              len(self._client_sockets))
-
-
-        logging.info(("Flooding reqs done for tick_id {tick_id} to {servers}"
-                      ).format(tick_id=self._tick_id(),
-                               servers=self._active_server_indices()))
         '''SEND DONE'''
 
         logging.info(("Releasing barrier of {tick_id} for {whom}"
@@ -703,13 +700,13 @@ class Server:
                               whom=self._active_server_indices()))
         for server_id in self._active_server_indices():
             if server_id is except_server_id:
-                logging.info(("Suppressing {server_id}'s DONE message."
+                logging.debug(("Suppressing {server_id}'s DONE message."
                               "It was newly synced and wasn't part of the barrier."
                               ).format(server_id=server_id))
                 continue
             sock = self._server_sockets[server_id]
             if messaging.write_msg_to(sock, done_msg):
-                logging.info(("sent DONE {done_msg} for tick_id {tick_id} to server_id {server_id}"
+                logging.debug(("sent DONE {done_msg} for tick_id {tick_id} to server_id {server_id}"
                              ).format(done_msg=done_msg,
                                       tick_id=self._tick_id(),
                                       server_id=server_id))
@@ -731,9 +728,9 @@ class Server:
             res.extend(self._read_and_wait_for(server_id, sock,update_enabled=update_enabled))
 
         debug_print('server load', self._server_client_load[self._server_id])
-        logging.info("Released from the barrier for tick_id {tick_id}".format(tick_id=self._tick_id()))
+        logging.debug("Released from the barrier for tick_id {tick_id}".format(tick_id=self._tick_id()))
         debug_print("!!!RELEASED FROM TICK", self._tick_id())
-        logging.info(("Starting tick {tick_id}").format(tick_id=self._tick_id()))
+        logging.debug(("Starting tick {tick_id}").format(tick_id=self._tick_id()))
         return res
 
     def _read_and_wait_for(self, server_id, sock, update_enabled=True):
@@ -743,10 +740,10 @@ class Server:
             msg = messaging.read_msg_from(sock, timeout=das_game_settings.max_done_wait)
             if not isinstance(msg, Message):
                 if msg is MessageError.CRASH:
-                    logging.info(("Wait&recv for {server_id} ended in CRASH"
+                    logging.warning(("Wait&recv for {server_id} ended in CRASH"
                                  ).format(server_id=server_id))
                 else:
-                    logging.info(("Wait&recv for {server_id} ended in TIMEOUT"
+                    logging.warning(("Wait&recv for {server_id} ended in TIMEOUT"
                                   "(might be a deadlock?)"
                                  ).format(server_id=server_id))
                 debug_print('Lost connection!')
@@ -780,7 +777,7 @@ class Server:
         t = self._tick_id()
         if other_tick_id < t:
             #They are behind!
-            logging.info(("Noticed {other_server_id} is in tick "
+            logging.error(("Noticed {other_server_id} is in tick "
                           "{other_tick_id} and I am in {my_tick_id}. Will send UPDATE"
                          ).format(other_server_id=other_server_id,
                                   other_tick_id=other_tick_id,
@@ -788,7 +785,7 @@ class Server:
             return True
         if other_tick_id > t:
             #They are ahead! I need an update! I hope they notice
-            logging.info(("Noticed server {other_server_id} is ahead in "
+            logging.warning(("Noticed server {other_server_id} is ahead in "
                           "tick {other_tick_id} while I am in {my_tick_id}. "
                           "Hope they send an UPDATE"
                           ).format(other_server_id=other_server_id,
@@ -798,7 +795,7 @@ class Server:
         other_hash = done_msg.args[2]
         my_hash = self._dragon_arena.get_hash()
         if other_hash < my_hash:
-            logging.info(("Noticed {other_server_id} has game hash "
+            logging.error(("Noticed {other_server_id} has game hash "
                           "{other_hash}, while I have {my_hash} "
                           "in tick {my_tick_id}. Will send UPDATE."
                           ).format(other_server_id=other_server_id,
@@ -807,7 +804,7 @@ class Server:
                                   my_tick_id=t))
             return True
 
-        logging.info(("Noticed nothing unusual about the DONE_HASHED from "
+        logging.debug(("Noticed nothing unusual about the DONE_HASHED from "
                       "{other_server_id} and tick {my_tick_id}"
                       ).format(other_server_id=other_server_id,
                                my_tick_id=t))
@@ -819,7 +816,7 @@ class Server:
         # Other server sent me an update! Lets see if I can benefit...
         other_tick_id = msg.args[0]
         if other_tick_id < self._tick_id:
-            logging.info(("I got an UPDATE from server {other_server_id} "
+            logging.warning(("I got an UPDATE from server {other_server_id} "
                           "with tick ID {other_tick_id}. But I am in "
                           "tick {tick_id}, so I'll discard it."
                          ).format(other_server_id=other_server_id,
@@ -831,7 +828,7 @@ class Server:
                 DragonArena.deserialize(first_update.args[1])
             )
         except Exception as e:
-            logging.info(("Failed to make sense of S2S_UPDATE "
+            logging.error(("Failed to make sense of S2S_UPDATE "
                           "from {other_server_id}. Discarding."
                          ).format(other_server_id=other_server_id))
             debug_print("FAILED TO DESER S2S UPDATE")
@@ -864,14 +861,14 @@ class Server:
     def _step_sync_server(self, synchee_id, socket):
         update_msg = messaging.M_S2S_SYNC_REPLY(self._tick_id(),
                                                 self._dragon_arena.serialize())
-        logging.info(("Sync REPLY DA hashes to {h}"
+        logging.debug(("Sync REPLY DA hashes to {h}"
                      ).format(h=self._dragon_arena.get_hash()))
         if socket is None:
             return
         debug_print('syncing:', synchee_id, socket)
         if not messaging.write_msg_to(socket, update_msg):
             debug_print('failed to send sync msg')
-            logging.info(("Failed to send sync msg to waiting server "
+            logging.warning(("Failed to send sync msg to waiting server "
                           "{synchee_id}").format(synchee_id=synchee_id))
             return
 
@@ -886,18 +883,18 @@ class Server:
                           ":)").format(msg=sync_done, synchee_id=synchee_id))
             debug_print('SYNCED',synchee_id,'YA, BUDDY :)')
             self._server_sockets[synchee_id] = socket
-            logging.info(("Spawned incoming handler for "
+            logging.debug(("Spawned incoming handler for "
                           "newly-synced server {synchee_id}"
                          ).format(synchee_id=synchee_id))
         else:
             debug_print('either timed out or crashed. either way, disregarding')
-            logging.info(("Hmm. It seems that {synchee_id} has"
+            logging.warning(("Hmm. It seems that {synchee_id} has"
                           "crashed before syncing. Oh well :/"
                          ).format(synchee_id=synchee_id))
 
     def _step_update_clients(self):
         update_msg = messaging.M_UPDATE(self._server_id, self._tick_id(), self._dragon_arena.serialize())
-        logging.info(("Update msg ready for tick {tick_id}"
+        logging.debug(("Update msg ready for tick {tick_id}"
                      ).format(tick_id=self._tick_id()))
         logging.info(("Client set for tick {tick_id}: {clients}"
                      ).format(tick_id=self._tick_id(), clients=self._client_sockets.keys()))
@@ -906,12 +903,12 @@ class Server:
             #TODO investigate why addr is an ip and not (ip,port)
             if messaging.write_msg_to(sock, update_msg):
                 debug_print('updated client', addr)
-                logging.info(("Successfully updated client at addr {addr}"
+                logging.debug(("Successfully updated client at addr {addr}"
                               "for tick_id {tick_id}"
                               ).format(addr=addr,
                                        tick_id=self._tick_id()))
             else:
-                logging.info(("Failed to update client at addr {addr}"
+                logging.warning(("Failed to update client at addr {addr}"
                               "for tick_id {tick_id}"
                               ).format(addr=addr,
                                        tick_id=self._tick_id()))
@@ -921,7 +918,7 @@ class Server:
         if self._dragon_arena.game_over:
             debug_print('GAME OVER!')
             self._server_acceptor.shutdown()
-            logging.info(("GAME OVER! {winners} win! Acceptor shutdown. "
+            logging.critical(("GAME OVER! {winners} win! Acceptor shutdown. "
                          "Server shutting down..."
                          ).format(winners=self._dragon_arena.get_winner()))
             time.sleep(das_game_settings.max_server_sync_wait)

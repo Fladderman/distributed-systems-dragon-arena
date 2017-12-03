@@ -1,37 +1,39 @@
 # How to use
 To try out the system:
-    First, edit the variable `server_addresses` in `das_game_settings.py` to
-    match the IPs/ports you plan to use for your servers.
 
-    as the server, run:
-    ```
-    $ python2 ./server_start $1
-    ```
-    where `$1` is the 'index' of the server. eg $1==0
 
-    separately, as the client, run
-    ```
-    $ python2 ./client $1
-    ```
-    where `$1` is in {'bot', 'human', 'ticking'}
+
+1. Configure `das_game_settings.py`. This file contains many settings, but most importantly:
+  1. Set `server_addresses` to match the (ip/port) of each server machine you intend to use. This is how the clients will find you and how servers will find one another.
+  1. Set `client_visualizer` and `server_visualizer` to 'True' For a graphical representation of the game state. This is the best way to get a high-level view of what's going on inside each machine.
+  1. Set `logging_level` to 'logging.DEBUG' for the most complete logs
+
+1. If you intend to read logs to make sense of the game you're about to start, ensure no existing files matching `*.log` exist in this directory. The logger will potentially append them together and you will mix data from different runs.
+
+1. Start any _valid_ combination of machines. Note, you can also make use of some other script to simulate the behaviour defined here (eg, `run.py`)
+  1.  Servers are started with `$ python2 ./server_start $1 $2`, where `$1` is a _server_id_ (0, 1, ...). These correspond with the contents of `server_addresses` in the previous step. Make sure you only boot up at most one server for each index. `$2` should be 'False' for all servers, except for one, which gets 'True'. This determines which server is in charge of initializing the game state.
+  1. Clients are started with `$ python2 ./client $1`. `$1` is a string from {'bot', 'human', 'ticking'}, and defines which player interface is connected to the server module. For our purposes, always use 'bot' to test actual gameplay, and 'ticking' if you want a knight that just spams network messages.
+
+1. Once the system has shut down, run `$ python2 ./unify_logs.py`. This will sort all other `*.log` files into one big log called `logs_unified.log` in accordance to their timestamps. Reading this log should give a fairly detailed understanding of the game's run.
+
 
 # Overview
-servers tick in lockstep.
-a newcomer server will:
-    stop lockstep,
-    handshake with all servers,
-    receive the latest version,
-    join and resume lockstep.
-if a server crashes:
-    other servers continue without them,
-    their clients will:
-        rejoin the game with another server,
-        keep their knight.
-if a client crashes:
-    their server de-spawns their knight.
-if a server somehow falls behind:
-    it will lazily request an update from someone else,
-    and it will accept the fresher state when it comes.
+- servers tick in lockstep.
+- a newcomer server will:
+  - stop lockstep,
+  - handshake with all servers,
+  - receive the latest version,
+  - join and resume lockstep.
+- if a server crashes:
+  - other servers continue without them,
+  - their clients will:
+  - rejoin the game with another server,
+  - keep their knight.
+- if a client crashes:
+  - their server de-spawns their knight.
+- if a server somehow falls behind:
+  - it will lazily request an update from someone else,
+  - and it will accept the fresher state when it comes.
 
 # ILLUSTRATING FUNCTIONALITY IN A COMPLETELY STABLE STATE
 Suppose we have:

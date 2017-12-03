@@ -276,7 +276,7 @@ class DragonArena:
         self._no_of_living_dragons = self._no_of_dragons
         self._no_of_living_knights = 0
 
-        opening_message = ["=== A NEW GAME STARTS.",
+        opening_message = ["A NEW GAME STARTS.",
                            "The battlefield has size {h}x{w}.".format(
                                h=self._map_height, w=self._map_width),
                            "{n} dragons have been spawned.".format(
@@ -347,7 +347,7 @@ class DragonArena:
 
         if self._all_knights_are_dead():
             self.game_over = True
-            end_game_msg = ("\n=== GAME OVER\n"
+            end_game_msg = ("\nGAME OVER\n"
                             "All knights are dead. The dragons win!")
 
         return ("Knight {id} at location {loc} committed suicide."
@@ -430,14 +430,14 @@ class DragonArena:
 
                 if self._all_knights_are_dead():
                     self.game_over = True
-                    end_game_msg = ("\n=== GAME OVER\n"
+                    end_game_msg = ("\nGAME OVER\n"
                                     "All knights are dead. The dragons win!")
             else:
                 self._no_of_living_dragons -= 1
 
                 if self._all_dragons_are_dead():
                     self.game_over = True
-                    end_game_msg = ("\n=== GAME OVER\n"
+                    end_game_msg = ("\nGAME OVER\n"
                                     "All dragons are dead. The knights win!")
 
         return ("{name1} {id1} attacks {name2} {id2} for {dmg} damage, "

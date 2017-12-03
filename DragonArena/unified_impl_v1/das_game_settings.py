@@ -1,3 +1,14 @@
+import logging
+'''
+Levels:
+CRITICAL
+ERROR
+WARNING
+INFO
+DEBUG
+NOTSET
+'''
+
 # INPUTS:
 backlog = 5
 server_addresses = [
@@ -9,10 +20,13 @@ server_addresses = [
     ("127.0.0.1", 2005),
 ]
 debug_printing = False
+server_visualizer = True
+client_visualizer = True
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 2.0
 ticks_per_game_hash = 7
 server_secret_salt = 'e4f421af'
+logging_level = logging.DEBUG
 
 dragon_ap_bounds = [5, 20]
 dragon_hp_bounds = [50, 100]

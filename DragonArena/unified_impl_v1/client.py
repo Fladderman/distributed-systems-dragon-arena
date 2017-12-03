@@ -27,7 +27,7 @@ class Client:
         log_filename = 'client_{name}.log'.format(name=self._name)
         logging.basicConfig(filename=log_filename,
                             filemode='a',
-                            level=logging.INFO,
+                            level=das_game_settings.logging_level,
                             format='%(asctime)s.%(msecs)03d <client:'+ self._name + '> %(message)s',
                             datefmt='%a %H:%M:%S')
         logging.info(("Client `{name}` started logging! :D"

@@ -235,7 +235,8 @@ class Server:
             else:
                 logging.warning("Expected S2S_SYNC_REPLY, got {msg}".format(
                     msg=sync_reply))
-                raise RuntimeError('expected sync reply! got ' + str(msg))
+                raise RuntimeError('expected sync reply! got ' +
+                                   str(sync_reply))
             # self._tick_id() = sync_reply.args[0]
             try:
                 self._dragon_arena = DragonArena.deserialize(sync_reply.args[1])
@@ -259,7 +260,7 @@ class Server:
                     # server must have crashed in the meantime!
                     self._server_sockets[server_id] = None
                     continue
-                welcome_msg = messaging.read_msg_from(sock,timeout=das_game_settings.S2S_wait_for_welcome_timeout)
+                welcome_msg = messaging.read_msg_from(sock, timeout=das_game_settings.S2S_wait_for_welcome_timeout)
                 if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):
                     logging.info(("got expected WELCOME reply from {server_id}"
                                  ).format(server_id=server_id))
@@ -834,7 +835,7 @@ class Server:
             return
         try:
             other_state = protected.ProtectedDragonArena(
-                DragonArena.deserialize(first_update.args[1])
+                DragonArena.deserialize(msg.args[1])
             )
         except Exception as e:
             logging.error(("Failed to make sense of S2S_UPDATE "
@@ -853,7 +854,7 @@ class Server:
             return
         their_prev_hash = msg.args[2]
         my_prev_hash = self._previous_hash
-        if their_hash > my_hash:
+        if their_prev_hash > my_prev_hash:
             logging.info(("I got an UPDATE from server {other_server_id} "
                           "with tick ID {other_tick_id} (same as me). "
                           "Their prev hash {their_prev_hash} > {my_prev_hash}, so I'll accept it."

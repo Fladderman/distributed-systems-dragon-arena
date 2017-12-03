@@ -1,5 +1,4 @@
 import msgpack
-import time
 import socket
 import logging
 from StringIO import StringIO
@@ -81,9 +80,9 @@ class Message:
         try:
             assert string in header2int
             return header2int[string] == self.msg_header
-        except:
+        except Exception as e:
             debug_print('header_matches_string FAILED')
-            raise 'shit'
+            raise RuntimeError(e)
 
     def same_header_as(self, other):
         if other is None:
@@ -132,9 +131,9 @@ class Message:
             assert 0 <= self.msg_header < len(int2header)
             return 'Message::' + int2header[self.msg_header] + ' from ' \
                 + str(self.sender) + ' with args:' + str(self.args)
-        except:
+        except Exception as e:
             debug_print('Msg REPR FAILED')
-            raise 'shit'
+            raise RuntimeError(e)
 
 
 """
@@ -206,7 +205,8 @@ def M_UPDATE(s_id, tick_id, serialized_state):
 
 
 def M_S2S_UPDATE(s_id, tick_id, serialized_state, previous_hash):
-    return Message(header2int['S2S_UPDATE'], s_id, [tick_id, serialized_state, previous_hash])
+    return Message(header2int['S2S_UPDATE'], s_id, [tick_id, serialized_state,
+                                                    previous_hash])
 
 
 def M_SPAWN(s_id, knight_id):

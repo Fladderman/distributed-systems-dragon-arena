@@ -140,10 +140,14 @@ while others have not. This corner case is dealt with as follows:
   - Every n ticks, servers hash their game state, and exchange this hash with
     each other. If hashes differ, there is an inconsistency. The owner of
     the largest hash will be considered the owner of the consistent game state.
-    Servers that identify that another server has a larger state-hash will
-    request the game state of that server.
+    Servers that identify that another server is behind in ticks, or has a
+    smaller hash, will push a game state update to that server. That server will
+    assess incoming updates to see if it can benefit from them (in much the same
+    way).
   - If hashes collide (which is highly unlikely), it is not a big issue.
-    Most likely the inconsistency will be detected in another n ticks.
+    In subsequent rounds of n ticks, the hashes are unlikely to collide.
+    Eventually the inconsistency will be detected. If n is chosen small enough,
+    this is not a problem.
 This protocol will also correct many edge cases that have not been found in the
 analysis.
 

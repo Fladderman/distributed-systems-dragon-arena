@@ -266,7 +266,7 @@ class Server:
                 else:
                     logging.info(("instead of WELCOME from {server_id}, got {msg}"
                                  ).format(server_id=server_id,
-                                          msg=reply2))
+                                          msg=welcome_msg))
                     # server must have crashed in the meantime!
                     self._server_sockets[server_id] = None
             sync_done = messaging.M_S2S_SYNC_DONE()

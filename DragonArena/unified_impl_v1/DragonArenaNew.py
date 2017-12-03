@@ -4,11 +4,13 @@ import das_game_settings as dgs
 import hashlib
 from sys import maxsize
 
+
 class Direction:
     RIGHT = 0
     UP = 1
     LEFT = 2
     DOWN = 3
+
 
 class Creature:
     def __init__(self, name, identifier, max_hp, curr_hp, ap):
@@ -536,7 +538,7 @@ class DragonArena:
         return 0 <= location[0] < self._map_height and \
                0 <= location[1] < self._map_width
 
-    def is_occupied_location(self, location): # used by bot and internally
+    def is_occupied_location(self, location):  # used by bot and internally
         return location in self._get_occupied_locations()
 
     # Allows the calling server to process a round of dragon attacks.
@@ -552,6 +554,7 @@ class DragonArena:
         for dragon_id in dragon_ids:
             k = dgs.ticks_per_dragon_attack
 
+            # don't let all dragons attack in the same tick
             if (self._tick + dragon_id[1]) % k == 0:
                 knight_ids = self.attack_candidates(dragon_id)
 

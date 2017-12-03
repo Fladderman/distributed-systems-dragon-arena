@@ -1,4 +1,6 @@
-import glob, os, heapq
+import glob
+import os
+import heapq
 out_file = 'logs_unified.log'
 if os.path.exists(out_file):
     print(out_file, "ALREADY EXISTS! Clear it first and ensure these logs are the ones you intended!")

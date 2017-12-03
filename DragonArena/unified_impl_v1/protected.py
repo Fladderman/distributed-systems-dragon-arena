@@ -1,5 +1,6 @@
-import threading, sys, os
+import threading
 from DragonArenaNew import DragonArena
+
 
 class ProtectedDragonArena:
     def __init__(self, dragon_arena, timeout=0.1):
@@ -35,7 +36,7 @@ class ProtectedDragonArena:
 
 
 class ProtectedQueue:
-    '''Things go in to the tail and pop out the head'''
+    """Things go in to the tail and pop out the head"""
     def __init__(self, timeout=2.0):
         assert isinstance(timeout, int) or isinstance(timeout, float)
         self._cv = threading.Condition()
@@ -44,8 +45,10 @@ class ProtectedQueue:
     def dequeue(self, timeout=1.0):
         with self._cv:
             self._cv.wait(timeout=timeout)
-            try: return self._q.pop(0)
-            except: return None
+            try:
+                return self._q.pop(0)
+            except:
+                return None
 
     def enqueue(self, x):
         with self._cv:

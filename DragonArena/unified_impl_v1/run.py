@@ -5,18 +5,21 @@ import das_game_settings
 
 processes = []
 
+
 def new_command(args, index):
     print('START', index)
     subprocess.check_output(args)
     print('END', index)
 
+
 def new_process(args):
     assert isinstance(args, list)
     index = len(processes)
     time.sleep(0.1)
-    p = Process(target=new_command, args=(args,index))
+    p = Process(target=new_command, args=(args, index))
     p.start()
     processes.append(p)
+
 
 def join_all(kill=False):
     if kill:
@@ -37,6 +40,7 @@ def server_start_args(server_id, starter=False):
 def client_start_args(player_type_arg='bot'):
     assert player_type_arg in {'bot', 'ticker', 'human'}
     return ['python2', './client_start.py', player_type_arg]
+
 
 if __name__ == '__main__':
     new_process(server_start_args(0, starter=True))

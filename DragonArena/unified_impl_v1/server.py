@@ -190,7 +190,7 @@ class Server:
         return min([self._server_id] + self._active_server_ids())
 
     def try_setup(self):
-        '''Will throw exceptions upwards if things fail'''
+        """Will throw exceptions upwards if things fail"""
         debug_print('OK')
         debug_print('self._is_starter:', self._is_starter)
         if self._is_starter:
@@ -204,7 +204,8 @@ class Server:
         else:
             auth_sock, auth_index = self._connect_to_first_other_server()
             if auth_sock is None:
-                raise RuntimeError('I am not the starter! I need to wait for a starter')
+                raise RuntimeError(('I am not the starter! '
+                                    'I need to wait for a starter'))
             logging.info("I am NOT the starter!".format())
             debug_print(auth_sock, auth_index)
             logging.info(("authority socket_index: {index}"
@@ -311,7 +312,6 @@ class Server:
         except GeneratorExit:
             return
 
-
     def _connect_to_first_other_server(self):
         for index, addr in enumerate(das_game_settings.server_addresses):
             if index == self._server_id:
@@ -328,7 +328,7 @@ class Server:
         return list(map(f, xrange(0, das_game_settings.num_server_addresses)))
 
     @staticmethod
-    def _try_connect_to(addr): #addr == (ip, port)
+    def _try_connect_to(addr):  # addr == (ip, port)
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(0.1) # tweak this. 0.5 is plenty i think

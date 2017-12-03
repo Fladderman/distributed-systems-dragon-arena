@@ -3,7 +3,6 @@ import messaging
 import protected
 import das_game_settings
 import random
-from DragonArenaNew import Knight, Dragon
 from drawing import ascii_draw
 from DragonArenaNew import Direction
 

@@ -43,11 +43,11 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     dragon_arena.increment_tick()
 
     for msg in message_sequence:
-        if (not isinstance(msg, messaging.Message)
-            or not msg.permitted_in_server_application_function()):
+        if (not isinstance(msg, messaging.Message) or
+            not msg.permitted_in_server_application_function()):
             logging.error(("Received and dropped message, "
                           "deemed inappropriate as a game request: {msg}"
-                          ).format(msg=str(msg)))
+                           ).format(msg=str(msg)))
             continue
 
         bad = False
@@ -67,13 +67,15 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
                 result = "Bad move request."
         elif msg.header_matches_string("R_HEAL"):
             if dragon_arena.is_knight(tuple(msg.args[0])):
-                result = dragon_arena.heal(tuple(msg.sender), tuple(msg.args[0]))
+                result = dragon_arena.heal(tuple(msg.sender),
+                                           tuple(msg.args[0]))
             else:
                 bad = True
                 result = "Bad heal request."
         elif msg.header_matches_string("R_ATTACK"):
             if dragon_arena.is_dragon(tuple(msg.args[0])):
-                result = dragon_arena.attack(tuple(msg.sender), tuple(msg.args[0]))
+                result = dragon_arena.attack(tuple(msg.sender),
+                                             tuple(msg.args[0]))
             else:
                 bad = True
                 result = "Bad attack request."
@@ -112,6 +114,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
 #SUBPROBLEMS END:
 ##############################
 
+
 def count_up_from(start):
     x = start
     try:
@@ -120,6 +123,7 @@ def count_up_from(start):
             x += 1
     except GeneratorExit:
         return
+
 
 class ServerAcceptor:
     def __init__(self, port):
@@ -162,19 +166,24 @@ class Server:
         logging.basicConfig(filename=log_filename,
                             filemode='a',
                             level=das_game_settings.logging_level,
-                            format='%(asctime)s.%(msecs)03d srv '+ '{: <3d}'.format(server_id) + Server._my_logging_icon(server_id) + ' %(message)s',
+                            format='%(asctime)s.%(msecs)03d srv '+
+                                   '{: <3d}'.format(server_id) +
+                                   Server._my_logging_icon(server_id)
+                                   + ' %(message)s',
                             datefmt='%a %H:%M:%S')
         logging.info(("Server {server_id} started logging! :D"
                      ).format(server_id=server_id))
         # if I am crashing a lot in setup, do exponential backoff
         backoff_time = 0.01
         for try_index in count_up_from(0):
-            logging.debug("try number {try_index}".format(try_index=try_index))
+            logging.debug("try number {try_index}".
+                          format(try_index=try_index))
             # TODO backoff time, try again when this throws exception
             try:
                 self.try_setup()
             except Exception as e:
-                logging.debug("  try number {try_index}".format(try_index=try_index))
+                logging.debug("  try number {try_index}".
+                              format(try_index=try_index))
                 debug_print('try setup exception. backing off', e)
                 time.sleep(backoff_time)
                 backoff_time = pow(backoff_time * 1.4, 0.8)

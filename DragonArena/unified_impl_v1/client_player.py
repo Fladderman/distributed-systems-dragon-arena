@@ -149,8 +149,6 @@ class BotPlayer(Player):
             while True:  # TODO: while game.playing    # Roy: And I'm not dead?
                 time.sleep(random.uniform(st*0.8, st/0.8))
                 with protected_dragon_arena as da:
-                    if das_game_settings.client_visualizer:
-                        ascii_draw(da, me=my_id)
                     try:
                         choice = BotPlayer._choose_action_return_message(da, my_id)
                     except Exception as e:

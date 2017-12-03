@@ -11,6 +11,7 @@ from messaging import Message, MessageError
 from das_game_settings import debug_print
 from math import sqrt
 import random
+from drawing import ascii_draw
 import os
 import string
 
@@ -202,6 +203,8 @@ class Client:
             if msg != MessageError.CRASH:
                 if msg.header_matches_string('UPDATE'):
                     new_state = DragonArena.deserialize(msg.args[1])
+                    if das_game_settings.client_visualizer:
+                        ascii_draw(new_state, me=self._my_id)
                     self._protected_game_state.replace_arena(new_state)
                     logging.info('Received a server update. Replaced arena')
                     debug_print('replaced arena! :D')

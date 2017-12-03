@@ -624,6 +624,10 @@ class Server:
 
             logging.debug(("Before updating, DA hashes to {h}"
                          ).format(h=self._dragon_arena.get_hash()))
+
+
+            if das_game_settings.server_visualizer:
+                ascii_draw(self._dragon_arena)
             '''UPDATE CLIENTS'''
             self._step_update_clients()
             '''UPDATE SERVERS'''
@@ -641,8 +645,6 @@ class Server:
                     messaging.write_msg_to(self._server_sockets[server_id], s2s_update_msg)
             self._servers_that_need_updating.clear()
 
-            if das_game_settings.server_visualizer:
-                ascii_draw(self._dragon_arena)
 
             '''SLEEP STEP'''
             # TODO put back in later

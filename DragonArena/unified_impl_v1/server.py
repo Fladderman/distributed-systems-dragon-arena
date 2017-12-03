@@ -95,7 +95,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
                 bad = True
                 result = "Id doesn't exist!"
         else:
-            raise "chris fukt up damn"
+            raise RuntimeError("chris fukt up damn")
 
         if bad:
             logging.error(("Message {msg} from {sender} was ignored. "
@@ -292,10 +292,11 @@ class Server:
         self._previous_hash = None
         self._servers_that_need_updating = set()
 
-
     def _knight_id_generator_func(self):
+        assert isinstance(self._dragon_arena, DragonArena)
+
         my_knight_ids = filter(
-            lambda x: x[0]==self._server_id,
+            lambda x: x[0] == self._server_id,
             list(self._dragon_arena.get_knights())
         )
         my_knight_counters = map(lambda x: x[1], my_knight_ids)
@@ -470,7 +471,9 @@ class Server:
             salt = msg.args[0]
             player_id = msg.args[1]
             received_secret = msg.args[2]
-            derived_secret = Server._client_secret(addr[0], tuple(player_id), salt, self._dragon_arena.key)
+            derived_secret = Server._client_secret(addr[0], tuple(player_id),
+                                                   salt,
+                                                   self._dragon_arena.key)
             if received_secret != derived_secret:
                 debug_print('secret mismatch!')
                 logging.warning(("Refused a client`s reconnection. Received sescret {received_secret}, "
@@ -504,7 +507,8 @@ class Server:
                 logging.warning(("Incoming daemon noticed client at {addr} crashed."
                               "Removing client"
                               ).format(addr=addr))
-                self._requests.enqueue(messaging.M_DESPAWN(self._server_id, player_id))
+                self._requests.enqueue(messaging.M_DESPAWN(self._server_id,
+                                                           player_id))
                 self._client_sockets.pop(addr)
                 #TODO debug why a client cannot REJOIN
                 break
@@ -532,7 +536,8 @@ class Server:
         return m.hexdigest()[:10]
 
     def main_loop(self):
-        logging.info(("Main loop started. tick_id is {tick_id}").format(tick_id=self._tick_id()))
+        logging.info("Main loop started. tick_id is {tick_id}".
+                     format(tick_id=self._tick_id()))
         debug_print('MAIN LOOP :)')
         while True:
             tick_start = time.time()

@@ -3,12 +3,18 @@ import messaging
 import protected
 import das_game_settings
 import random
+from das_game_settings import debug_print
 from drawing import ascii_draw
 from DragonArenaNew import Direction
 
 
 class Player:
-    pass
+    @staticmethod
+    def main_loop(protected_dragon_arena, my_id):
+        assert isinstance(protected_dragon_arena,
+                          protected.ProtectedDragonArena)
+        # TODO implement. look at BotPlayer for inspiration
+        raise NotImplemented
 
 
 class TickingPlayer(Player):
@@ -29,11 +35,13 @@ class TickingPlayer(Player):
             # clean up generator
             return
 
+
+"""
 class FuzzerPlayer(Player):
-    """ main_loop() is a generator that `yield`s request messages.
+    \""" main_loop() is a generator that `yield`s request messages.
         (client outgoing thread is calling and will forward yielded messages)
     the game is over then the generator returns
-    """
+    \"""
 
     @staticmethod
     def main_loop(protected_dragon_arena, my_id):
@@ -60,6 +68,7 @@ class FuzzerPlayer(Player):
         except GeneratorExit:
             # clean up generator
             return
+"""
 
 class HumanPlayer(Player):
     """ main_loop() is a generator that `yield`s request messages.

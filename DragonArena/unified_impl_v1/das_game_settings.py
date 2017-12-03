@@ -19,19 +19,21 @@ server_addresses = [
     ("127.0.0.1", 2004),
     ("127.0.0.1", 2005),
 ]
-debug_printing = False
+debug_printing = True
 server_visualizer = True
 client_visualizer = True
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 2.0
 ticks_per_game_hash = 7
 server_secret_salt = 'e4f421af'
+
+# change to logging.CRITICAL if you only want DAS/Player game event logs
 logging_level = logging.DEBUG
 
-dragon_ap_bounds = [5, 20]
-dragon_hp_bounds = [50, 100]
-knight_ap_bounds = [5, 10]
-knight_hp_bounds = [70, 120]
+dragon_ap_bounds = [12, 15]
+dragon_hp_bounds = [30, 50]
+knight_ap_bounds = [8, 10]
+knight_hp_bounds = [280, 300]
 '''
 # Here are the default values in case we change them:
 dragon_ap_bounds = [5, 20]

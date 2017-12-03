@@ -205,7 +205,8 @@ class DragonArena:
     # helper method for the actual move methods
     def _move_help(self, next_location, direction, knight_id):
         # in case of bad request, throw an error
-        assert(self._id_exists(knight_id))
+        if not self._id_exists(knight_id):
+            raise RuntimeError("Can't move! The knight with id ", knight_id, 'Doesnt exist!')
 
         # knight might have died previously, ok
         if self.is_dead(knight_id):

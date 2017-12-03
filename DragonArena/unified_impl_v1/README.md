@@ -190,3 +190,16 @@ analysis.
 1. The game can function correctly with changing number of servers
    caveat: One must set an upper-bound ahead of time.
    A higher bound necessitates a slower server join/rejoin
+
+# Points of interest in code
+1. `messaging.py` 'Messages' abstract over a network socket. Everything
+   expressed using a formulated message. Game states etc. are serializable using
+   msgpack module.
+1. `das_game_settings.py` Users of the system can alter its behavior by changing
+   values in this file. (eg server addresses, tick speed, HP values etc.)
+1. `DragonArenaNew.py` Game logic. Used by both clients and servers. Supports
+   functions for serialization, logging, hashing, etc.
+1. `client_player.py` Interfaces with the client. Defines a knight's behavior.
+   Which class you instantiate defines whether its a bot, human etc.
+1. `server.py` Most messy, complex, verbose and confusing. Contains ticking
+   logic, client management, logging, authentication etc.

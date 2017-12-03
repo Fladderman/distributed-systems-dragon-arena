@@ -197,34 +197,38 @@ class Client:
         debug_print('main incoming')
         # while True:
         #     msg = messaging.read_msg_from(self._server_socket, timeout=None)
-        for msg in messaging.generate_messages_from(self._server_socket,
-                                                    timeout=None):
-            debug_print(str(msg))
-            if msg != MessageError.CRASH:
-                if msg.header_matches_string('UPDATE'):
-                    new_state = DragonArena.deserialize(msg.args[1])
-                    if das_game_settings.client_visualizer:
-                        ascii_draw(new_state, me=self._my_id)
-                    self._protected_game_state.replace_arena(new_state)
-                    logging.info('Received a server update. Replaced arena')
-                    debug_print('replaced arena! :D')
-                    if new_state.game_over:
-                        logging.info(('Latest game state is a GAME OVER '
-                                      'state...'))
-                        time.sleep(2.0)
-                        logging.info(('Latest game state is a GAME OVER '
-                                      'state...'))
-                        print(('GAME OVER! {winners} win!'
-                              ).format(winners=new_state.get_winner()))
-                        logging.info(('GAME OVER! {winners} win!'
-                                     ).format(winners=new_state.get_winner()))
-                        os._exit(0)
-            else:
-                logging.info(('Incoming handler detected crash! '
-                              'Re-establishing connection...'))
-                self._connect_to_a_server(reconnect=True)
-                logging.info('Connection back up!')
-                # return
+        while True:
+            debug_print('Remade update generator')
+            update_generator = messaging.generate_messages_from(self._server_socket,
+                                                                timeout=None)
+            for msg in update_generator:
+                debug_print(str(msg))
+                if msg != MessageError.CRASH:
+                    if msg.header_matches_string('UPDATE'):
+                        new_state = DragonArena.deserialize(msg.args[1])
+                        if das_game_settings.client_visualizer:
+                            ascii_draw(new_state, me=self._my_id)
+                        self._protected_game_state.replace_arena(new_state)
+                        logging.info('Received a server update. Replaced arena')
+                        debug_print('replaced arena! :D')
+                        if new_state.game_over:
+                            logging.info(('Latest game state is a GAME OVER '
+                                          'state...'))
+                            time.sleep(2.0)
+                            logging.info(('Latest game state is a GAME OVER '
+                                          'state...'))
+                            print(('GAME OVER! {winners} win!'
+                                  ).format(winners=new_state.get_winner()))
+                            logging.info(('GAME OVER! {winners} win!'
+                                         ).format(winners=new_state.get_winner()))
+                            os._exit(0)
+                else:
+                    logging.info(('Incoming handler detected crash! '
+                                  'Re-establishing connection...'))
+                    self._connect_to_a_server(reconnect=True)
+                    logging.info('Connection back up!')
+                    # break for loop. This remakes the generator
+                    break
 
     def main_outgoing_loop(self):
         req_generator = self._player.main_loop(self._protected_game_state,

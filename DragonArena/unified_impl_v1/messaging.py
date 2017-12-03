@@ -51,20 +51,22 @@ class Message:
     """
 
     def __init__(self, msg_header, sender, args):
+        # print('init', msg_header, sender, args)
         try:
             assert isinstance(msg_header, int) and \
                    msg_header in range(0, len(int2header))
             assert isinstance(sender, int) or isinstance(sender, list) or isinstance(sender, tuple)
             assert isinstance(args, list)
             self.msg_header = msg_header
-            if not isinstance(sender, int):
-                sender = tuple(sender)
-                if not len(sender)==2 and isinstance(sender[0], int) and isinstance(sender[1], int):
-                    raise RuntimeError("BAD SENDER FIELD")
-            self.sender = sender
+            if isinstance(sender, int):
+                self.sender = sender
+            else:
+                self.sender = tuple(sender)
             self.args = args
+            # print('WENT OK', self.msg_header, self.sender, self.args)
         except Exception as e:
-            print('MESSAGE INIT FAILED!')
+            print('MESSAGE INIT FAILED!', msg_header, sender, args)
+            # print('went bad!')
             debug_print('MESSAGE INIT FAILED', msg_header, sender, args)
             raise e
 

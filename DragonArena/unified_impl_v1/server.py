@@ -474,7 +474,7 @@ class Server:
             # Reconnecting client
             debug_print('returning client!')
             salt = msg.args[0]
-            player_id = msg.args[1]
+            player_id = tuple(msg.args[1])
             received_secret = msg.args[2]
             derived_secret = Server._client_secret(addr[0], tuple(player_id),
                                                    salt,
@@ -624,7 +624,6 @@ class Server:
 
             logging.debug(("Before updating, DA hashes to {h}"
                          ).format(h=self._dragon_arena.get_hash()))
-
 
             if das_game_settings.server_visualizer:
                 ascii_draw(self._dragon_arena)

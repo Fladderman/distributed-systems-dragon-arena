@@ -5,7 +5,7 @@ import logging
 import messaging
 import random
 import das_game_settings
-import protected
+from protected import ProtectedQueue
 from messaging import Message, MessageError
 from DragonArenaNew import DragonArena, Direction
 from das_game_settings import debug_print
@@ -110,7 +110,8 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     result = dragon_arena.let_dragons_attack()
     logging.info(("Player actions successfully processed for tick {tick_id}"
                  ).format(tick_id=dragon_arena.get_tick()))
-    logging.info(("ENTERING TICK {tick_id}").format(tick_id=dragon_arena.get_tick()))
+    logging.info(("ENTERING TICK {tick_id}").format(
+        tick_id=dragon_arena.get_tick()))
 #SUBPROBLEMS END:
 ##############################
 
@@ -284,11 +285,12 @@ class Server:
                          ).format(auth_index=auth_index))
 
         debug_print('WOOOHOOO READY')
-        self._requests = protected.ProtectedQueue()
-        self._waiting_sync_server_tuples = protected.ProtectedQueue() #(msg.sender, socket)
+        self._requests = ProtectedQueue()
+        self._waiting_sync_server_tuples = ProtectedQueue()  #(msg.sender, socket)
         self._client_sockets = dict()
         self._knight_id_generator = self._knight_id_generator_func()
         self._server_client_load = [None for _ in range(das_game_settings.num_server_addresses)]
+        self._server_client_load[self._server_id] = 0
         self._previous_hash = None
         self._servers_that_need_updating = set()
 
@@ -344,10 +346,10 @@ class Server:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(0.1) # tweak this. 0.5 is plenty i think
             sock.connect(addr)
-            logging.info(("Successfully socketed to {addr}").format(addr=addr))
+            logging.info("Successfully socketed to {addr}".format(addr=addr))
             return sock
         except:
-            logging.warning(("Failed to socket to {addr}").format(addr=addr))
+            logging.warning("Failed to socket to {addr}".format(addr=addr))
             return None
 
     @staticmethod
@@ -443,6 +445,7 @@ class Server:
                 return
 
     def _handle_client_join(self, msg, sock, addr, hello_again):
+
         # NOTE knight_id analagous to player_id
         if self._i_should_refuse_clients():
             messaging.write_msg_to(sock, messaging.M_REFUSE())
@@ -464,7 +467,9 @@ class Server:
             logging.info(("Enqueued spawn request {spawn_msg} "
                           "for the new client."
                           ).format(spawn_msg=spawn_msg))
-            derived_secret = Server._client_secret(addr[0], tuple(player_id), msg.args[0], self._dragon_arena.key)
+            derived_secret = Server._client_secret(addr[0], tuple(player_id),
+                                                   msg.args[0],
+                                                   self._dragon_arena.key)
         else:
             # Reconnecting client
             debug_print('returning client!')
@@ -486,7 +491,8 @@ class Server:
                           ).format(received_secret=received_secret))
 
         # reconnecting or not...
-        welcome = messaging.M_S2C_WELCOME(self._server_id, player_id, derived_secret)
+        welcome = messaging.M_S2C_WELCOME(self._server_id, player_id,
+                                          derived_secret)
         messaging.write_msg_to(sock, welcome)
         debug_print(('welcomed client/knight {player_id} to the game'
                     ).format(player_id=player_id))
@@ -653,7 +659,6 @@ class Server:
                     logging.info(("No time for sleep for tick_id {tick_id}"
                                  ).format(tick_id=self._tick_id()))
 
-
     def _i_should_refuse_clients(self):
         if self._dragon_arena.game_is_full():
             return True
@@ -662,7 +667,8 @@ class Server:
                  self._server_client_load[server_id] = None
         my_load = len(self._client_sockets)
         self._server_client_load[self._server_id] = my_load
-        total_active_loads = filter(lambda x: x is not None, self._server_client_load)
+        total_active_loads = filter(lambda x: x is not None,
+                                    self._server_client_load)
         total_num_servers = len(total_active_loads)
         if total_num_servers == 1:
             debug_print('there is no other server!')
@@ -670,8 +676,15 @@ class Server:
         if my_load < max(0, das_game_settings.min_server_client_capacity):
             debug_print('I can certainly take more')
             return False
-        average_server_load = sum(total_active_loads) / float(total_num_servers)
-        return my_load > (average_server_load * das_game_settings.server_overcapacity_ratio)
+
+        total_loads = sum(total_active_loads)
+
+        assert isinstance(total_loads, int)
+
+        average_server_load = \
+            total_loads / float(total_num_servers)
+        return my_load > (average_server_load *
+                          das_game_settings.server_overcapacity_ratio)
 
     def _active_server_indices(self):
         return filter(
@@ -839,9 +852,7 @@ class Server:
                                   tick_id=self._tick_id()))
             return
         try:
-            other_state = protected.ProtectedDragonArena(
-                DragonArena.deserialize(msg.args[1])
-            )
+            other_state = DragonArena.deserialize(msg.args[1])
         except Exception as e:
             logging.error(("Failed to make sense of S2S_UPDATE "
                           "from {other_server_id}. Discarding."

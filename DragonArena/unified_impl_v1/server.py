@@ -108,8 +108,7 @@ def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
                 msg=str(msg), sender=msg.sender, reason=result))
     #TODO LOG
     result = dragon_arena.let_dragons_attack()
-    logging.info(("Player actions successfully processed for tick {tick_id}"
-                 ).format(tick_id=dragon_arena.get_tick()))
+    logging.info(result)
     logging.info(("ENTERING TICK {tick_id}").format(
         tick_id=dragon_arena.get_tick()))
 #SUBPROBLEMS END:

@@ -141,8 +141,8 @@ class BotPlayer(Player):
     def main_loop(protected_dragon_arena, my_id):
         assert isinstance(protected_dragon_arena,
                           protected.ProtectedDragonArena)
-        print('bot player main loop')
-        print('my id', my_id)
+        debug_print('bot player main loop')
+        debug_print('my id', my_id)
         # has self._game_state_copy
         st = das_game_settings.server_min_tick_time
         try:

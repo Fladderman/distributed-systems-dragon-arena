@@ -296,9 +296,9 @@ class Server:
 
     def _knight_id_generator_func(self):
         assert isinstance(self._dragon_arena, DragonArena)
-
+        sid = self._server_id # lambda would `enclose` the term 'self'
         my_knight_ids = filter(
-            lambda x: x[0] == self._server_id,
+            lambda k: k.identifier[0] == sid,
             list(self._dragon_arena.get_knights())
         )
         my_knight_counters = map(lambda x: x[1], my_knight_ids)

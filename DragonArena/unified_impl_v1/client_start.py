@@ -18,6 +18,4 @@ if __name__ == '__main__':
             "Please run with 1 arg from {'bot', 'human', 'ticking'}")
 
     client_0 = client.Client(make_player())
-    print('client starter init complete')
     client_0.main_loop()
-    print('client starter main loop complete')

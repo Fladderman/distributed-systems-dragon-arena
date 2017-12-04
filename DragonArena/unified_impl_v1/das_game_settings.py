@@ -19,7 +19,7 @@ server_addresses = [
     ("127.0.0.1", 2004),
     ("127.0.0.1", 2005),
 ]
-debug_printing = True
+debug_printing = False
 server_visualizer = True
 client_visualizer = True
 S2S_wait_for_welcome_timeout = 0.2

@@ -297,7 +297,7 @@ class Server:
         assert isinstance(self._dragon_arena, DragonArena)
         sid = self._server_id # lambda would `enclose` the term 'self'
         my_knight_ids = filter(
-            lambda k: k.identifier[0] == sid,
+            lambda k: k.get_identifier()[0] == sid,
             list(self._dragon_arena.get_knights())
         )
         my_knight_counters = map(lambda x: x[1], my_knight_ids)

@@ -19,9 +19,10 @@ server_addresses = [
     ("127.0.0.1", 2004),
     ("127.0.0.1", 2005),
 ]
-debug_printing = False
+debug_printing = True
 server_visualizer = True
 client_visualizer = True
+suppress_game_over = True
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 2.0
 ticks_per_game_hash = 7

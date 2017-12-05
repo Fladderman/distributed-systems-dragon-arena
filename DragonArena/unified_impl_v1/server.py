@@ -295,23 +295,14 @@ class Server:
 
     def _knight_id_generator_func(self):
         assert isinstance(self._dragon_arena, DragonArena)
-        sid = self._server_id # lambda would `enclose` the term 'self'
-        my_knight_ids = filter(
-            lambda k: k.identifier[0] == sid,
-            list(self._dragon_arena.get_knights())
-        )
-        my_knight_counters = map(lambda x: x[1], my_knight_ids)
-        next_available_counter = (max(my_knight_counters) + 1
-                                  if my_knight_counters
-                                  else 0)
-
-        logging.debug(("Prepared knight ID generator."
-                      "Will count up from ({server_id},{next_knight_id})"
-                      ).format(server_id=self._server_id,
-                               next_knight_id=next_available_counter))
+        i = 0
         try:
-            for i in count_up_from(next_available_counter):
-                yield (self._server_id, i)
+            while True:
+                next_k_id = (self._server_id, i)
+                if not self._dragon_arena.was_ever_a_knight(next_k_id):
+                    debug_print("knight generator yielding next K_ID", next_k_id)
+                    yield next_k_id
+                i += 1
         except GeneratorExit:
             debug_print('Cleaning up _knight_id_generator')
             return
@@ -941,7 +932,7 @@ class Server:
                 self._client_sockets.pop(addr)
         logging.info(("All updates done for tick_id {tick_id}"
                      ).format(tick_id=self._tick_id()))
-        if self._dragon_arena.game_over:
+        if self._dragon_arena.game_over and not das_game_settings.suppress_game_over:
             debug_print('GAME OVER!')
             self._server_acceptor.shutdown()
             logging.critical(("GAME OVER! {winners} win! Acceptor shutdown. "

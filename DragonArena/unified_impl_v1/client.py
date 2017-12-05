@@ -211,7 +211,7 @@ class Client:
                         self._protected_game_state.replace_arena(new_state)
                         logging.info('Received a server update. Replaced arena')
                         debug_print('replaced arena! :D')
-                        if new_state.game_over:
+                        if new_state.game_over and not das_game_settings.suppress_game_over:
                             logging.info(('Latest game state is a GAME OVER '
                                           'state...'))
                             time.sleep(2.0)

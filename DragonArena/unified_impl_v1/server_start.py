@@ -11,4 +11,3 @@ if __name__ == '__main__':
                             '[server_id] [is_starter]'))
 
     serv_0 = server.Server(server_id, is_starter)
-    serv_0.main_loop()

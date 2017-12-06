@@ -65,6 +65,9 @@ def check_timeout(data, kill=False):
     while True:
         for proc,startTime,lifeTime in data:
             if time.time() - startTime >= lifeTime:
+                print "proc %s \n" %proc
+                print time.time() - startTime
+                print lifeTime
                 proc.terminate()
                 print('Client disconnect')
                 data = filter(lambda x: x[0] != proc, data)
@@ -82,18 +85,17 @@ def check_timeout(data, kill=False):
 
 
 if __name__ == '__main__':
-    new_process(server_start_args(0, starter=True))
+    new_process(server_start_args(0, starter=True)
     new_process(server_start_args(1))
     new_process(server_start_args(2))
-    new_process(server_start_args(3))
-    new_process(server_start_args(4))
+
 
     file = open('WoT_Edge_Detailed','r') #alternative SC2
     #fileSC = open('SC2_Edge_Detailed','r')
     lines = file.readlines()
     clientList = []
     c=6
-    while(c<106): # 0-99
+    while(c<11): # 0-99
         clientList.append(parseLine(lines[c]))
         c += 1
 
@@ -108,6 +110,7 @@ if __name__ == '__main__':
         clientStartTime.append(time.time())
         timestampCounter = sortedClient.timestamp
         clientProcesses.append(clProcess)
-        clientTimeAlive.append(sortedClient.lifetime)
+        clientTimeAlive.append(sortedClient.lifetime/10) #make it faster for own testing
     checkTimeoutData = zip(clientProcesses, clientStartTime, clientTimeAlive)
     check_timeout(checkTimeoutData)
+    #join_all()

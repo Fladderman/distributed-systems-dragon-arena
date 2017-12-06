@@ -144,7 +144,7 @@ class BotPlayer(Player):
         debug_print('bot player main loop')
         debug_print('my id', my_id)
         # has self._game_state_copy
-        st = das_game_settings.server_min_tick_time
+        st = 1.0
         try:
             while True:  # TODO: while game.playing    # Roy: And I'm not dead?
                 time.sleep(random.uniform(st*0.8, st/0.8))

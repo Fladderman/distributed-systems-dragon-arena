@@ -404,6 +404,7 @@ class Server:
                                            derived_secret=derived_secret))
                     debug_print('server is up! synced by someone else server!')
                     self._server_sockets[msg.sender] = sock
+                    self._server_client_load[msg.sender] = 0
                     messaging.write_msg_to(sock, messaging.M_S2S_WELCOME(self._server_id))
                 else:
                     logging.warning(("Got a HELLO handshake from {server_id} "
@@ -438,7 +439,9 @@ class Server:
 
         # NOTE knight_id analagous to player_id
         if self._i_should_refuse_clients():
+            debug_print("Refusing client at addr", addr)
             messaging.write_msg_to(sock, messaging.M_REFUSE())
+            # self._inflate_peer_loads()
             logging.warning(("Refused a client at {addr} "
                           "Server loads are currently approx. {loads}."
                           "Client wanted to rejoin: {rejoin}"
@@ -497,22 +500,33 @@ class Server:
         # for msg in messaging.generate_messages_from(socket, timeout=None):
         while True:
             msg = messaging.read_msg_from(sock, timeout=None)
-            debug_print('client sumthn')
+            debug_print('client sent a message')
             if msg == MessageError.CRASH:
                 debug_print('client crashed!')
                 logging.warning(("Incoming daemon noticed client at {addr} crashed."
                               "Removing client"
                               ).format(addr=addr))
                 self._requests.enqueue(messaging.M_DESPAWN(self._server_id,
-                                                           player_id))
-                self._client_sockets.pop(addr)
-                #TODO debug why a client cannot REJOIN
-                break
+                                                           player_id)) # de-spawn knight
+                self._client_sockets.pop(addr) # remove from update list
+                break # kill this handler
             #TODO overwrite the SENDER field. this is needed for logging AND to make sure the request is valid
             msg.sender = player_id # Server annotates this to ensure client doesnt doctor their packets
             debug_print('client incoming', msg)
             self._requests.enqueue(msg)
             logging.debug(("Got client incoming {msg}!").format(msg=str(msg)))
+
+            # consider that we might need to prune this client
+            if self._i_should_prune_clients() and self._dragon_arena._tick % self.num_clients() == player_id[1]:
+                # use client ID to ensure multiple clients dont get pruned per tick
+                # self._inflate_peer_loads()
+                sock.close()
+                self._client_sockets.pop(addr) # remove from update list
+                logging.warning(("I am very over capacity! Pruning client at addr {addr}"
+                              ).format(addr=addr))
+                debug_print("PRUNING THIS CLIENT!", addr)
+                # do NOT despawn the knight
+                break # kill this handler
             pass
         debug_print('client handler dead :(')
 
@@ -531,11 +545,17 @@ class Server:
         m.update(str(dragon_arena_key))
         return m.hexdigest()[:10]
 
+    def num_clients(self):
+        return len(self._client_sockets)
+
     def main_loop(self):
         logging.info("Main loop started. tick_id is {tick_id}".
                      format(tick_id=self._tick_id()))
         debug_print('MAIN LOOP :)')
         while True:
+            # Update my server-client load
+            self._server_client_load[self._server_id] = self.num_clients()
+
             tick_start = time.time()
             debug_print('tick', self._tick_id())
             logging.debug(("At loop start, DA hashes to {h}"
@@ -633,15 +653,15 @@ class Server:
                                            h=self._previous_hash))
                     messaging.write_msg_to(self._server_sockets[server_id], s2s_update_msg)
             self._servers_that_need_updating.clear()
-
-
             '''SLEEP STEP'''
-            # TODO put back in later
+            took_time = (time.time() - tick_start)
+            logging.debug(("Tick {tick_id} took {took} sec to process"
+                         ).format(tick_id=self._tick_id(), took=took_time))
             if self._waiting_sync_server_tuples.poll_nonempty():
                 logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"
                              ).format(tick_id=self._tick_id()))
             else:
-                sleep_time = das_game_settings.server_min_tick_time - (time.time() - tick_start)
+                sleep_time = das_game_settings.server_min_tick_time - took_time
                 if sleep_time > 0.0:
                     logging.info(("Sleeping for ({sleep_time}) seconds for tick_id {tick_id}"
                                  ).format(sleep_time=sleep_time, tick_id=self._tick_id()))
@@ -649,35 +669,49 @@ class Server:
                 else:
                     logging.info(("No time for sleep for tick_id {tick_id}"
                                  ).format(tick_id=self._tick_id()))
+    def _num_active_peers(self):
+        return len(self._active_peer_indices())
+
+    def _average_peer_load(self):
+        count = 0
+        tot = 0.0
+        for i in range(das_game_settings.num_server_addresses):
+            if i == self._server_id:
+                continue
+            l = self._server_client_load[i]
+            if l is not None:
+                tot += l
+                count += 1
+        if count == 0: return None
+        else:          return tot / float(count)
 
     def _i_should_refuse_clients(self):
         if self._dragon_arena.game_is_full():
             return True
-        for server_id, sock in enumerate(self._server_sockets):
-            if sock is None:
-                 self._server_client_load[server_id] = None
-        my_load = len(self._client_sockets)
-        self._server_client_load[self._server_id] = my_load
-        total_active_loads = filter(lambda x: x is not None,
-                                    self._server_client_load)
-        total_num_servers = len(total_active_loads)
-        if total_num_servers == 1:
-            debug_print('there is no other server!')
+        my_load = self.num_clients()
+        if my_load < das_game_settings.min_server_client_capacity:
             return False
-        if my_load < max(0, das_game_settings.min_server_client_capacity):
-            debug_print('I can certainly take more')
+        apl = self._average_peer_load()
+        if apl is None:
+            #Nobody else around!
             return False
+        my_load_would_be = my_load
+        # their load would be +1 of what it is now
+        return my_load_would_be > (apl+1)*das_game_settings.server_overcapacity_ratio
 
-        total_loads = sum(total_active_loads)
+    def _i_should_prune_clients(self):
+        my_load = self.num_clients()
+        if my_load <= das_game_settings.min_server_client_capacity:
+            return False
+        apl = self._average_peer_load()
+        if apl is None:
+            #Nobody else around!
+            return False
+        my_load_would_be = my_load-1
+        # their load would be +1 of what it is now
+        return my_load_would_be >= (apl+1)*das_game_settings.server_very_overcapacity_ratio
 
-        assert isinstance(total_loads, int)
-
-        average_server_load = \
-            total_loads / float(total_num_servers)
-        return my_load > (average_server_load *
-                          das_game_settings.server_overcapacity_ratio)
-
-    def _active_server_indices(self):
+    def _active_peer_indices(self):
         return filter(
             lambda x: self._server_sockets[x] is not None,
             range(das_game_settings.num_server_addresses),
@@ -706,18 +740,18 @@ class Server:
             logging.warning("This is a hashing tick!!")
             done_msg = messaging.M_DONE_HASHED(self._server_id,
                                                 self._tick_id() + tick_count_modifier,
-                                                len(self._client_sockets),
+                                                self.num_clients(),
                                                 self._dragon_arena.get_hash())
         else:
             done_msg = messaging.M_DONE(self._server_id,
                              self._tick_id() + tick_count_modifier,
-                             len(self._client_sockets))
+                             self.num_clients())
         '''SEND DONE'''
 
         logging.info(("Releasing barrier of {tick_id} for {whom}"
                      ).format(tick_id=self._tick_id(),
-                              whom=self._active_server_indices()))
-        for server_id in self._active_server_indices():
+                              whom=self._active_peer_indices()))
+        for server_id in self._active_peer_indices():
             if server_id is except_server_id:
                 logging.debug(("Suppressing {server_id}'s DONE message."
                               "It was newly synced and wasn't part of the barrier."
@@ -733,7 +767,7 @@ class Server:
 
     def _step_read_reqs_and_wait(self,update_enabled=True):
         res = []
-        active_indices = self._active_server_indices()
+        active_indices = self._active_peer_indices()
         logging.info(("AT BARRIER in tick {tick_id}. waiting for servers {active_indices}"
                      ).format(tick_id=self._tick_id(),
                             active_indices=active_indices))
@@ -768,6 +802,7 @@ class Server:
                 debug_print('Lost connection!')
                 # Clean up, discard temp_batch
                 self._server_sockets[server_id] = None
+                self._server_client_load[server_id] = None
                 return []
             if msg.header_matches_string('DONE'):
                 debug_print('got a DONE')
@@ -900,6 +935,7 @@ class Server:
                           ":)").format(msg=sync_done, synchee_id=synchee_id))
             debug_print('SYNCED',synchee_id,'YA, BUDDY :)')
             self._server_sockets[synchee_id] = socket
+            self._server_client_load[synchee_id] = 0
             logging.debug(("Spawned incoming handler for "
                           "newly-synced server {synchee_id}"
                          ).format(synchee_id=synchee_id))
@@ -916,7 +952,8 @@ class Server:
         logging.info(("Client set for tick {tick_id}: {clients}"
                      ).format(tick_id=self._tick_id(), clients=self._client_sockets.keys()))
         debug_print('CLIENT SOCKS', self._client_sockets)
-        for addr, sock in self._client_sockets.iteritems():
+        for addr in self._client_sockets.keys():
+            sock = self._client_sockets[addr]
             #TODO investigate why addr is an ip and not (ip,port)
             if messaging.write_msg_to(sock, update_msg):
                 debug_print('updated client', addr)

@@ -1,4 +1,5 @@
 import logging
+# from __future__ import print_function
 '''
 Levels:
 CRITICAL
@@ -19,21 +20,21 @@ server_addresses = [
     ("127.0.0.1", 2004),
     ("127.0.0.1", 2005),
 ]
-debug_printing = True
+debug_printing = False
 server_visualizer = True
 client_visualizer = True
-suppress_game_over = True
+suppress_game_over = False
 S2S_wait_for_welcome_timeout = 0.2
-server_min_tick_time = 2.0
-ticks_per_game_hash = 7
+server_min_tick_time = 3.0
+ticks_per_game_hash = 4
 server_secret_salt = 'e4f421af'
 
 # change to logging.CRITICAL if you only want DAS/Player game event logs
 logging_level = logging.DEBUG
 
-dragon_ap_bounds = [12, 15]
+dragon_ap_bounds = [1, 2]
 dragon_hp_bounds = [30, 50]
-knight_ap_bounds = [8, 10]
+knight_ap_bounds = [1, 1]
 knight_hp_bounds = [280, 300]
 '''
 # Here are the default values in case we change them:
@@ -45,26 +46,33 @@ knight_hp_bounds = [10, 20]
 
 # A server will certainly not refuse a new client if the server
 # has < min_server_client_capacity clients
-min_server_client_capacity = 3
+min_server_client_capacity = 5
 
 # A server will consider itself 'over capacity' if it has server
 # overcapacity_ratio times the average server load
-server_overcapacity_ratio = 1.5
+# while overcapacity, a server will refuse NEW connections
+server_overcapacity_ratio = 1.2
+
+# while very overcapacity, a server will PRUNE existing connections
+server_very_overcapacity_ratio = 1.3
+
 dragon_arena_init_settings = {'no_of_dragons': 10,
                               'map_width': 25,
                               'map_height': 25
                               }
-client_ping_max_time = 0.06
+client_ping_max_time = 0.09
 
 # average ticks per attack
 dragon_attack_period = 2.0
 
 
 # ############ DON'T TOUCH BELOW THIS LINE
+assert server_overcapacity_ratio > 1.0
+assert server_very_overcapacity_ratio > server_overcapacity_ratio
 
 def debug_print(*args):
     if debug_printing:
-        print args
+        print(args)
 
 ticks_per_dragon_attack = \
     max(1, int(round(dragon_attack_period / server_min_tick_time)))

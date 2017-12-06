@@ -21,7 +21,7 @@ int2header = [
     'C2S_HELLO',
     'C2S_HELLO_AGAIN',
     'S2C_WELCOME',
-    'S2C_REFUSE',
+    'REFUSE',
     'SPAWN',
     'DESPAWN',
     'DONE',
@@ -337,7 +337,7 @@ def write_msg_to(socket, msg):
     packer = msgpack.Packer()
     my_file.write(packer.pack(msg.serialize()))
     my_file = StringIO(my_file.getvalue())
-    debug_print(vars(my_file))
+    # debug_print(vars(my_file))
     tot_bytes = len(my_file.buf)
     sent_now = 1
     to_send = tot_bytes

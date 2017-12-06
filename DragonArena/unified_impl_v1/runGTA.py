@@ -3,7 +3,7 @@ import subprocess
 import time
 import das_game_settings
 
-TIME_REDUCE = 10000
+TIME_REDUCE = 100000
 
 class GTAClient():
 
@@ -63,6 +63,8 @@ if __name__ == '__main__':
     new_process(server_start_args(0, starter=True))
     new_process(server_start_args(1))
     new_process(server_start_args(2))
+    new_process(server_start_args(3))
+    new_process(server_start_args(4))
 
     file = open('WoT_Edge_Detailed','r') #alternative SC2
     #fileSC = open('SC2_Edge_Detailed','r')

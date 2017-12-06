@@ -82,7 +82,7 @@ class Client:
                         self._server_socket,
                         timeout=das_game_settings.client_handshake_timeout)
                     if messaging.is_message_with_header_string(reply_msg,
-                                                               'S2C_REFUSE'):
+                                                               'REFUSE'):
                         debug_print('got refused by server_id {serv_id}'.
                                     format(serv_id=serv_id))
                         logging.info("Refused!")
@@ -223,12 +223,14 @@ class Client:
                                          ).format(winners=new_state.get_winner()))
                             os._exit(0)
                 else:
-                    logging.info(('Incoming handler detected crash! '
-                                  'Re-establishing connection...'))
-                    self._connect_to_a_server(reconnect=True)
-                    logging.info('Connection back up!')
-                    # break for loop. This remakes the generator
                     break
+            debug_print("MY SERVER CRASHED")
+            logging.info(('Incoming handler detected crash! '
+                          'Re-establishing connection...'))
+            self._connect_to_a_server(reconnect=True)
+            logging.info('Connection back up!')
+                    # break for loop. This remakes the generator
+
 
     def main_outgoing_loop(self):
         req_generator = self._player.main_loop(self._protected_game_state,

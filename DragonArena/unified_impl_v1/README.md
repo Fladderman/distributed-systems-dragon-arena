@@ -11,6 +11,8 @@ To try out the system:
 1. If you intend to read logs to make sense of the game you're about to start, ensure no existing files matching `*.log` exist in this directory. The logger will potentially append them together and you will mix data from different runs.
 
 1. Start any _valid_ combination of machines. Note, you can also make use of some other script to simulate the behaviour defined here (eg, `run.py`)
+
+  _valid_ just means ONE server must create the game state. (ie its arg2 must be 'True')
   1.  Servers are started with `$ python2 ./server_start $1 $2`, where `$1` is a _server_id_ (0, 1, ...). These correspond with the contents of `server_addresses` in the previous step. Make sure you only boot up at most one server for each index. `$2` should be 'False' for all servers, except for one, which gets 'True'. This determines which server is in charge of initializing the game state.
   1. Clients are started with `$ python2 ./client $1`. `$1` is a string from {'bot', 'human', 'ticking'}, and defines which player interface is connected to the server module. For our purposes, always use 'bot' to test actual gameplay, and 'ticking' if you want a knight that just spams network messages.
 

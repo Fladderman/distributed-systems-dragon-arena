@@ -85,7 +85,7 @@ def check_timeout(data, kill=False):
 
 
 if __name__ == '__main__':
-    new_process(server_start_args(0, starter=True)
+    new_process(server_start_args(0, starter=True))
     new_process(server_start_args(1))
     new_process(server_start_args(2))
 

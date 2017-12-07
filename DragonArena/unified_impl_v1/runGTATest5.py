@@ -2,7 +2,7 @@ from multiprocessing import Process
 import subprocess
 import time
 import das_game_settings
-
+#Warning set the visualizers to false for no errors!
 TIME_REDUCE = 100000
 TIME_CONSTANT = 0.1 #add this st time.sleep() is not there for nothing
 
@@ -65,6 +65,9 @@ def check_timeout(data, kill=False):
     while True:
         for proc,startTime,lifeTime in data:
             if time.time() - startTime >= lifeTime:
+                print "proc %s \n" %proc
+                print time.time() - startTime
+                print lifeTime
                 proc.terminate()
                 print('Client disconnect')
                 data = filter(lambda x: x[0] != proc, data)
@@ -85,20 +88,19 @@ if __name__ == '__main__':
     new_process(server_start_args(0, starter=True))
     new_process(server_start_args(1))
     new_process(server_start_args(2))
-    new_process(server_start_args(3))
-    new_process(server_start_args(4))
+
 
     file = open('WoT_Edge_Detailed','r') #alternative SC2
     #file = open('SC2_Edge_Detailed','r')
     lines = file.readlines()
     clientList = []
-    c=6 #skip first lines as there is no data
-    while(c<106): # 0-99
+    c=6
+    while(c<11): # #106 for 0-99
         clientList.append(parseLine(lines[c]))
         c += 1
 
     clientList = sorted(clientList, key = lambda client: client.timestamp)
-    timestampCounter = clientList[0].timestamp #1354482240.312 WoT;1305559358.0 SC 
+    timestampCounter = clientList[0].timestamp #first value of the sorted list
     clientProcesses = []
     clientTimeAlive = []
     clientStartTime = []
@@ -107,6 +109,7 @@ if __name__ == '__main__':
         clientStartTime.append(time.time())
         timestampCounter = sortedClient.timestamp
         clientProcesses.append(clProcess)
-        clientTimeAlive.append(sortedClient.lifetime)
+        clientTimeAlive.append(sortedClient.lifetime/10) #make it faster for own testing
     checkTimeoutData = zip(clientProcesses, clientStartTime, clientTimeAlive)
     check_timeout(checkTimeoutData)
+    #join_all()

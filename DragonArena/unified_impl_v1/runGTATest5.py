@@ -2,9 +2,9 @@ from multiprocessing import Process
 import subprocess
 import time
 import das_game_settings
-
+#Warning set the visualizers to false for no errors!
 TIME_REDUCE = 100000
-TIME_CONSTANT = 0.1 # was thinking to add this to every time because otherwise it can be the sleep is there for nothing.
+TIME_CONSTANT = 0.1 #add this st time.sleep() is not there for nothing
 
 class GTAClient():
 
@@ -91,17 +91,16 @@ if __name__ == '__main__':
 
 
     file = open('WoT_Edge_Detailed','r') #alternative SC2
-    #fileSC = open('SC2_Edge_Detailed','r')
+    #file = open('SC2_Edge_Detailed','r')
     lines = file.readlines()
     clientList = []
     c=6
-    while(c<11): # 0-99
+    while(c<11): # #106 for 0-99
         clientList.append(parseLine(lines[c]))
         c += 1
 
     clientList = sorted(clientList, key = lambda client: client.timestamp)
-    timestampCounter = 1354482240.312 #first value of the sorted list (could have not hardcoded it, I know)
-    #timestampCounterSC = 1305559358.0
+    timestampCounter = clientList[0].timestamp #first value of the sorted list
     clientProcesses = []
     clientTimeAlive = []
     clientStartTime = []

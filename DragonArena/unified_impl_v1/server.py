@@ -126,10 +126,11 @@ def count_up_from(start):
 
 
 class ServerAcceptor:
-    def __init__(self, port):
+    def __init__(self, ip, port):
         assert type(port) is int and port > 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.bind(("127.0.0.1", port))
+        self._sock.bind((ip, port))
+        debug_print("Bound to", ip, port)
         self._sock.settimeout(None)
         self._sock.listen(das_game_settings.backlog)
 
@@ -355,17 +356,18 @@ class Server:
 
     def _kick_off_acceptor(self):
         logging.debug(("acceptor started").format())
+        my_ip = das_game_settings.server_addresses[self._server_id][0]
         my_port = das_game_settings.server_addresses[self._server_id][1]
         acceptor_handle = threading.Thread(
             target=Server._handle_new_connections,
-            args=(self, my_port),
+            args=(self, my_ip, my_port),
         )
         acceptor_handle.daemon = True
         acceptor_handle.start()
 
-    def _handle_new_connections(self, port):
+    def _handle_new_connections(self, ip, port):
         logging.info(("acceptor handling new connections...").format())
-        self._server_acceptor = ServerAcceptor(port)
+        self._server_acceptor = ServerAcceptor(ip, port)
         for new_socket, new_addr in self._server_acceptor.generate_incoming_sockets():
             debug_print('acceptor got', new_socket, new_addr)
             logging.info(("new acceptor connection from {addr}").format(addr=new_addr))

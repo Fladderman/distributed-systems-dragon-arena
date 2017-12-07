@@ -7,7 +7,6 @@ TIME_REDUCE = 100000
 TIME_CONSTANT = 0.1 #add this st time.sleep() is not there for nothing
 
 class GTAClient():
-
     def __init__(self,id,timestamp,lifetime):
         self.id = id
         self.timestamp = timestamp
@@ -49,7 +48,6 @@ def join_all(kill=False):
         p.join()
     print('killed')
 
-
 def server_start_args(server_id, starter=False):
     assert 0 <= server_id <= das_game_settings.num_server_addresses
     assert isinstance(server_id, int)
@@ -88,7 +86,6 @@ if __name__ == '__main__':
     new_process(server_start_args(0, starter=True))
     new_process(server_start_args(1))
     new_process(server_start_args(2))
-
 
     file = open('WoT_Edge_Detailed','r') #alternative SC2
     #file = open('SC2_Edge_Detailed','r')

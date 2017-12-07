@@ -14,13 +14,13 @@ NOTSET
 backlog = 5
 server_addresses = [
     # server with id==0 implicitly is connected to server_addresses[0]
-    ("127.0.0.1", 2001),
-    ("127.0.0.1", 2002),
-    ("127.0.0.1", 2003),
-    ("127.0.0.1", 2004),
-    ("127.0.0.1", 2005),
+    ("10.141.0.120", 2001),
+    ("10.141.0.121", 2002),
+    ("10.141.0.122", 2003),
+    ("10.141.0.123", 2004),
+    ("10.141.0.124", 2005),
 ]
-debug_printing = False
+debug_printing = True
 server_visualizer = True
 client_visualizer = True
 suppress_game_over = False

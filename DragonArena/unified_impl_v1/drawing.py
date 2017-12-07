@@ -3,7 +3,7 @@ from DragonArenaNew import Knight, Dragon
 def ascii_draw(da, me=None):
     w = da._map_width
     h = da._map_height
-    print str(da._tick) + '-------------------------------' + da.get_hash()
+    print(str(da._tick) + '-------------------------------' + da.get_hash())
     for y in range(h):
         ln = ''
         for x in range(w):

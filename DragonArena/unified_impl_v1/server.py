@@ -20,8 +20,9 @@ import traceback
 
 
 def ordering_func(reqs, tick_id):  # solved
-    logging.info("Applying ORDERING function to ({num_reqs}) reqs.".format(
-        num_reqs=len(reqs)))
+    logging.info("Applying ORDERING function to ({num_reqs}) reqs in tick {tick_id}.".format(
+        num_reqs=len(reqs),
+        tick_id=self._tick_id()))
 
     # First sort all reqs in place. Assumes that __lt__ and __eq__ are
     # implemented in the message object, and that their outcomes are
@@ -849,7 +850,6 @@ class Server:
         other_servers_up = set(done_msg.args[3])
         my_up = self._servers_indices_up()
         if other_servers_up != my_up:
-            for index in
             if my_up.issubset(other_servers_up):
                 logging.error(("Noticed {other_server_id} ring {theirs} is superset of mine: "
                                "{mine}. Gonna crash to fix it up! :/"

@@ -42,6 +42,11 @@ class ProtectedQueue:
         self._cv = threading.Condition()
         self._q = []
 
+    def dequeue_if_probably_something(self, timeout=1.0):
+        if self.poll_nonempty():
+            return self.dequeue(timeout=timeout)
+        return None
+
     def dequeue(self, timeout=1.0):
         with self._cv:
             self._cv.wait(timeout=timeout)

@@ -3,6 +3,7 @@ import time
 import socket
 import logging
 import messaging
+import os
 import random
 import das_game_settings
 from protected import ProtectedQueue
@@ -12,6 +13,7 @@ from das_game_settings import debug_print
 import hashlib
 from math import pow
 from drawing import ascii_draw
+import traceback
 
 # #####################################
 # SUBPROBLEMS START:
@@ -129,7 +131,12 @@ class ServerAcceptor:
     def __init__(self, ip, port):
         assert type(port) is int and port > 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.bind((ip, port))
+        try:
+            self._sock.bind((ip, port))
+        except Exception as e:
+            traceback.print_exc()
+            print(e)
+            os._exit(1)
         debug_print("Bound to", ip, port)
         self._sock.settimeout(None)
         self._sock.listen(das_game_settings.backlog)
@@ -574,7 +581,7 @@ class Server:
             # synchee_tuple is server getting synched
             # this variable is of the form (server_id, socket)
             debug_print('to sync:', self._waiting_sync_server_tuples._q )
-            synchee_tuple = self._waiting_sync_server_tuples.dequeue(timeout=0.3)
+            synchee_tuple = self._waiting_sync_server_tuples.dequeue_if_probably_something(timeout=0.0001)
             logging.debug(("lowest id {lowest}. ").format(lowest=self._lowest_id_connected_server()))
             if synchee_tuple is not None and self._server_id != self._lowest_id_connected_server():
                 # some server has entered the ring with a lower ID!
@@ -657,7 +664,7 @@ class Server:
             self._servers_that_need_updating.clear()
             '''SLEEP STEP'''
             took_time = (time.time() - tick_start)
-            logging.debug(("Tick {tick_id} took {took} sec to process"
+            logging.debug(("Tick {tick_id} took {took} sec of work (waiting + processing)"
                          ).format(tick_id=self._tick_id(), took=took_time))
             if self._waiting_sync_server_tuples.poll_nonempty():
                 logging.info(("Some servers want to sync! no time to sleep on tick {tick_id}"

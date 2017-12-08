@@ -20,12 +20,21 @@ server_addresses = [
     ("10.141.0.123", 2004),
     ("10.141.0.124", 2005),
 ]
-debug_printing = True
-server_visualizer = True
+
+# #DEBUG. overwriting
+# server_addresses = [
+#     ("127.0.0.1", 2001),
+#     ("127.0.0.1", 2002),
+#     ("127.0.0.1", 2003),
+#     ("127.0.0.1", 2004),
+#     ("127.0.0.1", 2005),
+# ]
+debug_printing = False
+server_visualizer = False
 client_visualizer = True
 suppress_game_over = False
 S2S_wait_for_welcome_timeout = 0.2
-server_min_tick_time = 3.0
+server_min_tick_time = 0.2
 ticks_per_game_hash = 4
 server_secret_salt = 'e4f421af'
 

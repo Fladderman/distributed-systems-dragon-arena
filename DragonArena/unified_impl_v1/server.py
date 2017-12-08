@@ -742,8 +742,8 @@ class Server:
                 continue
             try:
                 messaging.write_many_msgs_to(sock, my_req_pool)
-                logging.debug(("Finished flooding reqs to serv_id {serv_id}"
-                               ).format(serv_id=serv_id))
+                logging.debug(("Finished flooding {num} reqs to serv_id {serv_id}"
+                               ).format(serv_id=serv_id, num=len(my_req_pool)))
             except:
                  logging.warning(("Flooding reqs to serv_id {serv_id} crashed!"
                                ).format(serv_id=serv_id))
@@ -849,6 +849,7 @@ class Server:
         other_servers_up = set(done_msg.args[3])
         my_up = self._servers_indices_up()
         if other_servers_up != my_up:
+            for index in
             if my_up.issubset(other_servers_up):
                 logging.error(("Noticed {other_server_id} ring {theirs} is superset of mine: "
                                "{mine}. Gonna crash to fix it up! :/"
@@ -914,7 +915,7 @@ class Server:
         # but you are comparing YOUR previous hash to their previous hash
         # Other server sent me an update! Lets see if I can benefit...
         other_tick_id = msg.args[0]
-        if other_tick_id < self._tick_id:
+        if other_tick_id < self._tick_id():
             logging.warning(("I got an UPDATE from server {other_server_id} "
                           "with tick ID {other_tick_id}. But I am in "
                           "tick {tick_id}, so I'll discard it."
@@ -930,7 +931,7 @@ class Server:
                          ).format(other_server_id=other_server_id))
             debug_print("FAILED TO DESER S2S UPDATE")
             return
-        if other_tick_id > self._tick_id:
+        if other_tick_id > self._tick_id():
             logging.info(("I got an UPDATE from server {other_server_id} "
                           "with tick ID {other_tick_id}. I am in "
                           "tick {tick_id}, so I'll accept it."
@@ -994,8 +995,8 @@ class Server:
         update_msg = messaging.M_UPDATE(self._server_id, self._tick_id(), self._dragon_arena.serialize())
         logging.debug(("Update msg ready for tick {tick_id}"
                      ).format(tick_id=self._tick_id()))
-        logging.info(("Client set for tick {tick_id}: {clients}"
-                     ).format(tick_id=self._tick_id(), clients=self._client_sockets.keys()))
+        logging.info(("Num clients for tick {tick_id}: {clients}"
+                     ).format(tick_id=self._tick_id(), clients=len(self._client_sockets.keys())))
         debug_print('CLIENT SOCKS', self._client_sockets)
         for addr in self._client_sockets.keys():
             sock = self._client_sockets[addr]

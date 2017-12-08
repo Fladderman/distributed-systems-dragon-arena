@@ -175,8 +175,8 @@ def M_REFUSE():
 def M_S2S_SYNC_DONE():
     return Message(header2int['S2S_SYNC_DONE'], -1, [])
 
-def M_DONE_HASHED(s_id, tick_id, num_clients, maybe_hash):
-    return Message(header2int['DONE_HASHED'], s_id, [tick_id, num_clients, maybe_hash])
+def M_DONE_HASHED(s_id, tick_id, num_clients, state_hash, servers_up):
+    return Message(header2int['DONE_HASHED'], s_id, [tick_id, num_clients, state_hash, servers_up])
 
 def M_DONE(s_id, tick_id, num_clients):
     return Message(header2int['DONE'], s_id, [tick_id, num_clients])

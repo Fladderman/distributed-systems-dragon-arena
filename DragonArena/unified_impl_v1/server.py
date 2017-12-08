@@ -132,6 +132,7 @@ class ServerAcceptor:
         assert type(port) is int and port > 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._sock.bind((ip, port))
         except Exception as e:
             traceback.print_exc()
@@ -198,7 +199,7 @@ class Server:
                 continue
             self._kick_off_acceptor()
             self.main_loop()
-            return
+            debug_print('CRASHING...')
 
     def _active_server_ids(self):
         return [s_id for s_id, sock in self._active_servers()]
@@ -214,6 +215,7 @@ class Server:
             debug_print('I am the starter:')
             logging.info("I am the starter!")
             self._dragon_arena = Server.create_fresh_arena()
+            self._is_starter = False
             # self._tick_id() = 0
             self._server_sockets = \
                 [None for _ in xrange(0, das_game_settings.
@@ -678,6 +680,8 @@ class Server:
                 else:
                     logging.info(("No time for sleep for tick_id {tick_id}"
                                  ).format(tick_id=self._tick_id()))
+
+
     def _num_active_peers(self):
         return len(self._active_peer_indices())
 
@@ -726,6 +730,10 @@ class Server:
             range(das_game_settings.num_server_addresses),
         )
 
+    def _servers_indices_up(self):
+        n = das_game_settings.num_server_addresses
+        return {i for i in range(n) if i == self._server_id or self._server_sockets[i] is not None}
+
     def _step_flood_reqs(self, my_req_pool):
         for serv_id, sock in enumerate(self._server_sockets):
             if sock is None:
@@ -750,7 +758,8 @@ class Server:
             done_msg = messaging.M_DONE_HASHED(self._server_id,
                                                 self._tick_id() + tick_count_modifier,
                                                 self.num_clients(),
-                                                self._dragon_arena.get_hash())
+                                                self._dragon_arena.get_hash(),
+                                                list(self._servers_indices_up()))
         else:
             done_msg = messaging.M_DONE(self._server_id,
                              self._tick_id() + tick_count_modifier,
@@ -837,6 +846,32 @@ class Server:
 
     def _sender_needs_update(self, done_msg, other_server_id):
         other_tick_id = done_msg.args[0]
+        other_servers_up = set(done_msg.args[3])
+        my_up = self._servers_indices_up()
+        if other_servers_up != my_up:
+            if my_up.issubset(other_servers_up):
+                logging.error(("Noticed {other_server_id} ring {theirs} is superset of mine: "
+                               "{mine}. Gonna crash to fix it up! :/"
+                             ).format(other_server_id=other_server_id,
+                                      theirs=other_servers_up,
+                                      mine=my_up))
+                debug_print("Have subset of servers! Will crash")
+                os._exit(1)
+
+            elif other_servers_up.issubset(my_up):
+                logging.error(("Noticed {other_server_id} ring {theirs} is subset of mine: "
+                               "{mine}. Hopefully they crash themselves"
+                             ).format(other_server_id=other_server_id,
+                                      theirs=other_servers_up,
+                                      mine=my_up))
+            else:
+                logging.error(("Noticed {other_server_id} ring {theirs} is NOT SUB NOR SUPER of mine: "
+                               "{mine}. I guess we both gotta crash"
+                             ).format(other_server_id=other_server_id,
+                                      theirs=other_servers_up,
+                                      mine=my_up))
+                debug_print("Have dijoint serverset! Will CRASH")
+                os._exit(1)
         t = self._tick_id()
         if other_tick_id < t:
             #They are behind!
@@ -868,9 +903,10 @@ class Server:
             return True
 
         logging.debug(("Noticed nothing unusual about the DONE_HASHED from "
-                      "{other_server_id} and tick {my_tick_id}"
+                      "{other_server_id}, tick {my_tick_id}, server ring {ring}"
                       ).format(other_server_id=other_server_id,
-                               my_tick_id=t))
+                               my_tick_id=t,
+                               ring=my_up))
         return False
 
     def _handle_S2S_update(self, msg, other_server_id):
@@ -985,4 +1021,4 @@ class Server:
                          "Server shutting down..."
                          ).format(winners=self._dragon_arena.get_winner()))
             time.sleep(das_game_settings.max_server_sync_wait)
-            exit(0)
+            os._exit(0)

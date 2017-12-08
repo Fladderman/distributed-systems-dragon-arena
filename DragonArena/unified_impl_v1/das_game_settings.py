@@ -31,7 +31,7 @@ server_addresses = [
 # ]
 debug_printing = False
 server_visualizer = False
-client_visualizer = True
+client_visualizer = False
 suppress_game_over = False
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 0.2

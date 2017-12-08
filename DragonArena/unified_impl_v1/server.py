@@ -22,7 +22,7 @@ import traceback
 def ordering_func(reqs, tick_id):  # solved
     logging.info("Applying ORDERING function to ({num_reqs}) reqs in tick {tick_id}.".format(
         num_reqs=len(reqs),
-        tick_id=self._tick_id()))
+        tick_id=tick_id))
 
     # First sort all reqs in place. Assumes that __lt__ and __eq__ are
     # implemented in the message object, and that their outcomes are

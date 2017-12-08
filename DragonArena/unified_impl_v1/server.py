@@ -42,9 +42,7 @@ def ordering_func(reqs, tick_id):  # solved
 def _apply_and_log_all(dragon_arena, message_sequence):  # TODO
     # all requests are CLIENT action requests. no others.
     assert isinstance(dragon_arena, DragonArena)
-
     dragon_arena.increment_tick()
-
     for msg in message_sequence:
         if (not isinstance(msg, messaging.Message) or
             not msg.permitted_in_server_application_function()):

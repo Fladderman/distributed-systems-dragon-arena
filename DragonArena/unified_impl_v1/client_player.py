@@ -36,40 +36,6 @@ class TickingPlayer(Player):
             return
 
 
-"""
-class FuzzerPlayer(Player):
-    \""" main_loop() is a generator that `yield`s request messages.
-        (client outgoing thread is calling and will forward yielded messages)
-    the game is over then the generator returns
-    \"""
-
-    @staticmethod
-    def main_loop(protected_dragon_arena, my_id):
-        assert isinstance(protected_dragon_arena,
-                          protected.ProtectedDragonArena)
-        print('fuzzer player main loop')
-        print('my id', my_id)
-        # has self._game_state_copy
-        try:
-            while True:  # TODO: while game.playing    # Roy: And I'm not dead?
-                time.sleep(random.uniform(0.0001, das_game_settings.server_min_tick_time))
-                with protected_dragon_arena as da:
-                    try:
-                        x = random.choice(range(4))
-                        if x == 0:
-                            choice = messaging.M_R_ATTACK()
-
-                    except Exception as e:
-                        choice = None
-                        debug_print("FUZZER CRASHED WHEN DECIDING", e)
-                # `with` expired. dragon arena unlocked
-                if choice is not None:
-                    yield choice
-        except GeneratorExit:
-            # clean up generator
-            return
-"""
-
 class HumanPlayer(Player):
     """ main_loop() is a generator that `yield`s request messages.
         (client outgoing thread is calling and will forward yielded messages)
@@ -144,7 +110,7 @@ class BotPlayer(Player):
         debug_print('bot player main loop')
         debug_print('my id', my_id)
         # has self._game_state_copy
-        st = 1.0
+        st = 0.03
         try:
             while True:  # TODO: while game.playing    # Roy: And I'm not dead?
                 time.sleep(random.uniform(st*0.8, st/0.8))

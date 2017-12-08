@@ -35,6 +35,12 @@ int2header = [
 header2int = {v: k for k, v in enumerate(int2header)}
 
 
+def listify(x):
+    if isinstance(x, tuple) or isinstance(x, list):
+        return [listify(y) for y in x]
+    else:
+        return x
+
 def is_message_with_header_string(msg, header_string):
     if isinstance(msg, Message):
         return header2int[header_string] == msg.msg_header
@@ -109,8 +115,8 @@ class Message:
     #   to memory locations. so str will have the same outcome wherever it is
     #   called, and < is lexicographical for strings
     def __lt__(self, other):
-        return (self.msg_header, self.sender, str(self.args)) < \
-               (self.msg_header, self.sender, str(other.args))
+        return (self.msg_header, listify(self.sender), str(listify(self.args))) < \
+               (self.msg_header, listify(self.sender), str(listify(other.args)))
 
     def serialize(self):
         return self.msg_header, self.sender, self.args

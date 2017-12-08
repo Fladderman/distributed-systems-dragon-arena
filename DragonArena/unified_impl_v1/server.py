@@ -340,10 +340,10 @@ class Server:
         return list(map(f, xrange(0, das_game_settings.num_server_addresses)))
 
     @staticmethod
-    def _try_connect_to(addr):  # addr == (ip, port)
+    def _try_connect_to(addr, timeout=0.1):  # addr == (ip, port)
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(0.1) # tweak this. 0.5 is plenty i think
+            sock.settimeout(timeout) # tweak this. 0.5 is plenty i think
             sock.connect(addr)
             logging.info("Successfully socketed to {addr}".format(addr=addr))
             return sock
@@ -841,6 +841,33 @@ class Server:
                 # some request message. Store and keep going
                 temp_batch.append(msg)
 
+    def _try_handshake(self, other_id):
+        sock = Server._try_connect_to(das_game_settings.server_addresses[other_id], timeout=0.1)
+        hello_msg = messaging.M_S2S_HELLO(self._server_id, Server._server_secret(self._server_id))
+
+        if messaging.write_msg_to(sock, hello_msg):
+            logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
+                         ).format(server_id=server_id,
+                                  hello_msg=hello_msg))
+        else:
+            logging.warning(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
+                         ).format(server_id=server_id,
+                                  hello_msg=hello_msg))
+            # server must have crashed in the meantime!
+            return False
+        welcome_msg = messaging.read_msg_from(sock, timeout=das_game_settings.S2S_wait_for_welcome_timeout)
+        if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):
+            logging.info(("got expected WELCOME reply from {server_id}"
+                         ).format(server_id=server_id))
+            self._server_sockets[other_id] = sock
+            return True
+        else:
+            logging.info(("instead of WELCOME from {server_id}, got {msg}"
+                         ).format(server_id=server_id,
+                                  msg=welcome_msg))
+            # server must have crashed in the meantime!
+            self._server_sockets[server_id] = None
+            return False
 
 
     def _sender_needs_update(self, done_msg, other_server_id):
@@ -848,29 +875,18 @@ class Server:
         other_servers_up = set(done_msg.args[3])
         my_up = self._servers_indices_up()
         if other_servers_up != my_up:
-            if my_up.issubset(other_servers_up):
-                logging.error(("Noticed {other_server_id} ring {theirs} is superset of mine: "
-                               "{mine}. Gonna crash to fix it up! :/"
-                             ).format(other_server_id=other_server_id,
-                                      theirs=other_servers_up,
-                                      mine=my_up))
-                debug_print("Have subset of servers! Will crash")
-                os._exit(1)
-
-            elif other_servers_up.issubset(my_up):
-                logging.error(("Noticed {other_server_id} ring {theirs} is subset of mine: "
-                               "{mine}. Hopefully they crash themselves"
-                             ).format(other_server_id=other_server_id,
-                                      theirs=other_servers_up,
-                                      mine=my_up))
-            else:
-                logging.error(("Noticed {other_server_id} ring {theirs} is NOT SUB NOR SUPER of mine: "
-                               "{mine}. I guess we both gotta crash"
-                             ).format(other_server_id=other_server_id,
-                                      theirs=other_servers_up,
-                                      mine=my_up))
-                debug_print("Have dijoint serverset! Will CRASH")
-                os._exit(1)
+            for i in other_tick_id if i not in my_up:
+                # for all servers the OTHER server is connected to, but I am not!
+                if self._try_handshake(i):
+                    logging.error(("Noticed server {other_id} was connected to {missing_id}. Whoops. Successfully connected :)"
+                                 ).format(other_server_id=other_server_id,
+                                          missing_id=i))
+                    debug_print("Have subset of servers! Will crash")
+                else:
+                    logging.error(("Noticed server {other_id} was connected to {missing_id}. Whoops. Couldn't connect :/"
+                                 ).format(other_server_id=other_server_id,
+                                          missing_id=i))
+                    debug_print("Have subset of servers! Will crash")
         t = self._tick_id()
         if other_tick_id < t:
             #They are behind!

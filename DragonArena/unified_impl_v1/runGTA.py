@@ -54,12 +54,12 @@ def server_start_args(server_id, starter=False):
     assert 0 <= server_id <= das_game_settings.num_server_addresses
     assert isinstance(server_id, int)
     assert isinstance(starter, bool)
-    return ['python2', './server_start.py', str(server_id), str(starter)]
+    return ['python', './server_start.py', str(server_id), str(starter)]
 
 
 def client_start_args(player_type_arg='bot'):
     assert player_type_arg in {'bot', 'ticker', 'human'}
-    return ['python2', './client_start.py', player_type_arg]
+    return ['python', './client_start.py', player_type_arg]
 
 def check_timeout(data, kill=False):
     while True:

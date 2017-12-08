@@ -41,11 +41,17 @@ server_secret_salt = 'e4f421af'
 # change to logging.CRITICAL if you only want DAS/Player game event logs
 logging_level = logging.DEBUG
 
+# max, handy for stress testing
+dragon_ap_bounds = [1, 1]
+dragon_hp_bounds = [999, 999]
+knight_ap_bounds = [1, 1]
+knight_hp_bounds = [999, 999]
+'''
+# better than default, since that stops almost immidiatly
 dragon_ap_bounds = [1, 2]
 dragon_hp_bounds = [30, 50]
 knight_ap_bounds = [1, 1]
 knight_hp_bounds = [280, 300]
-'''
 # Here are the default values in case we change them:
 dragon_ap_bounds = [5, 20]
 dragon_hp_bounds = [50, 100]

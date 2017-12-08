@@ -54,12 +54,12 @@ def server_start_args(server_id, starter=False):
     assert 0 <= server_id <= das_game_settings.num_server_addresses
     assert isinstance(server_id, int)
     assert isinstance(starter, bool)
-    return ['python2', './server_start.py', str(server_id), str(starter)]
+    return ['python', './server_start.py', str(server_id), str(starter)]
 
 
 def client_start_args(player_type_arg='bot'):
     assert player_type_arg in {'bot', 'ticker', 'human'}
-    return ['python2', './client_start.py', player_type_arg]
+    return ['python', './client_start.py', player_type_arg]
 
 def check_timeout(data, kill=False):
     while True:
@@ -82,11 +82,12 @@ def check_timeout(data, kill=False):
 
 
 if __name__ == '__main__':
-    new_process(server_start_args(0, starter=True))
-    new_process(server_start_args(1))
-    new_process(server_start_args(2))
-    new_process(server_start_args(3))
-    new_process(server_start_args(4))
+    # we start servers ourselves.
+    #new_process(server_start_args(0, starter=True))
+    #new_process(server_start_args(1))
+    #new_process(server_start_args(2))
+    #new_process(server_start_args(3))
+    #new_process(server_start_args(4))
 
     file = open('WoT_Edge_Detailed','r') #alternative SC2
     #file = open('SC2_Edge_Detailed','r')

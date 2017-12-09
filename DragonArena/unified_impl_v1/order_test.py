@@ -15,6 +15,7 @@ reqs = [
 	Message(header2int['SPAWN'], 2, [[2,16]]),
 	Message(header2int['R_ATTACK'], (1,10), [[-1, 4]]),
 	Message(header2int['R_MOVE'], (0,10), [0]),
+	Message(header2int['R_ATTACK'], (2, 7), [[-1, 8]]),
 ]
 
 random.shuffle(reqs, lambda: random.random())

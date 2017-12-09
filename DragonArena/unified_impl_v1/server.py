@@ -757,8 +757,7 @@ class Server:
             done_msg = messaging.M_DONE_HASHED(self._server_id,
                                                 self._tick_id() + tick_count_modifier,
                                                 self.num_clients(),
-                                                self._dragon_arena.get_hash(),
-                                                list(self._servers_indices_up()))
+                                                self._dragon_arena.get_hash())
         else:
             done_msg = messaging.M_DONE(self._server_id,
                              self._tick_id() + tick_count_modifier,
@@ -841,56 +840,56 @@ class Server:
                 # some request message. Store and keep going
                 temp_batch.append(msg)
 
-    def _try_handshake(self, other_id):
-        sock = Server._try_connect_to(das_game_settings.server_addresses[other_id], timeout=0.1)
-        hello_msg = messaging.M_S2S_HELLO(self._server_id, Server._server_secret(self._server_id))
-
-        if messaging.write_msg_to(sock, hello_msg):
-            logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
-                         ).format(server_id=other_id,
-                                  hello_msg=hello_msg))
-        else:
-            logging.warning(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
-                         ).format(server_id=other_id,
-                                  hello_msg=hello_msg))
-            # server must have crashed in the meantime!
-            return False
-        welcome_msg = messaging.read_msg_from(sock, timeout=das_game_settings.S2S_wait_for_welcome_timeout)
-        if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):
-            logging.info(("got expected WELCOME reply from {server_id}"
-                         ).format(server_id=other_id))
-            self._server_sockets[other_id] = sock
-            return True
-        else:
-            logging.info(("instead of WELCOME from {server_id}, got {msg}"
-                         ).format(server_id=other_id,
-                                  msg=welcome_msg))
-            # server must have crashed in the meantime!
-            self._server_sockets[other_id] = None
-            return False
+    # def _try_handshake(self, other_id):
+    #     sock = Server._try_connect_to(das_game_settings.server_addresses[other_id], timeout=0.1)
+    #     hello_msg = messaging.M_S2S_HELLO(self._server_id, Server._server_secret(self._server_id))
+	#
+    #     if messaging.write_msg_to(sock, hello_msg):
+    #         logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
+    #                      ).format(server_id=other_id,
+    #                               hello_msg=hello_msg))
+    #     else:
+    #         logging.warning(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
+    #                      ).format(server_id=other_id,
+    #                               hello_msg=hello_msg))
+    #         # server must have crashed in the meantime!
+    #         return False
+    #     welcome_msg = messaging.read_msg_from(sock, timeout=das_game_settings.S2S_wait_for_welcome_timeout)
+    #     if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):
+    #         logging.info(("got expected WELCOME reply from {server_id}"
+    #                      ).format(server_id=other_id))
+    #         self._server_sockets[other_id] = sock
+    #         return True
+    #     else:
+    #         logging.info(("instead of WELCOME from {server_id}, got {msg}"
+    #                      ).format(server_id=other_id,
+    #                               msg=welcome_msg))
+    #         # server must have crashed in the meantime!
+    #         self._server_sockets[other_id] = None
+    #         return False
 
 
     def _sender_needs_update(self, done_msg, other_server_id):
         other_tick_id = done_msg.args[0]
-        other_servers_up = set(done_msg.args[3])
-        my_up = self._servers_indices_up()
-        if other_servers_up != my_up:
-            for i in (z for z in other_tick_id if z not in my_up):
-                # for all servers the OTHER server is connected to, but I am not!
-                if self._try_handshake(i):
-                    logging.error(("Noticed server {other_id} was connected to {missing_id}. Whoops. Successfully connected :)"
-                                 ).format(other_server_id=other_server_id,
-                                          missing_id=i))
-                    debug_print("Have subset of servers! Will crash")
-                else:
-                    logging.error(("Noticed server {other_id} was connected to {missing_id}. Whoops. Couldn't connect :/"
-                                 ).format(other_server_id=other_server_id,
-                                          missing_id=i))
-                    debug_print("Have subset of servers! Will crash")
+        # other_servers_up = set(done_msg.args[3])
+        # my_up = self._servers_indices_up()
+        # if other_servers_up != my_up:
+        #     for i in (z for z in other_tick_id if z not in my_up):
+        #         # for all servers the OTHER server is connected to, but I am not!
+        #         if self._try_handshake(i):
+        #             logging.error(("Noticed server {other_id} was connected to {missing_id}. Whoops. Successfully connected :)"
+        #                          ).format(other_server_id=other_server_id,
+        #                                   missing_id=i))
+        #             debug_print("Have subset of servers! Will crash")
+        #         else:
+        #             logging.error(("Noticed server {other_id} was connected to {missing_id}. Whoops. Couldn't connect :/"
+        #                          ).format(other_server_id=other_server_id,
+        #                                   missing_id=i))
+        #             debug_print("Have subset of servers! Will crash")
         t = self._tick_id()
         if other_tick_id < t:
             #They are behind!
-            logging.error(("Noticed {other_server_id} is in tick "
+            logging.error(("!Noticed {other_server_id} is in tick "
                           "{other_tick_id} and I am in {my_tick_id}. Will send UPDATE"
                          ).format(other_server_id=other_server_id,
                                   other_tick_id=other_tick_id,
@@ -898,7 +897,7 @@ class Server:
             return True
         if other_tick_id > t:
             #They are ahead! I need an update! I hope they notice
-            logging.warning(("Noticed server {other_server_id} is ahead in "
+            logging.warning(("!Noticed server {other_server_id} is ahead in "
                           "tick {other_tick_id} while I am in {my_tick_id}. "
                           "Hope they send an UPDATE"
                           ).format(other_server_id=other_server_id,
@@ -908,7 +907,7 @@ class Server:
         other_hash = done_msg.args[2]
         my_hash = self._dragon_arena.get_hash()
         if other_hash < my_hash:
-            logging.error(("Noticed {other_server_id} has game hash "
+            logging.error(("!Noticed {other_server_id} has game hash "
                           "{other_hash}, while I have {my_hash} "
                           "in tick {my_tick_id}. Will send UPDATE."
                           ).format(other_server_id=other_server_id,
@@ -917,11 +916,10 @@ class Server:
                                   my_tick_id=t))
             return True
 
-        logging.debug(("Noticed nothing unusual about the DONE_HASHED from "
-                      "{other_server_id}, tick {my_tick_id}, server ring {ring}"
+        logging.debug(("!Noticed nothing unusual about the DONE_HASHED from "
+                      "{other_server_id}, tick {my_tick_id}"
                       ).format(other_server_id=other_server_id,
-                               my_tick_id=t,
-                               ring=my_up))
+                               my_tick_id=t))
         return False
 
     def _handle_S2S_update(self, msg, other_server_id):

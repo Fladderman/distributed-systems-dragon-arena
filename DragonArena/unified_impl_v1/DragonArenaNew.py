@@ -160,8 +160,8 @@ class DragonArena:
         # this ensures that concurrent servers generate the same
         # 'random' location
         seed = self._tick * (self._no_of_living_knights + 1)
-        random.seed(seed)
-        return random.sample(self._get_available_locations(), 1)[0]
+        rng = random.Random(seed)
+        return rng.sample(sorted(list(self._get_available_locations())), 1)[0]
 
     def _is_occupied_by_knight(self, location):
         return self.is_occupied_location(location) and \
@@ -314,8 +314,6 @@ class DragonArena:
 
         seed = self._tick * (self._no_of_living_knights + 1) + \
             proposed_id[0] + proposed_id[1]
-
-        random.seed(seed)
 
         knight = Knight(proposed_id)
         spawn_at = self._get_random_available_location()

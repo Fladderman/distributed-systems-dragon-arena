@@ -847,26 +847,26 @@ class Server:
 
         if messaging.write_msg_to(sock, hello_msg):
             logging.info(("Successfully HELLO'd server {server_id} with {hello_msg}"
-                         ).format(server_id=server_id,
+                         ).format(server_id=other_id,
                                   hello_msg=hello_msg))
         else:
             logging.warning(("Couldn't HELLO server {server_id} with {hello_msg}. Must have crashed."
-                         ).format(server_id=server_id,
+                         ).format(server_id=other_id,
                                   hello_msg=hello_msg))
             # server must have crashed in the meantime!
             return False
         welcome_msg = messaging.read_msg_from(sock, timeout=das_game_settings.S2S_wait_for_welcome_timeout)
         if messaging.is_message_with_header_string(welcome_msg, 'S2S_WELCOME'):
             logging.info(("got expected WELCOME reply from {server_id}"
-                         ).format(server_id=server_id))
+                         ).format(server_id=other_id))
             self._server_sockets[other_id] = sock
             return True
         else:
             logging.info(("instead of WELCOME from {server_id}, got {msg}"
-                         ).format(server_id=server_id,
+                         ).format(server_id=other_id,
                                   msg=welcome_msg))
             # server must have crashed in the meantime!
-            self._server_sockets[server_id] = None
+            self._server_sockets[other_id] = None
             return False
 
 
@@ -875,7 +875,7 @@ class Server:
         other_servers_up = set(done_msg.args[3])
         my_up = self._servers_indices_up()
         if other_servers_up != my_up:
-            for i in other_tick_id if i not in my_up:
+            for i in (z for z in other_tick_id if z not in my_up):
                 # for all servers the OTHER server is connected to, but I am not!
                 if self._try_handshake(i):
                     logging.error(("Noticed server {other_id} was connected to {missing_id}. Whoops. Successfully connected :)"
@@ -929,6 +929,7 @@ class Server:
         # but you are comparing YOUR previous hash to their previous hash
         # Other server sent me an update! Lets see if I can benefit...
         other_tick_id = msg.args[0]
+        their_prev_hash = msg.args[2]
         if other_tick_id < self._tick_id():
             logging.warning(("I got an UPDATE from server {other_server_id} "
                           "with tick ID {other_tick_id}. But I am in "
@@ -953,18 +954,18 @@ class Server:
                                   other_tick_id=other_tick_id,
                                   tick_id=self._tick_id()))
             self._dragon_arena = other_state
+            self._previous_hash = their_prev_hash
             return
-        their_prev_hash = msg.args[2]
-        my_prev_hash = self._previous_hash
-        if their_prev_hash > my_prev_hash:
+        if their_prev_hash > self._previous_hash:
             logging.info(("I got an UPDATE from server {other_server_id} "
                           "with tick ID {other_tick_id} (same as me). "
                           "Their prev hash {their_prev_hash} > {my_prev_hash}, so I'll accept it."
                          ).format(other_server_id=other_server_id,
                                   other_tick_id=other_tick_id,
                                   their_prev_hash=their_prev_hash,
-                                  my_prev_hash=my_prev_hash))
+                                  my_prev_hash=self._previous_hash))
             self._dragon_arena = other_state
+            self._previous_hash = their_prev_hash
 
 
     def _tick_id(self):

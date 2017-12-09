@@ -3,7 +3,8 @@ import subprocess
 import time
 import das_game_settings
 
-TIME_REDUCE = 10000000
+TIME_REDUCE = 100000000
+LIFETIME_REDUCE = 10
 TIME_CONSTANT = 0.1 #add this st time.sleep() is not there for nothing
 
 class GTAClient():
@@ -71,8 +72,8 @@ def check_timeout(data, kill=False):
             if not data:
                 for p in processes:
                     p.terminate()
-                print('No more clients, killed servers too')
-                break
+                print('No more clients, done!')
+		return 
             if kill:
                 for p in processes:
                     p.terminate()
@@ -108,6 +109,6 @@ if __name__ == '__main__':
         clientStartTime.append(time.time())
         timestampCounter = sortedClient.timestamp
         clientProcesses.append(clProcess)
-        clientTimeAlive.append(sortedClient.lifetime)
+        clientTimeAlive.append(sortedClient.lifetime/LIFETIME_REDUCE)
     checkTimeoutData = zip(clientProcesses, clientStartTime, clientTimeAlive)
     check_timeout(checkTimeoutData)

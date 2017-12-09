@@ -315,7 +315,15 @@ class DragonArena:
         seed = self._tick * (self._no_of_living_knights + 1) + \
             proposed_id[0] + proposed_id[1]
 
-        knight = Knight(proposed_id)
+        local_rng_boi = random.Random(seed)  # thread safe
+
+        max_hp = local_rng_boi.randint(dgs.knight_hp_bounds[0],
+                                       dgs.knight_hp_bounds[1])
+        curr_hp = max_hp
+        ap = local_rng_boi.randint(dgs.knight_ap_bounds[0],
+                                   dgs.knight_ap_bounds[1])
+
+        knight = Knight(proposed_id, max_hp, curr_hp, ap)
         spawn_at = self._get_random_available_location()
 
         self._creature2loc[knight] = spawn_at

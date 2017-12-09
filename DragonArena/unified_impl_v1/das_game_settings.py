@@ -22,13 +22,13 @@ server_addresses = [
 ]
 
 #DEBUG. overwriting
-server_addresses = [
-    ("127.0.0.1", 2001),
-    ("127.0.0.1", 2002),
-    ("127.0.0.1", 2003),
-    ("127.0.0.1", 2004),
-    ("127.0.0.1", 2005),
-]
+# server_addresses = [
+#     ("127.0.0.1", 2001),
+#     ("127.0.0.1", 2002),
+#     ("127.0.0.1", 2003),
+#     ("127.0.0.1", 2004),
+#     ("127.0.0.1", 2005),
+# ]
 debug_printing = False
 server_visualizer = False
 client_visualizer = False

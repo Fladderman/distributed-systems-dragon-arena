@@ -32,9 +32,9 @@ def ordering_func(reqs, tick_id):  # solved
     # Now all servers would have the same sorted list to start with. This
     # list is then randomly shuffled in place using a shared seed so that the
     # that the order of how the messages are processed are unpredictable.
-
-    random.seed(len(reqs) + tick_id)
-    random.shuffle(reqs, lambda: random.random())
+    seed = len(reqs) + tick_id
+    rng = random.Random(seed)
+    rng.shuffle(reqs, lambda: rng.random())
 
     return reqs
 

@@ -57,14 +57,7 @@ class Creature:
 
 
 class Knight(Creature):
-    def __init__(self, identifier, max_hp=None, curr_hp=None, ap=None):
-        max_hp = max_hp if max_hp is not None else \
-            random.randint(dgs.knight_hp_bounds[0],
-                           dgs.knight_hp_bounds[1])
-        curr_hp = curr_hp if curr_hp is not None else max_hp
-        ap = ap if ap is not None else \
-            random.randint(dgs.knight_ap_bounds[0],
-                           dgs.knight_ap_bounds[1])
+    def __init__(self, identifier, max_hp, curr_hp, ap):
         Creature.__init__(self, "Knight", identifier, max_hp, curr_hp, ap)
 
     def is_healed_by(self, other):

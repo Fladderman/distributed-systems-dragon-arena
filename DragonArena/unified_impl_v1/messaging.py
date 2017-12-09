@@ -101,8 +101,8 @@ class Message:
     def __eq__(self, other):
         if isinstance(other, Message):
             return self.msg_header == other.msg_header \
-                and self.sender == other.sender \
-                and self.args == other.args
+                and listify(self.sender) == listify(other.sender) \
+                and listify(self.args) == listify(other.args)
         else:
             return False
 
@@ -116,7 +116,7 @@ class Message:
     #   called, and < is lexicographical for strings
     def __lt__(self, other):
         return (self.msg_header, listify(self.sender), str(listify(self.args))) < \
-               (self.msg_header, listify(self.sender), str(listify(other.args)))
+               (other.msg_header, listify(other.sender), str(listify(other.args)))
 
     def serialize(self):
         return self.msg_header, self.sender, self.args

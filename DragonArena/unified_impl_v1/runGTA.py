@@ -3,7 +3,7 @@ import subprocess
 import time
 import das_game_settings
 
-TIME_REDUCE = 100000
+TIME_REDUCE = 10000000
 TIME_CONSTANT = 0.1 #add this st time.sleep() is not there for nothing
 
 class GTAClient():

@@ -36,6 +36,7 @@ suppress_game_over = False
 S2S_wait_for_welcome_timeout = 0.2
 server_min_tick_time = 0.2
 ticks_per_game_hash = 4
+bot_action_period = 0.5
 server_secret_salt = 'e4f421af'
 
 # change to logging.CRITICAL if you only want DAS/Player game event logs

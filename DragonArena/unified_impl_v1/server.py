@@ -565,6 +565,9 @@ class Server:
         while True:
             # Update my server-client load
             self._server_client_load[self._server_id] = self.num_clients()
+            debug_print('loads', self._server_client_load)
+            logging.debug(("At loop start, server loads imagined to be {loads}"
+                         ).format(loads=self._server_client_load))
 
             tick_start = time.time()
             debug_print('tick', self._tick_id())

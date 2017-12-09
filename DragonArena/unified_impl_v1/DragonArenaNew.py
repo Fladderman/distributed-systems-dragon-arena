@@ -419,28 +419,51 @@ class DragonArena:
         end_game_msg = ""
 
         if not creature2.is_alive():
+            # respawning or not, remove the loc-creature association
             loc2 = self._creature2loc[creature2]
             self._creature2loc.pop(creature2)
             self._loc2creature.pop(loc2)
-            self._id2creature[id2] = None
-
-            death_notification = "\n{name2} {id2} dies.".format(
-                name2=name2, id2=DragonArena.format_id(id2))
 
             if isinstance(creature2, Knight):
+                self._id2creature[id2] = None
+
+                death_notification = " {name2} {id2} dies.".format(
+                    name2=name2, id2=DragonArena.format_id(id2))
+
                 self._no_of_living_knights -= 1
 
                 if self._all_knights_are_dead():
                     self.game_over = True
                     end_game_msg = ("GAME OVER: "
                                     "All knights are dead. The dragons win!")
-            else:
-                self._no_of_living_dragons -= 1
+            else:  # creature 2 is a dragon and it died
+                if not dgs.dragons_respawn:  # normal conditions
+                    self._id2creature[id2] = None
 
-                if self._all_dragons_are_dead():
-                    self.game_over = True
-                    end_game_msg = ("GAME OVER: "
-                                    "All dragons are dead. The knights win!")
+                    death_notification = " {name2} {id2} dies.".format(
+                      name2=name2, id2=DragonArena.format_id(id2))
+                    self._no_of_living_dragons -= 1
+
+                    if self._all_dragons_are_dead():
+                        self.game_over = True
+                        end_game_msg = ("GAME OVER: "
+                                        "All dragons are dead. "
+                                        "The knights win!")
+                else:  # dragons_respawn for scalability testing
+                    # DON'T clear from id2creature
+
+                    # restore hp
+                    creature2._curr_hp = creature2.get_max_hp()
+
+                    # assign new loc
+                    new_loc = self._get_random_available_location()
+                    self._creature2loc[creature2] = new_loc
+                    self._loc2creature[new_loc] = creature2
+
+                    death_notification = (" {name2} {id2} dies "
+                                          " and respawns at {new_loc}").format(
+                      name2=name2, id2=DragonArena.format_id(id2),
+                      new_loc=new_loc)
 
         return ("{name1} {id1} attacks {name2} {id2} for {dmg} damage, "
                 "reducing its hp from "

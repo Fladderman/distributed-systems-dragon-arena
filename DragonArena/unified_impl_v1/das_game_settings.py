@@ -46,6 +46,8 @@ dragon_ap_bounds = [1, 1]
 dragon_hp_bounds = [999, 999]
 knight_ap_bounds = [1, 1]
 knight_hp_bounds = [999, 999]
+dragons_respawn = True
+
 '''
 # better than default, since that stops almost immidiatly
 dragon_ap_bounds = [1, 2]

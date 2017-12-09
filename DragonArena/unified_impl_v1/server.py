@@ -529,9 +529,12 @@ class Server:
             # consider that we might need to prune this client
             if self._i_should_prune_clients() and self._dragon_arena._tick % self.num_clients() == player_id[1]:
                 # use client ID to ensure multiple clients dont get pruned per tick
-                # self._inflate_peer_loads()
-                sock.close()
-                self._client_sockets.pop(addr) # remove from update list
+                try:
+                    sock.close()
+                    self._client_sockets.pop(addr) # remove from update list
+                except:
+                    debug_print("tried to prune but server beat me to it")
+                    pass
                 logging.warning(("I am very over capacity! Pruning client at addr {addr}"
                               ).format(addr=addr))
                 debug_print("PRUNING THIS CLIENT!", addr)

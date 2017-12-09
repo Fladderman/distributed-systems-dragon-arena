@@ -1015,20 +1015,24 @@ class Server:
                      ).format(tick_id=self._tick_id(), clients=len(self._client_sockets.keys())))
         debug_print('CLIENT SOCKS', self._client_sockets)
         for addr in self._client_sockets.keys():
-            sock = self._client_sockets[addr]
-            #TODO investigate why addr is an ip and not (ip,port)
-            if messaging.write_msg_to(sock, update_msg):
-                debug_print('updated client', addr)
-                logging.debug(("Successfully updated client at addr {addr}"
-                              "for tick_id {tick_id}"
-                              ).format(addr=addr,
-                                       tick_id=self._tick_id()))
-            else:
-                logging.warning(("Failed to update client at addr {addr}"
-                              "for tick_id {tick_id}"
-                              ).format(addr=addr,
-                                       tick_id=self._tick_id()))
-                self._client_sockets.pop(addr)
+            try:
+                sock = self._client_sockets[addr]
+                if messaging.write_msg_to(sock, update_msg):
+                    debug_print('updated client', addr)
+                    logging.debug(("Successfully updated client at addr {addr}"
+                                  "for tick_id {tick_id}"
+                                  ).format(addr=addr,
+                                           tick_id=self._tick_id()))
+                else:
+                    logging.warning(("Failed to update client at addr {addr}"
+                                  "for tick_id {tick_id}"
+                                  ).format(addr=addr,
+                                           tick_id=self._tick_id()))
+                    self._client_sockets.pop(addr)
+            except Exception as e:
+                logging.warning(("client at {addr} was probably pruned. Not updating"
+                                 ).format(addr=addr))
+                debug_print('Client is gone')
         logging.info(("All updates done for tick_id {tick_id}"
                      ).format(tick_id=self._tick_id()))
         if self._dragon_arena.game_over and not das_game_settings.suppress_game_over:

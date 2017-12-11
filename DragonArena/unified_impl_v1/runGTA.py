@@ -6,6 +6,7 @@ import das_game_settings
 TIME_REDUCE = 100000000
 LIFETIME_REDUCE = 10
 TIME_CONSTANT = 0.1 #add this st time.sleep() is not there for nothing
+ID = 0 # change this for each node 0,1,2,3,4
 
 class GTAClient():
 
@@ -73,7 +74,7 @@ def check_timeout(data, kill=False):
                 for p in processes:
                     p.terminate()
                 print('No more clients, done!')
-		return 
+		return
             if kill:
                 for p in processes:
                     p.terminate()
@@ -95,12 +96,14 @@ if __name__ == '__main__':
     lines = file.readlines()
     clientList = []
     c=6 #skip first lines as there is no data
-    while(c<106): # 0-99
-        clientList.append(parseLine(lines[c]))
+    while(c<1006): # 0-99
+        clientGTA = parseLine(lines[c])
+        if (clientGTA.id % 5 == ID):
+            clientList.append(clientGTA)
         c += 1
 
     clientList = sorted(clientList, key = lambda client: client.timestamp)
-    timestampCounter = clientList[0].timestamp #1354482240.312 WoT;1305559358.0 SC 
+    timestampCounter = clientList[0].timestamp #1354482240.312 WoT;1305559358.0 SC
     clientProcesses = []
     clientTimeAlive = []
     clientStartTime = []

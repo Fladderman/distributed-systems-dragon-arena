@@ -1,6 +1,0 @@
-You can find here GTA selection process here: https://docs.google.com/spreadsheets/d/1Aota4MHRDy9u2nUx-ygFVQWvRjEbzoIz5lckgsdE4iw/edit#gid=887141492
-
-From what I've seen these seem the most reasonable ones in times of time as well. SC2 takes a bit longer than WoT. Parsing works for both so I guess we can choose whatever, one is RTS and other MMOFPS.
-
-Files mainly consist of an ID, timestamp and lifespan. I think we should integrate these with the existing client (or at least the timestamp & lifespan). I just made a test 'client' for now.
-

@@ -1,6 +1,6 @@
 # Read tsv files:
-server_0_num = read.table(file = '~/Downloads/DATA/dynamic/server_0_num.tsv', sep = '\t', header = TRUE)
-server_1_num = read.table(file = '~/Downloads/DATA/dynamic/server_1_num.tsv', sep = '\t', header = TRUE)
+server_0_num = read.table(file = 'server_0_num.tsv', sep = '\t', header = TRUE)
+server_1_num = read.table(file = 'server_1_num.tsv', sep = '\t', header = TRUE)
 
 dataframe_server_0 = data.frame(server_0_num)
 dataframe_server_1 = data.frame(server_1_num)

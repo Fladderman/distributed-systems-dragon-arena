@@ -17,9 +17,10 @@ ggplot(data=dataframe_server_0, aes(x=seq(1,130), y=seq(1,130))) +
   geom_path(data=dataframe_server_0, aes(V1), colour="lightsalmon3") +  
   geom_path(data=dataframe_server_1, aes(V1), colour="steelblue2") +
   coord_flip() +
-  xlim(0, 10) +
-  ylim(0, 130) +
   labs(y = "Tick", x = "Number of Clients") +
-  scale_y_continuous(breaks = seq(0, 130, by=10)) +
   geom_hline(yintercept=24, linetype="dashed", color = "grey40") +
-  geom_hline(yintercept=52, linetype="dashed", color = "grey40") 
+  geom_hline(yintercept=52, linetype="dashed", color = "grey40") +
+  scale_y_continuous(breaks = seq(0, 130, by=10), expand = c(0, 0), limits = c(0, 140)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 8), breaks = c(0.0, 2, 4, 6, 8)) + 
+  theme(panel.background = element_blank())
+  

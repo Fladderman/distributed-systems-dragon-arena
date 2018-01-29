@@ -10,7 +10,7 @@ length_0 = length(server_work_0$V1)
 server_work_2 = data.frame(V1=c(0, server_work_2$V1[0:length(server_work_2$V1)]))
 
 library(ggplot2)
-ggplot(data=server_work_0, aes(x=seq(1, length_0), y=seq(1, length_0))) +
+ggplot(data=server_work_0, aes(x=seq(1, length_0), y=seq(1, length_0), label=TRUE, abbr=TRUE)) +
   geom_point(data=server_work_0, aes(y=V1), colour="royalblue3", size=0.5) +
   geom_point(data=server_work_1, aes(y=V1), colour="red", size=0.5) +
   geom_point(data=server_work_2, aes(y=V1), colour="yellowgreen", size=0.5) +
@@ -22,5 +22,3 @@ ggplot(data=server_work_0, aes(x=seq(1, length_0), y=seq(1, length_0))) +
                      limits = c(0, 170)) +
   theme(panel.background = element_rect(fill = NA),
         panel.grid.minor = element_line(color = "white"))
-
-

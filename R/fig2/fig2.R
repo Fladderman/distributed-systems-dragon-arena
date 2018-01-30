@@ -1,5 +1,6 @@
 # Read tsv files:
-setwd("E:/Documents/School/Distributed Systems/distributed-systems-dragon-arena/R/fig2")
+#setwd("E:/Documents/School/Distributed Systems/distributed-systems-dragon-arena/R/fig2")
+setwd("/Users/ZakariasNL/Documents/STUDY/Master/Distributed-Systems/LAB/distributed-systems-dragon-arena/distributed-systems-dragon-arena/R/fig2")
 server_0_num = read.table(file = 'server_0_num.tsv', sep = '\t', header = FALSE)
 server_1_num = read.table(file = 'server_1_num.tsv', sep = '\t', header = FALSE)
 

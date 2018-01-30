@@ -21,7 +21,7 @@ library(ggplot2)
 ggplot(dataframe_melt) +
   geom_path(aes(x=Tick, y=value, color=variable)) +
   scale_color_manual(values = c("steelblue2", "lightsalmon3", "yellowgreen", "tomato")) +
-  labs(y = "Tick", x = "Number of Clients") +
+  labs(y = "Number of Clients", x = "Tick") +
   scale_y_continuous(breaks = seq(0, 100, by=20), limits = c(0, 100)) +
   scale_x_continuous(breaks = seq(0, 540, by=100)) +
   theme(panel.background = element_blank()) +

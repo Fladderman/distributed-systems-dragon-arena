@@ -26,7 +26,7 @@ ggplot(server_melt) +
                      limits = c(0, 160)) +
   scale_x_continuous(breaks = seq(0, 600, by=100)) +
   scale_color_manual(values = c("firebrick2", "limegreen", "royalblue4", 
-                                "yellow", "lightsalmon3")) +
+                                "goldenrod4", "lightsalmon3")) +
   theme(panel.background = element_rect(fill = NA),
         panel.grid.minor = element_line(color = "white")) +
   guides(colour = guide_legend(override.aes = list(size=3)))
